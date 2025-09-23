@@ -36,9 +36,8 @@ class SignatureProcessor:
             # Pre-calculate total steps for the progress bar
             excel_path = self.config.firma_excel_dir.get()
             excel_files = [f for f in os.listdir(excel_path) if f.lower().endswith(('.xlsx', '.xls', '.xlsm')) and not f.startswith('~')]
-            pdf_path = self.config.firma_pdf_dir.get()
-            pdf_files = [f for f in os.listdir(pdf_path) if f.lower().endswith('.pdf')]
-            total_steps = len(excel_files) + len(pdf_files)
+            # The number of PDFs to compress will be the same as the number of excel files processed.
+            total_steps = len(excel_files) * 2
             self.gui.after(0, self.setup_progress, total_steps)
 
             self.logger("--- FASE 1: Elaborazione Excel e Conversione PDF ---", 'HEADER')
@@ -82,7 +81,6 @@ class SignatureProcessor:
             return True
 
         self.logger(f"Inizio elaborazione di {len(excel_files)} file Excel...")
-
         errors = []
         with ExcelHandler(self.logger) as excel:
             if not excel:
