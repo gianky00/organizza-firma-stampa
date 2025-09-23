@@ -3,6 +3,7 @@ from tkinter import ttk
 import threading
 import os
 import math
+import re
 from src.logic.signature import SignatureProcessor
 from src.logic.email_handler import EmailHandler
 from src.utils.ui_utils import create_path_entry, select_file_dialog, open_folder_in_explorer
@@ -205,7 +206,11 @@ class SignatureTab(ttk.Frame):
 
         self.prepared_drafts = []
         num_drafts = len(chunks)
-        base_subject = self.app_config.email_subject.get()
+
+        raw_subject = self.app_config.email_subject.get()
+        base_subject = re.sub(r'^\[\d+/\d+\]\s*', '', raw_subject)
+        # Also update the UI to show the cleaned base subject during preview
+        self.app_config.email_subject.set(base_subject)
 
         for i, chunk in enumerate(chunks):
             draft = {}

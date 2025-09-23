@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from src.utils import constants as const
 from src.utils.config_manager import ConfigManager
@@ -104,8 +104,10 @@ class MainApplication(tk.Tk):
         self.organizza_dest_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_DEST_DIR))
 
         # Fees Tab Vars
-        self.canoni_selected_year = tk.StringVar()
-        self.canoni_selected_month = tk.StringVar()
+        today = datetime.now()
+        prev_month_date = today - timedelta(days=20)
+        self.canoni_selected_year = tk.StringVar(value=str(prev_month_date.year))
+        self.canoni_selected_month = tk.StringVar(value=const.NOMI_MESI_ITALIANI[prev_month_date.month - 1])
         self.canoni_messina_num = tk.StringVar()
         self.canoni_naselli_num = tk.StringVar()
         self.canoni_caldarella_num = tk.StringVar()
@@ -128,8 +130,8 @@ class MainApplication(tk.Tk):
         self.rinomina_password.set(self.config_manager.get("rinomina_password"))
         self.organizza_source_dir.set(self.config_manager.get("organizza_source_dir"))
 
-        self.canoni_selected_year.set(self.config_manager.get("canoni_selected_year"))
-        self.canoni_selected_month.set(self.config_manager.get("canoni_selected_month"))
+        # self.canoni_selected_year.set(self.config_manager.get("canoni_selected_year")) # No longer loading, defaults to prev month
+        # self.canoni_selected_month.set(self.config_manager.get("canoni_selected_month")) # No longer loading, defaults to prev month
         self.canoni_messina_num.set(self.config_manager.get("canoni_messina_num"))
         self.canoni_naselli_num.set(self.config_manager.get("canoni_naselli_num"))
         self.canoni_caldarella_num.set(self.config_manager.get("canoni_caldarella_num"))
@@ -225,8 +227,8 @@ class MainApplication(tk.Tk):
             "rinomina_path": self.rinomina_path.get(),
             "rinomina_password": self.rinomina_password.get(),
             "organizza_source_dir": self.organizza_source_dir.get(),
-            "canoni_selected_year": self.canoni_selected_year.get(),
-            "canoni_selected_month": self.canoni_selected_month.get(),
+            # "canoni_selected_year": self.canoni_selected_year.get(), # No longer saving
+            # "canoni_selected_month": self.canoni_selected_month.get(), # No longer saving
             "canoni_messina_num": self.canoni_messina_num.get(),
             "canoni_naselli_num": self.canoni_naselli_num.get(),
             "canoni_caldarella_num": self.canoni_caldarella_num.get(),

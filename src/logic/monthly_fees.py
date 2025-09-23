@@ -1,4 +1,5 @@
 import os
+import re
 import win32print
 import traceback
 from datetime import datetime
@@ -58,6 +59,40 @@ class MonthlyFeesProcessor:
         except Exception as e:
             self.logger(f"Errore ricerca consuntivo n°{consuntivo_num}: {e}", "ERROR")
             return "Errore ricerca file"
+
+    def find_consuntivo_for_tcl(self, year, month_name, tcl_name):
+        """
+        Scans the directory to find the canone number and path for a given TCL.
+        """
+        if not year or not month_name:
+            return None, "Periodo non selezionato"
+
+        cons_dir = os.path.join(self.config.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
+        if not os.path.isdir(cons_dir):
+            return None, f"Cartella non trovata: {cons_dir}"
+
+        try:
+            files_in_dir = os.listdir(cons_dir)
+            # Normalize month and TCL names for matching
+            month_norm = month_name.upper()
+            tcl_norm = tcl_name.upper()
+
+            for filename in files_in_dir:
+                filename_norm = filename.upper()
+                if all(keyword in filename_norm for keyword in ["CANONE", month_norm, tcl_norm]):
+                    # Found a potential match, extract the number
+                    match = re.match(r'^(\d+)', filename)
+                    if match:
+                        number = match.group(1)
+                        self.logger(f"Trovato file '{filename}' per {tcl_name}, numero: {number}", "SUCCESS")
+                        return number, os.path.join(cons_dir, filename)
+
+            self.logger(f"Nessun file consuntivo trovato per {tcl_name} nel periodo {month_name} {year}", "WARNING")
+            return None, "File non trovato"
+
+        except Exception as e:
+            self.logger(f"Errore durante la ricerca del file per {tcl_name}: {e}", "ERROR")
+            return None, "Errore di sistema"
 
     def run_printing_process(self, paths_to_print, printer_name, macro_name):
         """
