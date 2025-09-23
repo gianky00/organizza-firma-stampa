@@ -29,7 +29,9 @@ class ConfigManager:
             "canoni_word_path": const.CANONI_WORD_DEFAULT_PATH,
             "selected_printer": "",
             "email_to": "",
-            "email_subject": "Documenti Firmati"
+            "email_subject": "Documenti Firmati",
+            "email_tcl": "",
+            "email_is_formal": False
         }
 
     def load(self):

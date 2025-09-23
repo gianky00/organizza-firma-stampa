@@ -37,3 +37,19 @@ MESI_GIORNALIERA_MAP = {
 NOMI_MESI_ITALIANI = list(MESI_GIORNALIERA_MAP.keys())
 
 DEFAULT_MACRO_NAME = "Modulo42.StampaFogli"
+
+# --- Email Feature Constants ---
+TCL_CONTACTS = {
+    "Domenico Passanisi": "dpassanisi@isab.com",
+    "Francesco Naselli": "fnaselli@isab.com",
+    "Ferdinando Caldarella": "fcaldarella@isab.com",
+    "Manuel Prezzavento": "mprezzavento@isab.com",
+    "Ivan Messina": "imessina@isab.com"
+}
+
+# Placeholders: {name} for the first name, {file_list} for the list of files.
+EMAIL_BODY_INFORMAL = "Ciao {name},\n\ndi seguito elenco delle schede in allegato firmate:\n\n{file_list}\n\nSaluti,"
+EMAIL_BODY_FORMAL = "Buongiorno {name},\n\nin allegato la documentazione richiesta.\n\nElenco file:\n{file_list}\n\nCordiali Saluti,"
+
+EMAIL_BODY_GENERIC_INFORMAL = "Ciao,\n\ndi seguito elenco delle schede in allegato firmate:\n\n{file_list}\n\nSaluti,"
+EMAIL_BODY_GENERIC_FORMAL = "Buongiorno,\n\nin allegato la documentazione richiesta.\n\nElenco file:\n{file_list}\n\nCordiali Saluti,"

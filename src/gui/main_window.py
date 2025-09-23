@@ -76,6 +76,11 @@ class MainApplication(tk.Tk):
         self.CANONI_CONSUNTIVI_BASE_DIR = const.CANONI_CONSUNTIVI_BASE_DIR
         self.mesi_giornaliera_map = const.MESI_GIORNALIERA_MAP
         self.nomi_mesi_italiani = const.NOMI_MESI_ITALIANI
+        self.TCL_CONTACTS = const.TCL_CONTACTS
+        self.EMAIL_BODY_INFORMAL = const.EMAIL_BODY_INFORMAL
+        self.EMAIL_BODY_FORMAL = const.EMAIL_BODY_FORMAL
+        self.EMAIL_BODY_GENERIC_INFORMAL = const.EMAIL_BODY_GENERIC_INFORMAL
+        self.EMAIL_BODY_GENERIC_FORMAL = const.EMAIL_BODY_GENERIC_FORMAL
 
         # Signature Tab Vars
         self.firma_excel_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.FIRMA_EXCEL_INPUT_DIR))
@@ -85,6 +90,8 @@ class MainApplication(tk.Tk):
         self.firma_processing_mode = tk.StringVar(value="schede")
         self.email_to = tk.StringVar()
         self.email_subject = tk.StringVar()
+        self.email_tcl = tk.StringVar()
+        self.email_is_formal = tk.BooleanVar(value=False)
         # The email body doesn't use a StringVar as it's a Text widget
 
         # Rename Tab Vars
@@ -129,6 +136,8 @@ class MainApplication(tk.Tk):
         self.selected_printer.set(self.config_manager.get("selected_printer"))
         self.email_to.set(self.config_manager.get("email_to"))
         self.email_subject.set(self.config_manager.get("email_subject"))
+        self.email_tcl.set(self.config_manager.get("email_tcl"))
+        self.email_is_formal.set(self.config_manager.get("email_is_formal"))
 
     def _create_widgets(self):
         # --- Create a main container with a scrollbar ---
@@ -222,7 +231,9 @@ class MainApplication(tk.Tk):
             "canoni_word_path": self.canoni_word_path.get(),
             "selected_printer": self.selected_printer.get(),
             "email_to": self.email_to.get(),
-            "email_subject": self.email_subject.get()
+            "email_subject": self.email_subject.get(),
+            "email_tcl": self.email_tcl.get(),
+            "email_is_formal": self.email_is_formal.get()
         }
         self.config_manager.save(current_config)
         self.destroy()
