@@ -1,5 +1,6 @@
 import win32com.client
 import traceback
+import pythoncom
 
 class EmailHandler:
     """
@@ -19,6 +20,7 @@ class EmailHandler:
             file_list (list): A list of filenames (without extension) to include in the body.
             attachments (list): A list of full file paths to attach.
         """
+        pythoncom.CoInitialize()
         try:
             outlook = win32com.client.Dispatch("Outlook.Application")
             mail = outlook.CreateItem(0)
@@ -56,3 +58,5 @@ class EmailHandler:
         except Exception as e:
             self.logger(f"ERRORE FATALE: Impossibile creare la bozza dell'email. Verificare che Outlook sia installato e configurato. Dettagli: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
+        finally:
+            pythoncom.CoUninitialize()

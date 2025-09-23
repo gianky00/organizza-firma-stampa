@@ -33,15 +33,23 @@ class SignatureProcessor:
                 self.logger("Processo interrotto a causa di percorsi non validi.", 'ERROR')
                 return
 
-            self.logger("--- FASE 1: Elaborazione Excel e Conversione PDF ---", 'HEADER')
-            success = self._process_excel_files()
+            # Pre-calculate total steps for the progress bar
+            excel_path = self.config.firma_excel_dir.get()
+            excel_files = [f for f in os.listdir(excel_path) if f.lower().endswith(('.xlsx', '.xls', '.xlsm')) and not f.startswith('~')]
+            pdf_path = self.config.firma_pdf_dir.get()
+            pdf_files = [f for f in os.listdir(pdf_path) if f.lower().endswith('.pdf')]
+            total_steps = len(excel_files) + len(pdf_files)
+            self.gui.after(0, self.setup_progress, total_steps)
 
-            if not success:
+            self.logger("--- FASE 1: Elaborazione Excel e Conversione PDF ---", 'HEADER')
+            processed_ok = self._process_excel_files(excel_files)
+
+            if not processed_ok:
                 self.logger("Fase 1 terminata con errori. Processo interrotto.", 'ERROR')
                 return
 
             self.logger("--- FASE 2: Compressione dei file PDF ---", 'HEADER')
-            self._compress_pdfs()
+            self._compress_pdfs(len(excel_files)) # Pass the offset
             self.logger("--- PROCESSO DI FIRMA COMPLETATO ---", 'SUCCESS')
 
         except Exception as e:
@@ -66,23 +74,16 @@ class SignatureProcessor:
                 return False
         return True
 
-    def _process_excel_files(self):
+    def _process_excel_files(self, excel_files):
         """
         Opens Excel, iterates through files, applies signatures, and exports to PDF.
         """
         excel_path = self.config.firma_excel_dir.get()
-        if not os.path.isdir(excel_path):
-            self.logger(f"Cartella input non trovata: '{excel_path}'", "ERROR")
-            return False
-
-        excel_files = [f for f in os.listdir(excel_path) if f.lower().endswith(('.xlsx', '.xls', '.xlsm')) and not f.startswith('~')]
         if not excel_files:
-            self.logger(f"Nessun file Excel in: {self.config.FIRMA_EXCEL_INPUT_DIR}", 'WARNING')
+            self.logger(f"Nessun file Excel da elaborare in: {self.config.FIRMA_EXCEL_INPUT_DIR}", 'WARNING')
             return True
 
-        num_files = len(excel_files)
-        self.logger(f"Trovati {num_files} file Excel da elaborare.")
-        self.gui.after(0, self.setup_progress, num_files)
+        self.logger(f"Inizio elaborazione di {len(excel_files)} file Excel...")
 
         errors = []
         with ExcelHandler(self.logger) as excel:
@@ -178,7 +179,7 @@ class SignatureProcessor:
         except Exception as e:
             self.logger(f"ERRORE in _apply_signature_preventivi: {e}", 'ERROR')
 
-    def _compress_pdfs(self):
+    def _compress_pdfs(self, progress_offset=0):
         """Finds all PDFs in the output directory and compresses them using Ghostscript."""
         pdf_path = self.config.firma_pdf_dir.get()
         pdf_files = [f for f in os.listdir(pdf_path) if f.lower().endswith('.pdf')]
@@ -189,7 +190,8 @@ class SignatureProcessor:
         self.logger(f"Trovati {len(pdf_files)} PDF da comprimere.")
         gs_exe = self.config.firma_ghostscript_path.get()
 
-        for pdf_file in pdf_files:
+        for i, pdf_file in enumerate(pdf_files):
+            self.gui.after(0, self.update_progress, progress_offset + i + 1)
             input_pdf = os.path.join(pdf_path, pdf_file)
             temp_output_pdf = os.path.join(pdf_path, f"temp_{pdf_file}")
             self.logger(f"Compressione: {pdf_file}", 'INFO')
