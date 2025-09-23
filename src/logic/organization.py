@@ -237,17 +237,3 @@ class OrganizationProcessor:
         self.logger(f"Mappa ODC creata con {len(mapping)} voci.", "INFO")
         return mapping
 
-    def _clear_folder_content(self, folder_path, folder_display_name, logger):
-        """Utility to clear the contents of a folder."""
-        logger(f"--- Pulizia della cartella '{folder_display_name}' in corso... ---", 'HEADER')
-        if os.path.isdir(folder_path):
-            for item_name in os.listdir(folder_path):
-                item_path = os.path.join(folder_path, item_name)
-                try:
-                    if os.path.isdir(item_path):
-                        shutil.rmtree(item_path)
-                    else:
-                        os.remove(item_path)
-                except Exception as e:
-                    logger(f"Impossibile eliminare '{item_name}': {e}", 'ERROR')
-        logger(f"--- Pulizia di '{folder_display_name}' completata. ---", 'SUCCESS')

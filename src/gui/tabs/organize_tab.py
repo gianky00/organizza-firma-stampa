@@ -97,25 +97,15 @@ class OrganizeTab(ttk.Frame):
             folders = sorted([d for d in os.listdir(dest_path) if os.path.isdir(os.path.join(dest_path, d))])
             for folder_name in folders:
                 var = tk.IntVar()
-                folder_path = os.path.join(dest_path, folder_name)
-                file_count = 0
-
-                try:
-                    file_count = len([name for name in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, name))])
-                except Exception as e:
-                    self.log_organizza(f"Impossibile contare i file nella cartella '{folder_name}': {e}", "WARNING")
 
                 # Check if the folder name (ODC) is in our map
                 display_text = folder_name
                 if folder_name in odc_map:
                     display_text = f"{folder_name} ({odc_map[folder_name]})"
 
-                # Append the file count
-                display_text = f"{display_text} - qt. {file_count}"
-
                 cb = ttk.Checkbutton(self.stampa_checkbox_frame, text=display_text, variable=var)
                 cb.pack(anchor="w", padx=5, fill='x')
-                self.stampa_checkbox_vars[folder_name] = {"var": var, "path": folder_path}
+                self.stampa_checkbox_vars[folder_name] = {"var": var, "path": os.path.join(dest_path, folder_name)}
         except Exception as e:
             self.log_organizza(f"Errore durante la lettura delle cartelle organizzate: {e}", "ERROR")
 
