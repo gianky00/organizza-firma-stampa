@@ -99,15 +99,20 @@ class MainApplication(tk.Tk):
         self.rinomina_path = tk.StringVar()
         self.rinomina_password = tk.StringVar()
 
+        # Common date calculation for default values
+        today = datetime.now()
+        prev_month_date = today - timedelta(days=20)
+        prev_month_year_str = str(prev_month_date.year)
+        prev_month_name = const.NOMI_MESI_ITALIANI[prev_month_date.month - 1]
+
         # Organize Tab Vars
-        self.organizza_source_dir = tk.StringVar()
+        organize_default_path = os.path.join(const.ORGANIZZA_BASE_DIR, prev_month_year_str, prev_month_name)
+        self.organizza_source_dir = tk.StringVar(value=organize_default_path)
         self.organizza_dest_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_DEST_DIR))
 
         # Fees Tab Vars
-        today = datetime.now()
-        prev_month_date = today - timedelta(days=20)
-        self.canoni_selected_year = tk.StringVar(value=str(prev_month_date.year))
-        self.canoni_selected_month = tk.StringVar(value=const.NOMI_MESI_ITALIANI[prev_month_date.month - 1])
+        self.canoni_selected_year = tk.StringVar(value=prev_month_year_str)
+        self.canoni_selected_month = tk.StringVar(value=prev_month_name)
         self.canoni_messina_num = tk.StringVar()
         self.canoni_naselli_num = tk.StringVar()
         self.canoni_caldarella_num = tk.StringVar()
@@ -128,7 +133,7 @@ class MainApplication(tk.Tk):
         self.firma_ghostscript_path.set(self.config_manager.get("firma_ghostscript_path"))
         self.rinomina_path.set(self.config_manager.get("rinomina_path"))
         self.rinomina_password.set(self.config_manager.get("rinomina_password"))
-        self.organizza_source_dir.set(self.config_manager.get("organizza_source_dir"))
+        # self.organizza_source_dir.set(self.config_manager.get("organizza_source_dir")) # No longer loading, defaults to prev month path
 
         # self.canoni_selected_year.set(self.config_manager.get("canoni_selected_year")) # No longer loading, defaults to prev month
         # self.canoni_selected_month.set(self.config_manager.get("canoni_selected_month")) # No longer loading, defaults to prev month
@@ -226,7 +231,7 @@ class MainApplication(tk.Tk):
             "firma_ghostscript_path": self.firma_ghostscript_path.get(),
             "rinomina_path": self.rinomina_path.get(),
             "rinomina_password": self.rinomina_password.get(),
-            "organizza_source_dir": self.organizza_source_dir.get(),
+            # "organizza_source_dir": self.organizza_source_dir.get(), # No longer saving
             # "canoni_selected_year": self.canoni_selected_year.get(), # No longer saving
             # "canoni_selected_month": self.canoni_selected_month.get(), # No longer saving
             "canoni_messina_num": self.canoni_messina_num.get(),

@@ -16,7 +16,6 @@ class OrganizeTab(ttk.Frame):
         self.stampa_checkbox_vars = {}
 
         self._create_widgets()
-        self.populate_stampa_list()
 
         self.processor = OrganizationProcessor(
             self,
@@ -25,6 +24,8 @@ class OrganizeTab(ttk.Frame):
             self.update_progress,
             self.hide_progress
         )
+
+        self.after(100, self.populate_stampa_list)
 
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding="15")
