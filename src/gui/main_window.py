@@ -20,7 +20,12 @@ class MainApplication(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Gestione Documenti Ufficio (Refactored)")
-        self.center_window(950, 850)
+        try:
+            self.state('zoomed')
+        except tk.TclError:
+            # Fallback for other OSes or environments that don't support 'zoomed'
+            self.geometry("1200x900")
+            self.center_window(1200, 900)
         self.resizable(True, True)
 
         self.config_manager = ConfigManager()
@@ -120,7 +125,29 @@ class MainApplication(tk.Tk):
         self.email_subject.set(self.config_manager.get("email_subject"))
 
     def _create_widgets(self):
-        notebook = ttk.Notebook(self)
+        # --- Create a main container with a scrollbar ---
+        main_container = ttk.Frame(self)
+        main_container.pack(fill=tk.BOTH, expand=True)
+
+        canvas = tk.Canvas(main_container)
+        scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        scrollbar.pack(side="right", fill="y")
+
+        # --- Place the notebook inside the scrollable frame ---
+        notebook = ttk.Notebook(scrollable_frame)
         notebook.pack(expand=True, fill='both', padx=10, pady=10)
 
         # Create a container frame for each tab that includes the tab content and the log area
