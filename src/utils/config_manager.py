@@ -18,7 +18,7 @@ class ConfigManager:
         """
         today = datetime.now()
         # Go back ~20 days to ensure we are in the previous month.
-        prev_month_date = today - datetime.timedelta(days=20)
+        prev_month_date = today - timedelta(days=20)
 
         self.defaults = {
             "firma_ghostscript_path": const.DEFAULT_GHOSTSCRIPT_PATH,
