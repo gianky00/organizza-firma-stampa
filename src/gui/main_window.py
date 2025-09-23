@@ -37,6 +37,12 @@ class MainApplication(tk.Tk):
         self._load_config_into_vars()
 
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
+        self.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _on_mousewheel(self, event):
+        # The delta is usually 120 per "click" of the wheel on Windows.
+        # We divide by a factor (e.g., 40) to get a smoother scroll.
+        self.canvas.yview_scroll(int(-1 * (event.delta / 40)), "units")
 
     def center_window(self, width, height):
         screen_width = self.winfo_screenwidth()
@@ -129,21 +135,23 @@ class MainApplication(tk.Tk):
         main_container = ttk.Frame(self)
         main_container.pack(fill=tk.BOTH, expand=True)
 
-        canvas = tk.Canvas(main_container)
-        scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        self.canvas = tk.Canvas(main_container)
+        scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=self.canvas.yview)
+        scrollable_frame = ttk.Frame(self.canvas)
 
         scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
             )
         )
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        self.canvas_window = self.canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=scrollbar.set)
 
-        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
+
+        self.canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
         scrollbar.pack(side="right", fill="y")
 
         # --- Place the notebook inside the scrollable frame ---
