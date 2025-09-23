@@ -56,6 +56,9 @@ class FeesTab(ttk.Frame):
         create_path_entry(consuntivi_frame, "N° Canone Naselli:", self.app_config.canoni_naselli_num, 1, readonly=False)
         create_path_entry(consuntivi_frame, "N° Canone Caldarella:", self.app_config.canoni_caldarella_num, 2, readonly=False)
 
+        self.find_numbers_button = ttk.Button(consuntivi_frame, text="Trova Numeri Automaticamente", command=self.find_numbers_and_populate)
+        self.find_numbers_button.grid(row=3, column=0, columnspan=3, sticky="we", pady=(10, 5))
+
         # --- Other settings ---
         create_path_entry(settings_frame, "File Giornaliera (Automatico):", self.app_config.canoni_giornaliera_path, 2, readonly=True)
         word_ft = [("File Word", "*.docx *.doc"), ("Tutti i file", "*.*")]
@@ -153,3 +156,32 @@ class FeesTab(ttk.Frame):
 
     def log_canoni(self, message, level='INFO'):
         self.master.after(0, self.log_widget, message, level)
+
+    def find_numbers_and_populate(self):
+        """
+        Starts a thread to find the canone numbers automatically.
+        """
+        self.find_numbers_button.config(state='disabled')
+        self.log_canoni("Ricerca automatica dei numeri di canone in corso...", "HEADER")
+        threading.Thread(target=self._find_numbers_thread, daemon=True).start()
+
+    def _find_numbers_thread(self):
+        """
+        Worker thread method to find numbers for all TCLs.
+        """
+        year = self.app_config.canoni_selected_year.get()
+        month = self.app_config.canoni_selected_month.get()
+
+        tcls_to_find = {
+            "MESSINA": self.app_config.canoni_messina_num,
+            "NASELLI": self.app_config.canoni_naselli_num,
+            "CALDARELLA": self.app_config.canoni_caldarella_num
+        }
+
+        for tcl, var in tcls_to_find.items():
+            number, _ = self.processor.find_consuntivo_for_tcl(year, month, tcl)
+            if number:
+                # Use 'after' to safely update the StringVar from the worker thread
+                self.master.after(0, var.set, number)
+
+        self.master.after(0, self.find_numbers_button.config, {'state': 'normal'})

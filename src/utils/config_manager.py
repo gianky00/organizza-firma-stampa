@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from . import constants as const
 
 class ConfigManager:
@@ -16,13 +16,17 @@ class ConfigManager:
         """
         Sets the default values for all configuration settings.
         """
+        today = datetime.now()
+        # Go back ~20 days to ensure we are in the previous month.
+        prev_month_date = today - datetime.timedelta(days=20)
+
         self.defaults = {
             "firma_ghostscript_path": const.DEFAULT_GHOSTSCRIPT_PATH,
             "rinomina_path": os.path.join(const.APPLICATION_PATH, const.RINOMINA_DEFAULT_DIR),
             "rinomina_password": "coemi", # Default password
             "organizza_source_dir": os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_SOURCE_DIR),
-            "canoni_selected_year": str(datetime.now().year),
-            "canoni_selected_month": const.NOMI_MESI_ITALIANI[datetime.now().month - 1],
+            "canoni_selected_year": str(prev_month_date.year),
+            "canoni_selected_month": const.NOMI_MESI_ITALIANI[prev_month_date.month - 1],
             "canoni_messina_num": "",
             "canoni_naselli_num": "",
             "canoni_caldarella_num": "",
