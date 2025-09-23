@@ -5,13 +5,11 @@ from src.logic.renaming import RenameProcessor
 from src.utils.ui_utils import create_path_entry, select_folder_dialog
 
 class RenameTab(ttk.Frame):
-    """
-    GUI for the Rename Files tab.
-    """
     def __init__(self, parent, app_config, logger):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
+        self.cancel_event = threading.Event()
 
         self._create_widgets()
 
@@ -31,7 +29,6 @@ class RenameTab(ttk.Frame):
         desc_label = ttk.Label(main_frame, text=desc_text, wraplength=850, justify=tk.LEFT, style='info.TLabel')
         desc_label.pack(fill=tk.X, pady=(0, 15), anchor='w')
 
-        # --- Paths Frame ---
         paths_frame = ttk.LabelFrame(main_frame, text="1. Impostazioni di Ridenominazione", padding="15")
         paths_frame.pack(fill=tk.X, pady=(0, 10))
         create_path_entry(paths_frame, "Cartella Schede da Rinominare:", self.app_config.rinomina_path, 0, readonly=False,
@@ -40,13 +37,15 @@ class RenameTab(ttk.Frame):
 
         ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
 
-        # --- Actions Frame ---
         actions_frame = ttk.LabelFrame(main_frame, text="2. Azioni", padding="15")
         actions_frame.pack(fill=tk.X, pady=10)
         self.run_button = ttk.Button(actions_frame, text="▶  AVVIA PROCESSO DI RINOMINA", style='primary.TButton', command=self.start_rename_process)
         self.run_button.pack(fill=tk.X, ipady=8, pady=5)
+        self.cancel_button = ttk.Button(actions_frame, text="Annulla Processo", command=self.cancel_process)
+        self.cancel_button.pack(fill=tk.X, ipady=8, pady=5)
 
-        # --- Progress Bar ---
+        self.on_process_finished()
+
         self.progress_frame = ttk.Frame(main_frame)
         self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
         self.progress_label.pack(side=tk.LEFT, padx=(5, 5))
@@ -54,29 +53,36 @@ class RenameTab(ttk.Frame):
         self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
         self.percent_label = ttk.Label(self.progress_frame, text="0%", width=5)
         self.percent_label.pack(side=tk.LEFT)
-        self.progress_frame.pack_forget() # Hide by default
+        self.progress_frame.pack_forget()
 
     def start_rename_process(self):
-        """
-        Starts the renaming process in a new thread.
-        """
-        self.toggle_rinomina_buttons('disabled')
-        threading.Thread(target=self.processor.run_rename_process, daemon=True).start()
+        self.cancel_event.clear()
+        self.toggle_buttons(is_running=True)
+        threading.Thread(target=self.processor.run_rename_process, args=(self.cancel_event,), daemon=True).start()
 
-    def toggle_rinomina_buttons(self, state):
-        """
-        Enables or disables the buttons in this tab.
-        """
-        self.run_button.config(state=state)
+    def cancel_process(self):
+        self.log_rinomina("Annullamento richiesto...", "WARNING")
+        self.cancel_event.set()
+        self.cancel_button.config(state='disabled')
+
+    def on_process_finished(self):
+        self.toggle_buttons(is_running=False)
+
+    def toggle_buttons(self, is_running):
+        if is_running:
+            self.run_button.pack_forget()
+            self.cancel_button.pack(fill=tk.X, ipady=8, pady=5)
+            self.cancel_button.config(state='normal')
+        else:
+            self.cancel_button.pack_forget()
+            self.run_button.pack(fill=tk.X, ipady=8, pady=5)
+            self.run_button.config(state='normal')
 
     def log_rinomina(self, message, level='INFO'):
-        """
-        Thread-safe logging method for the rename processor.
-        """
         self.master.after(0, self.log_widget, message, level)
 
     def setup_progress(self, max_value):
-        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.run_button.master)
+        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.run_button.master.master)
         self.progressbar['maximum'] = max_value
         self.progressbar['value'] = 0
         self.percent_label['text'] = "0%"
