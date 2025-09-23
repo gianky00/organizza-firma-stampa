@@ -56,10 +56,8 @@ class SignatureProcessor:
             self.logger(f"ERRORE CRITICO E IMPREVISTO: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            # The pythoncom initialization/uninitialization is now handled by the thread in the GUI
-            # and the ExcelHandler context manager. We just need to re-enable the buttons.
             self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.toggle_firma_buttons, 'normal', 'normal') # Enable email button
+            self.gui.after(0, self.gui.toggle_firma_buttons, 'normal', prepare_button_state='normal')
 
 
     def _validate_paths(self):

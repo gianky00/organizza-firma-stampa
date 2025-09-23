@@ -31,7 +31,8 @@ class ConfigManager:
             "email_to": "",
             "email_subject": "Documenti Firmati",
             "email_tcl": "",
-            "email_is_formal": False
+            "email_is_formal": False,
+            "email_size_limit": "6"
         }
 
     def load(self):
