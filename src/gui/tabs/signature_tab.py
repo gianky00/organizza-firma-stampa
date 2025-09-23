@@ -12,9 +12,17 @@ class SignatureTab(ttk.Frame):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
-        self.processor = SignatureProcessor(self, app_config)
 
         self._create_widgets()
+
+        # Pass the progress bar methods to the processor
+        self.processor = SignatureProcessor(
+            self,
+            app_config,
+            self.setup_progress,
+            self.update_progress,
+            self.hide_progress
+        )
 
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding="15")
@@ -59,6 +67,15 @@ class SignatureTab(ttk.Frame):
         self.run_button = ttk.Button(actions_frame, text="▶  AVVIA PROCESSO FIRMA COMPLETO", style='primary.TButton', command=self.start_signature_process)
         self.run_button.pack(fill=tk.X, ipady=8, pady=5)
 
+        # --- Progress Bar ---
+        self.progress_frame = ttk.Frame(main_frame)
+        self.progress_frame.pack(fill=tk.X, pady=(10, 5))
+        self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
+        self.progress_label.pack(side=tk.LEFT, padx=(5, 5))
+        self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='determinate')
+        self.progressbar.pack(fill=tk.X, expand=True)
+        self.progress_frame.pack_forget() # Hide by default
+
         # --- Cleanup buttons would be added here, similar structure ---
         # For brevity in refactoring, they are omitted but would follow the same pattern
         # self.clean_pdf_button = ttk.Button(...)
@@ -87,3 +104,14 @@ class SignatureTab(ttk.Frame):
         """
         # The call to the actual logger needs to be thread-safe
         self.master.after(0, self.log_widget, message, level)
+
+    def setup_progress(self, max_value):
+        self.progress_frame.pack(fill=tk.X, pady=(10, 5))
+        self.progressbar['maximum'] = max_value
+        self.progressbar['value'] = 0
+
+    def update_progress(self, value):
+        self.progressbar['value'] = value
+
+    def hide_progress(self):
+        self.progress_frame.pack_forget()

@@ -1,9 +1,9 @@
 import os
-import pythoncom
-import win32com.client
 import win32print
 import traceback
 from datetime import datetime
+from src.utils.excel_handler import ExcelHandler
+from src.utils.word_handler import WordHandler
 
 class MonthlyFeesProcessor:
     """
@@ -64,55 +64,53 @@ class MonthlyFeesProcessor:
         Main entry point for the printing process.
         """
         self.logger("Avvio del processo di stampa canoni...", "HEADER")
-        pythoncom.CoInitialize()
-        excel_app, word_app = None, None
-        docs_to_close = []
         try:
             self.logger("Validazione dei percorsi e delle impostazioni...", "INFO")
             if not self._validate_paths(paths_to_print, printer_name, macro_name):
                 self.logger("Processo interrotto a causa di percorsi o impostazioni non valide.", "ERROR")
                 return
 
-            self.logger("Avvio applicazioni in background (Excel e Word)...", 'INFO')
-            excel_app = win32com.client.Dispatch("Excel.Application")
-            excel_app.DisplayAlerts = False
-            word_app = win32com.client.Dispatch("Word.Application")
+            with ExcelHandler(self.logger) as excel_app, WordHandler(self.logger) as word_app:
+                if not excel_app or not word_app:
+                    self.logger("Impossibile avviare Excel o Word. Processo interrotto.", "ERROR")
+                    return
 
-            word_app.ActivePrinter = printer_name
-            self.logger(f"Stampante attiva impostata su: '{printer_name}'", "SUCCESS")
+                word_app.ActivePrinter = printer_name
+                self.logger(f"Stampante attiva impostata su: '{printer_name}'", "SUCCESS")
 
-            self.logger("--- Apertura dei documenti necessari ---", 'HEADER')
-            giornaliera_path = paths_to_print["giornaliera"]
-            wb_giornaliera = excel_app.Workbooks.Open(giornaliera_path)
-            docs_to_close.append(wb_giornaliera)
-            self.logger(f"File Giornaliera aperto: {os.path.basename(giornaliera_path)}", 'SUCCESS')
+                self.logger("--- Apertura dei documenti necessari ---", 'HEADER')
+                giornaliera_path = paths_to_print["giornaliera"]
+                cons_paths = paths_to_print["consuntivi"]
+                word_path = paths_to_print["word"]
 
-            cons_paths = paths_to_print["consuntivi"]
-            word_path = paths_to_print["word"]
-            wb_cons_list = []
+                # Open all documents
+                wb_giornaliera = excel_app.Workbooks.Open(giornaliera_path)
+                self.logger(f"File Giornaliera aperto: {os.path.basename(giornaliera_path)}", 'SUCCESS')
 
-            for i, p in enumerate(cons_paths):
-                wb = excel_app.Workbooks.Open(p)
-                wb_cons_list.append(wb)
-                docs_to_close.append(wb)
-                self.logger(f"Aperto Consuntivo {i+1}: {os.path.basename(p)}", 'INFO')
+                wb_cons_list = [excel_app.Workbooks.Open(p) for p in cons_paths]
+                for i, wb in enumerate(wb_cons_list):
+                    self.logger(f"Aperto Consuntivo {i+1}: {os.path.basename(wb.FullName)}", 'INFO')
 
-            doc_word = word_app.Documents.Open(word_path)
-            docs_to_close.append(doc_word)
-            self.logger(f"Aperto documento Word: {os.path.basename(word_path)}", 'INFO')
+                doc_word = word_app.Documents.Open(word_path)
+                self.logger(f"Aperto documento Word: {os.path.basename(word_path)}", 'INFO')
 
-            self.logger("--- Inizio sequenza operazioni ---", 'HEADER')
-            for i, cons_wb in enumerate(wb_cons_list):
-                leaf_name = cons_wb.Name
-                self.logger(f"Esecuzione macro '{macro_name}' su {leaf_name}...", 'INFO')
-                excel_app.Run(f"'{leaf_name}'!{macro_name}")
-                self.logger(f"Macro su Consuntivo {i+1} completata.", 'SUCCESS')
+                self.logger("--- Inizio sequenza operazioni ---", 'HEADER')
+                for i, cons_wb in enumerate(wb_cons_list):
+                    leaf_name = cons_wb.Name
+                    self.logger(f"Esecuzione macro '{macro_name}' su {leaf_name}...", 'INFO')
+                    excel_app.Run(f"'{leaf_name}'!{macro_name}")
+                    self.logger(f"Macro su Consuntivo {i+1} completata.", 'SUCCESS')
 
-                # Print after every macro run except the last one
-                if i < len(wb_cons_list) - 1:
-                    self.logger(f"Stampa file Word: {doc_word.Name}...", 'INFO')
-                    doc_word.PrintOut()
-                    self.logger("Comando di stampa Word inviato.", 'SUCCESS')
+                    if i < len(wb_cons_list) - 1:
+                        self.logger(f"Stampa file Word: {doc_word.Name}...", 'INFO')
+                        doc_word.PrintOut()
+                        self.logger("Comando di stampa Word inviato.", 'SUCCESS')
+
+                # Close documents manually before quitting apps via context manager
+                doc_word.Close(SaveChanges=0)
+                for wb in wb_cons_list:
+                    wb.Close(SaveChanges=False)
+                wb_giornaliera.Close(SaveChanges=False)
 
             self.logger("--- PROCESSO STAMPA CANONI COMPLETATO ---", 'SUCCESS')
 
@@ -121,20 +119,6 @@ class MonthlyFeesProcessor:
             self.logger(traceback.format_exc(), "ERROR")
             self.logger("Il processo è stato interrotto.", "WARNING")
         finally:
-            self.logger("Chiusura file e applicazioni...", 'INFO')
-            for doc in reversed(docs_to_close):
-                try:
-                    doc.Close(SaveChanges=0)
-                except Exception as e_cl:
-                    self.logger(f"Errore durante la chiusura di un documento: {e_cl}", "WARNING")
-            if word_app:
-                word_app.Quit()
-                self.logger("Applicazione Word chiusa.", 'INFO')
-            if excel_app:
-                excel_app.Quit()
-                self.logger("Applicazione Excel chiusa.", 'INFO')
-
-            pythoncom.CoUninitialize()
             self.gui.after(0, self.gui.toggle_stampa_canoni_buttons, 'normal')
 
 

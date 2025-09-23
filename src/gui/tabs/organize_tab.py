@@ -13,11 +13,18 @@ class OrganizeTab(ttk.Frame):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
-        self.processor = OrganizationProcessor(self, app_config)
         self.stampa_checkbox_vars = {}
 
         self._create_widgets()
         self.populate_stampa_list()
+
+        self.processor = OrganizationProcessor(
+            self,
+            app_config,
+            self.setup_progress,
+            self.update_progress,
+            self.hide_progress
+        )
 
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding="15")
@@ -63,6 +70,14 @@ class OrganizeTab(ttk.Frame):
         self.stampa_checkbox_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.bind('<Configure>', lambda e: canvas.itemconfig(self.canvas_window, width=e.width))
 
+        # --- Progress Bar ---
+        self.progress_frame = ttk.Frame(main_frame)
+        # We will .pack() this frame dynamically when needed
+        self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
+        self.progress_label.pack(side=tk.LEFT, padx=(5, 5))
+        self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='determinate')
+        self.progressbar.pack(fill=tk.X, expand=True)
+
     def populate_stampa_list(self):
         for widget in self.stampa_checkbox_frame.winfo_children():
             widget.destroy()
@@ -96,3 +111,15 @@ class OrganizeTab(ttk.Frame):
 
     def log_organizza(self, message, level='INFO'):
         self.master.after(0, self.log_widget, message, level)
+
+    def setup_progress(self, max_value, label_text="Progresso:"):
+        self.progress_label['text'] = label_text
+        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.print_frame)
+        self.progressbar['maximum'] = max_value
+        self.progressbar['value'] = 0
+
+    def update_progress(self, value):
+        self.progressbar['value'] = value
+
+    def hide_progress(self):
+        self.progress_frame.pack_forget()

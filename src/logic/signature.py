@@ -1,18 +1,20 @@
 import os
 import re
 import subprocess
-import pythoncom
-import win32com.client
 import traceback
+from src.utils.excel_handler import ExcelHandler
 
 class SignatureProcessor:
     """
     Handles the logic for signing Excel files and converting them to compressed PDFs.
     """
-    def __init__(self, gui, config):
+    def __init__(self, gui, config, setup_progress_cb, update_progress_cb, hide_progress_cb):
         self.gui = gui
         self.config = config
-        self.logger = gui.log_firma  # Assuming the GUI provides a logging method
+        self.logger = gui.log_firma
+        self.setup_progress = setup_progress_cb
+        self.update_progress = update_progress_cb
+        self.hide_progress = hide_progress_cb
 
         self.firma_processing_data = {
             "schedacontrolloSTRUMENTIANALOGICI": {"PrintArea": "A2:N55", "FirmaCella": "G54"},
@@ -26,7 +28,6 @@ class SignatureProcessor:
         Main entry point for the signature process. Called from the GUI thread.
         """
         self.logger("Avvio del processo di firma...", 'HEADER')
-        pythoncom.CoInitialize()
         try:
             if not self._validate_paths():
                 self.logger("Processo interrotto a causa di percorsi non validi.", 'ERROR')
@@ -47,7 +48,9 @@ class SignatureProcessor:
             self.logger(f"ERRORE CRITICO E IMPREVISTO: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            pythoncom.CoUninitialize()
+            # The pythoncom initialization/uninitialization is now handled by the thread in the GUI
+            # and the ExcelHandler context manager. We just need to re-enable the buttons.
+            self.gui.after(0, self.hide_progress)
             self.gui.after(0, self.gui.toggle_firma_buttons, 'normal')
 
 
@@ -77,16 +80,18 @@ class SignatureProcessor:
             self.logger(f"Nessun file Excel in: {self.config.FIRMA_EXCEL_INPUT_DIR}", 'WARNING')
             return True
 
-        self.logger(f"Trovati {len(excel_files)} file Excel.")
-        excel = None
-        try:
-            excel = win32com.client.Dispatch('Excel.Application')
-            excel.Visible = False
-            excel.DisplayAlerts = False
-            self.logger("Applicazione Excel inizializzata.", 'INFO')
-            mode = self.config.firma_processing_mode.get()
+        num_files = len(excel_files)
+        self.logger(f"Trovati {num_files} file Excel da elaborare.")
+        self.gui.after(0, self.setup_progress, num_files)
 
-            for file_name in excel_files:
+        errors = []
+        with ExcelHandler(self.logger) as excel:
+            if not excel:
+                return False  # ExcelHandler already logged the error
+
+            mode = self.config.firma_processing_mode.get()
+            for i, file_name in enumerate(excel_files):
+                self.gui.after(0, self.update_progress, i + 1)
                 file_path = os.path.join(excel_path, file_name)
                 self.logger("-" * 50)
                 self.logger(f"Elaborazione: {file_name}", 'INFO')
@@ -99,18 +104,18 @@ class SignatureProcessor:
                     elif mode == "preventivi":
                         self._apply_signature_preventivi(workbook, file_name)
                 except Exception as e:
-                    self.logger(f"  -> ERRORE: Impossibile aprire o elaborare il file {file_name}. Dettagli: {e}", 'ERROR')
+                    error_msg = f"Impossibile aprire o elaborare il file. Dettagli: {e}"
+                    self.logger(f"  -> ERRORE: {error_msg}", 'ERROR')
+                    errors.append((file_name, error_msg))
                 finally:
                     if workbook:
                         workbook.Close(SaveChanges=False)
-        except Exception as e:
-            self.logger(f"ERRORE FATALE con l'applicazione Excel. Potrebbe essere necessario riavviare il programma. Dettagli: {e}", 'ERROR')
-            self.logger(traceback.format_exc(), "ERROR")
-            return False
-        finally:
-            if excel:
-                excel.Quit()
-            self.logger("Applicazione Excel chiusa.", 'INFO')
+
+        if errors:
+            self.logger("\n--- RIEPILOGO ERRORI ---", "HEADER")
+            for file_name, error_msg in errors:
+                self.logger(f"- {file_name}: {error_msg}", "ERROR")
+
         return True
 
     def _apply_signature_schede(self, workbook, file_name):

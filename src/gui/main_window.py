@@ -75,6 +75,7 @@ class MainApplication(tk.Tk):
 
         # Rename Tab Vars
         self.rinomina_path = tk.StringVar()
+        self.rinomina_password = tk.StringVar()
 
         # Organize Tab Vars
         self.organizza_source_dir = tk.StringVar()
@@ -102,6 +103,7 @@ class MainApplication(tk.Tk):
         """
         self.firma_ghostscript_path.set(self.config_manager.get("firma_ghostscript_path"))
         self.rinomina_path.set(self.config_manager.get("rinomina_path"))
+        self.rinomina_password.set(self.config_manager.get("rinomina_password"))
         self.organizza_source_dir.set(self.config_manager.get("organizza_source_dir"))
 
         self.canoni_selected_year.set(self.config_manager.get("canoni_selected_year"))
@@ -170,6 +172,7 @@ class MainApplication(tk.Tk):
         current_config = {
             "firma_ghostscript_path": self.firma_ghostscript_path.get(),
             "rinomina_path": self.rinomina_path.get(),
+            "rinomina_password": self.rinomina_password.get(),
             "organizza_source_dir": self.organizza_source_dir.get(),
             "canoni_selected_year": self.canoni_selected_year.get(),
             "canoni_selected_month": self.canoni_selected_month.get(),

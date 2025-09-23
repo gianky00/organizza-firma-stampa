@@ -75,6 +75,13 @@ class FeesTab(ttk.Frame):
         self.run_button = ttk.Button(actions_frame, text="▶  AVVIA PROCESSO STAMPA CANONI", style='primary.TButton', command=self.start_printing_process)
         self.run_button.pack(fill=tk.X, ipady=8, pady=5)
 
+        # --- Progress Bar ---
+        self.progress_frame = ttk.Frame(main_frame)
+        self.progress_label = ttk.Label(self.progress_frame, text="Elaborazione in corso...")
+        self.progress_label.pack(side=tk.LEFT, padx=(5, 5))
+        self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='indeterminate')
+        self.progressbar.pack(fill=tk.X, expand=True)
+
         # --- Bindings ---
         self.anno_combo.bind("<<ComboboxSelected>>", self._update_paths_from_ui)
         self.mese_combo.bind("<<ComboboxSelected>>", self._update_paths_from_ui)
@@ -112,6 +119,7 @@ class FeesTab(ttk.Frame):
 
     def start_printing_process(self):
         self.toggle_stampa_canoni_buttons('disabled')
+        self.show_progress()
 
         # Gather all paths and settings for the processor
         paths_to_print = {
@@ -132,6 +140,16 @@ class FeesTab(ttk.Frame):
 
     def toggle_stampa_canoni_buttons(self, state):
         self.run_button.config(state=state)
+        if state == 'normal':
+            self.hide_progress()
+
+    def show_progress(self):
+        self.progress_frame.pack(fill=tk.X, pady=(10, 5))
+        self.progressbar.start(10)
+
+    def hide_progress(self):
+        self.progressbar.stop()
+        self.progress_frame.pack_forget()
 
     def log_canoni(self, message, level='INFO'):
         self.master.after(0, self.log_widget, message, level)
