@@ -1,37 +1,39 @@
 import os
 import re
-import pythoncom
-import win32com.client
 from datetime import datetime
 import traceback
+from src.utils.excel_handler import ExcelHandler
 
 class RenameProcessor:
     """
     Handles the logic for renaming Excel files based on a date found within them.
     """
-    def __init__(self, gui, config):
+    def __init__(self, gui, config, setup_progress_cb, update_progress_cb, hide_progress_cb):
         self.gui = gui
         self.config = config
-        self.logger = gui.log_rinomina  # Assumes the GUI provides a logging method for this tab
+        self.logger = gui.log_rinomina
+        self.setup_progress = setup_progress_cb
+        self.update_progress = update_progress_cb
+        self.hide_progress = hide_progress_cb
 
     def run_rename_process(self):
         """
         Main entry point for the renaming process.
         """
+        self.logger("Avvio del processo di ridenominazione...", "HEADER")
         root_path = self.config.rinomina_path.get()
         if not os.path.isdir(root_path):
-            self.logger(f"ERRORE: Percorso non valido o inesistente: '{root_path}'", "ERROR")
+            self.logger(f"ERRORE: La cartella specificata non è valida o non esiste: '{root_path}'", "ERROR")
             self.gui.after(0, self.gui.toggle_rinomina_buttons, 'normal')
             return
 
-        pythoncom.CoInitialize()
         try:
             self._rename_excel_files_in_place(root_path)
         except Exception as e:
-            self.logger(f"ERRORE CRITICO INASPETTATO: {e}", "ERROR")
+            self.logger(f"ERRORE CRITICO E IMPREVISTO durante la ridenominazione: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            pythoncom.CoUninitialize()
+            self.gui.after(0, self.hide_progress)
             self.gui.after(0, self.gui.toggle_rinomina_buttons, 'normal')
 
     def _rename_excel_files_in_place(self, root_path):
@@ -46,18 +48,20 @@ class RenameProcessor:
             self.logger("Nessun file Excel trovato.", "WARNING")
             return
 
-        self.logger(f"Trovati {len(excel_files)} file Excel. Inizio analisi.", "INFO")
+        num_files = len(excel_files)
+        self.logger(f"Trovati {num_files} file Excel. Inizio analisi.", "INFO")
+        self.gui.after(0, self.setup_progress, num_files)
         self.logger("[FASE 2/2] Analisi e ridenominazione...", "HEADER")
 
         DATE_IN_FILENAME_REGEX = re.compile(r'\s*\(\d{2}-\d{2}-\d{4}\)')
-        corrected, already_ok, no_date_found, errors = 0, 0, 0, 0
+        summary = {"corrected": 0, "already_ok": 0, "no_date": 0, "errors": []}
 
-        excel_app = None
-        try:
-            excel_app = win32com.client.Dispatch("Excel.Application")
-            excel_app.DisplayAlerts = False
+        with ExcelHandler(self.logger) as excel_app:
+            if not excel_app:
+                return
 
-            for file_path in excel_files:
+            for i, file_path in enumerate(excel_files):
+                self.gui.after(0, self.update_progress, i + 1)
                 self.logger(f"Analisi: {os.path.basename(file_path)}...")
                 wb = None
                 try:
@@ -65,8 +69,9 @@ class RenameProcessor:
                     try:
                         wb = excel_app.Workbooks.Open(file_path, ReadOnly=True)
                     except Exception:
-                        self.logger(f"  -> File protetto. Tentativo con password 'coemi'...", "WARNING")
-                        wb = excel_app.Workbooks.Open(file_path, ReadOnly=True, Password="coemi")
+                        password = self.config.rinomina_password.get()
+                        self.logger(f"  -> File protetto. Tentativo con password '{password}'...", "WARNING")
+                        wb = excel_app.Workbooks.Open(file_path, ReadOnly=True, Password=password)
 
                     ws = wb.Worksheets(1)
 
@@ -124,32 +129,36 @@ class RenameProcessor:
                             final_path = self._get_unique_filepath(new_filepath)
                             os.rename(file_path, final_path)
                             self.logger(f"  -> RINOMINATO in: {os.path.basename(final_path)}", "SUCCESS")
-                            corrected += 1
+                            summary["corrected"] += 1
                         else:
                             self.logger("  -> Già corretto.", "INFO")
-                            already_ok += 1
+                            summary["already_ok"] += 1
                     else:
                         self.logger("  -> Data non trovata. File non modificato.", "WARNING")
-                        no_date_found += 1
+                        summary["no_date"] += 1
 
                 except Exception as e:
+                    error_msg = f"Tipo errore: {type(e).__name__} - Messaggio: {e}"
                     self.logger(f"--- ERRORE FILE: {os.path.basename(file_path)} ---", "ERROR")
-                    self.logger(f"Tipo errore: {type(e).__name__} - Messaggio: {e}", "ERROR")
+                    self.logger(error_msg, "ERROR")
+                    summary["errors"].append((os.path.basename(file_path), error_msg))
                     if "password" not in str(e).lower():
                         self.logger(traceback.format_exc(), "ERROR")
-                    errors += 1
                 finally:
                     if wb:
                         wb.Close(SaveChanges=False)
-        finally:
-            if excel_app:
-                excel_app.Quit()
 
         self.logger("\n--- RIEPILOGO PROCESSO RINOMINA ---", "HEADER")
-        self.logger(f"File rinominati o corretti: {corrected}", "SUCCESS")
-        self.logger(f"File già corretti: {already_ok}", "INFO")
-        self.logger(f"File con data non trovata: {no_date_found}", "WARNING")
-        self.logger(f"File con errori di lettura: {errors}", "ERROR")
+        self.logger(f"File rinominati o corretti: {summary['corrected']}", "SUCCESS")
+        self.logger(f"File già corretti: {summary['already_ok']}", "INFO")
+        self.logger(f"File con data non trovata: {summary['no_date']}", "WARNING")
+        self.logger(f"File con errori di lettura: {len(summary['errors'])}", "ERROR")
+
+        if summary['errors']:
+            self.logger("\n--- DETTAGLIO ERRORI ---", "HEADER")
+            for file_name, error_msg in summary['errors']:
+                self.logger(f"- {file_name}: {error_msg}", "ERROR")
+
         self.logger("--- COMPLETATO ---", "HEADER")
 
     def _get_unique_filepath(self, filepath: str) -> str:

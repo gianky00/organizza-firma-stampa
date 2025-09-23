@@ -1,18 +1,20 @@
 import os
 import re
 import shutil
-import pythoncom
-import win32com.client
 import traceback
+from src.utils.excel_handler import ExcelHandler
 
 class OrganizationProcessor:
     """
     Handles organizing Excel files by ODC and batch printing them.
     """
-    def __init__(self, gui, config):
+    def __init__(self, gui, config, setup_progress_cb, update_progress_cb, hide_progress_cb):
         self.gui = gui
         self.config = config
-        self.logger = gui.log_organizza  # Assumes a logger for the organization tab
+        self.logger = gui.log_organizza
+        self.setup_progress = setup_progress_cb
+        self.update_progress = update_progress_cb
+        self.hide_progress = hide_progress_cb
 
         self.stampa_processing_data = {
             "schedacontrolloSTRUMENTIANALOGICI": {"PrintArea": "A2:N55"},
@@ -25,22 +27,22 @@ class OrganizationProcessor:
         """
         Main entry point for organizing files.
         """
-        pythoncom.CoInitialize()
+        self.logger("Avvio del processo di organizzazione...", "HEADER")
         try:
-            # The destination folder is cleared before organizing
+            self.logger("Pulizia della cartella di destinazione...", "INFO")
             self._clear_folder_content(
                 self.config.organizza_dest_dir.get(),
                 self.config.ORGANIZZA_DEST_DIR,
                 self.logger
             )
             self._organize_files()
-            # After organizing, refresh the list in the GUI
+            self.logger("Organizzazione completata. Aggiornamento della lista file...", "SUCCESS")
             self.gui.after(0, self.gui.populate_stampa_list)
         except Exception as e:
-            self.logger(f"ERRORE CRITICO durante l'organizzazione: {e}", "ERROR")
+            self.logger(f"ERRORE CRITICO E IMPREVISTO durante l'organizzazione: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            pythoncom.CoUninitialize()
+            self.gui.after(0, self.hide_progress)
             self.gui.after(0, self.gui.toggle_organizza_buttons, 'normal')
 
     def run_printing_process(self, folders_to_print):
@@ -52,7 +54,6 @@ class OrganizationProcessor:
             self.gui.after(0, self.gui.toggle_organizza_buttons, 'normal')
             return
 
-        pythoncom.CoInitialize()
         try:
             self.logger(f"--- Avvio Stampa per {len(folders_to_print)} cartelle ---", "HEADER")
             self._print_files_in_folders(folders_to_print)
@@ -61,7 +62,7 @@ class OrganizationProcessor:
             self.logger(f"ERRORE CRITICO durante la stampa: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            pythoncom.CoUninitialize()
+            self.gui.after(0, self.hide_progress)
             self.gui.after(0, self.gui.toggle_organizza_buttons, 'normal')
 
     def _organize_files(self):
@@ -84,55 +85,65 @@ class OrganizationProcessor:
             self.logger(f"Nessun file Excel trovato in: {source_dir}", "WARNING")
             return
 
-        self.logger(f"Trovati {len(excel_files)} file Excel da analizzare.")
-        excel, proc_count = None, 0
-        try:
-            excel = win32com.client.Dispatch("Excel.Application")
-            excel.Visible = False
-            excel.DisplayAlerts = False
+        num_files = len(excel_files)
+        self.logger(f"Trovati {num_files} file Excel da analizzare.")
+        self.gui.after(0, self.setup_progress, num_files, "Organizzazione in corso:")
+        summary = {"processed": 0, "errors": []}
 
-            for fp in excel_files:
+        with ExcelHandler(self.logger) as excel:
+            if not excel:
+                return
+
+            for i, fp in enumerate(excel_files):
+                self.gui.after(0, self.update_progress, i + 1)
                 self.logger(f"Processando: {os.path.basename(fp)}")
                 wb = None
                 try:
                     wb = excel.Workbooks.Open(fp)
                     ws = wb.Worksheets(1)
 
-                    # Search for ODC value in specified cells
                     odc_v = next((ws.Range(c).Value for c in ["L50", "L45", "DB14", "DB17"] if ws.Range(c).Value is not None and str(ws.Range(c).Value).strip() != ""), None)
                     odc_s = str(int(odc_v)) if isinstance(odc_v, (int, float)) else (str(odc_v).strip() if isinstance(odc_v, str) else "")
 
                     wb.Close(SaveChanges=False)
                     wb = None
 
-                    # Determine destination folder name
                     dest_folder_name = re.sub(r'[\\/:*?"<>|]', '', odc_s) if odc_s and odc_s.upper() != "NA" else "Schede senza ODC"
                     dest_folder_path = os.path.join(dest_dir, dest_folder_name)
 
                     os.makedirs(dest_folder_path, exist_ok=True)
                     shutil.copy2(fp, dest_folder_path)
                     self.logger(f"  -> Copiato in: {dest_folder_name}", "SUCCESS")
-                    proc_count += 1
+                    summary["processed"] += 1
 
                 except Exception as e:
-                    self.logger(f"ERRORE durante l'analisi del file {os.path.basename(fp)}: {e}", "ERROR")
+                    error_msg = f"Impossibile analizzare o copiare il file. Dettagli: {e}"
+                    self.logger(f"ERRORE: {error_msg}", "ERROR")
+                    summary["errors"].append((os.path.basename(fp), error_msg))
                 finally:
                     if wb:
                         wb.Close(SaveChanges=False)
-        finally:
-            if excel:
-                excel.Quit()
-            self.logger(f"--- Organizzazione Completata ({proc_count}/{len(excel_files)}) ---", "HEADER")
+
+        self.logger(f"\n--- RIEPILOGO ORGANIZZAZIONE ---", "HEADER")
+        self.logger(f"File processati con successo: {summary['processed']}/{num_files}", "SUCCESS")
+        if summary['errors']:
+            self.logger(f"File con errori: {len(summary['errors'])}", "ERROR")
+            self.logger("--- DETTAGLIO ERRORI ---", "HEADER")
+            for file_name, error_msg in summary['errors']:
+                self.logger(f"- {file_name}: {error_msg}", "ERROR")
 
     def _print_files_in_folders(self, folder_list):
         excel_ext = ('.xls', '.xlsx', '.xlsm', '.xlsb')
-        excel = None
-        try:
-            excel = win32com.client.Dispatch("Excel.Application")
-            excel.Visible = False
-            excel.DisplayAlerts = False
+        num_folders = len(folder_list)
+        self.gui.after(0, self.setup_progress, num_folders, "Stampa in corso:")
 
-            for folder_p in folder_list:
+        with ExcelHandler(self.logger) as excel:
+            if not excel:
+                return
+
+            errors = []
+            for i, folder_p in enumerate(folder_list):
+                self.gui.after(0, self.update_progress, i + 1)
                 self.logger(f"Stampa cartella: {os.path.basename(folder_p)}")
                 try:
                     excel_fs = [os.path.join(folder_p, f) for f in os.listdir(folder_p) if f.lower().endswith(excel_ext) and not f.startswith('~')]
@@ -146,7 +157,6 @@ class OrganizationProcessor:
                             wb = excel.Workbooks.Open(fp)
                             ws = wb.Worksheets(1)
 
-                            # Find model to determine print area
                             m_val = next((str(ws.Cells(r, c).Value).strip() for r, c in [(2, 5), (2, 20), (5, 20)] if ws.Cells(r, c).Value and str(ws.Cells(r, c).Value).strip()), "")
                             cleaned_model = re.sub(r'\W', '', m_val)
 
@@ -157,15 +167,21 @@ class OrganizationProcessor:
                             else:
                                 self.logger(f"  -> Ignorato (modello non trovato '{cleaned_model}'): {os.path.basename(fp)}", "WARNING")
                         except Exception as e_file:
-                            self.logger(f"ERRORE durante la stampa del file {os.path.basename(fp)}: {e_file}", "ERROR")
+                            error_msg = f"Impossibile stampare il file. Dettagli: {e_file}"
+                            self.logger(f"ERRORE: {error_msg}", "ERROR")
+                            errors.append((os.path.basename(fp), error_msg))
                         finally:
                             if wb:
                                 wb.Close(SaveChanges=False)
                 except Exception as e_folder:
-                    self.logger(f"ERRORE durante l'elaborazione della cartella {os.path.basename(folder_p)}: {e_folder}", "ERROR")
-        finally:
-            if excel:
-                excel.Quit()
+                    error_msg = f"Impossibile elaborare la cartella. Dettagli: {e_folder}"
+                    self.logger(f"ERRORE: {error_msg}", "ERROR")
+                    errors.append((os.path.basename(folder_p), error_msg))
+
+            if errors:
+                self.logger("\n--- RIEPILOGO ERRORI DI STAMPA ---", "HEADER")
+                for item_name, error_msg in errors:
+                    self.logger(f"- {item_name}: {error_msg}", "ERROR")
 
     def _clear_folder_content(self, folder_path, folder_display_name, logger):
         """Utility to clear the contents of a folder."""
