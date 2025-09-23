@@ -57,7 +57,7 @@ class SignatureProcessor:
             self.logger(traceback.format_exc(), "ERROR")
         finally:
             self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.toggle_firma_buttons, 'normal', prepare_button_state='normal')
+            self.gui.after(0, self.gui._update_button_states, True, True, False)
 
 
     def _validate_paths(self):

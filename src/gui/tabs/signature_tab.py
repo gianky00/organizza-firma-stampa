@@ -124,7 +124,7 @@ class SignatureTab(ttk.Frame):
         self.next_button = ttk.Button(self.preview_frame, text=">", command=self.show_next_draft, width=3)
         self.next_button.pack(side=tk.LEFT)
 
-        self.email_button = ttk.Button(action_preview_frame, text="Crea Bozze in Outlook", command=self.create_email_drafts_in_outlook)
+        self.email_button = ttk.Button(action_preview_frame, text="Crea Bozze in Outlook", command=self.start_email_creation_process)
         self.email_button.pack(side=tk.RIGHT)
         self.email_button.config(state='disabled')
 
@@ -141,6 +141,8 @@ class SignatureTab(ttk.Frame):
         # --- Bindings ---
         self.tcl_combo.bind("<<ComboboxSelected>>", self._update_email_preview)
         self.style_check.config(command=self._update_email_preview)
+
+        self._update_button_states(signing=True, prepare=False, create=False)
         self._update_email_preview() # Initial population of the email body
 
         # --- Cleanup buttons would be added here, similar structure ---
@@ -152,17 +154,19 @@ class SignatureTab(ttk.Frame):
         """
         Starts the signature process in a new thread to avoid freezing the GUI.
         """
-        self.toggle_firma_buttons('disabled')
+        self._update_button_states(signing=False, prepare=False, create=False)
+        self.preview_frame.pack_forget() # Hide preview while processing
+        self.prepared_drafts = [] # Clear old drafts
         # The actual work is now in SignatureProcessor
         threading.Thread(target=self.processor.run_full_signature_process, daemon=True).start()
 
-    def toggle_firma_buttons(self, state, email_button_state='disabled', prepare_button_state='disabled'):
+    def _update_button_states(self, signing, prepare, create):
         """
-        Enables or disables all buttons in this tab.
+        Centralized method to control the state of all action buttons.
         """
-        self.run_button.config(state=state)
-        self.prepare_button.config(state=prepare_button_state)
-        self.email_button.config(state=email_button_state)
+        self.run_button.config(state='normal' if signing else 'disabled')
+        self.prepare_button.config(state='normal' if prepare else 'disabled')
+        self.email_button.config(state='normal' if create else 'disabled')
 
     def prepare_email_drafts(self):
         self.log_firma("Preparazione delle bozze email...", "HEADER")
@@ -224,7 +228,7 @@ class SignatureTab(ttk.Frame):
         self.current_draft_index = 0
         self._display_draft_preview()
         self.preview_frame.pack(side=tk.LEFT, padx=(20, 0))
-        self.email_button.config(state='normal')
+        self._update_button_states(signing=True, prepare=True, create=True)
 
     def _display_draft_preview(self):
         """
@@ -261,25 +265,36 @@ class SignatureTab(ttk.Frame):
             self.current_draft_index += 1
             self._display_draft_preview()
 
+    def start_email_creation_process(self):
+        """
+        Disables buttons and starts the thread to create Outlook drafts.
+        """
+        self._update_button_states(signing=False, prepare=False, create=False)
+        threading.Thread(target=self.create_email_drafts_in_outlook, daemon=True).start()
+
     def create_email_drafts_in_outlook(self):
         """
-        Calls the EmailHandler for each prepared draft.
+        Calls the EmailHandler for each prepared draft. This runs in a worker thread.
         """
-        if not self.prepared_drafts:
-            self.log_firma("Nessuna bozza da creare. Cliccare prima su 'Prepara Bozze'.", "WARNING")
-            return
+        try:
+            if not self.prepared_drafts:
+                self.log_firma("Nessuna bozza da creare. Cliccare prima su 'Prepara Bozze'.", "WARNING")
+                return
 
-        self.log_firma(f"Avvio creazione di {len(self.prepared_drafts)} bozze in Outlook...", "HEADER")
-        email_handler = EmailHandler(self.log_firma)
+            self.log_firma(f"Avvio creazione di {len(self.prepared_drafts)} bozze in Outlook...", "HEADER")
+            email_handler = EmailHandler(self.log_firma)
 
-        for draft_info in self.prepared_drafts:
-            # Run each draft creation in a separate thread to avoid freezing,
-            # though Outlook operations are generally fast.
-            threading.Thread(
-                target=email_handler.create_outlook_draft,
-                args=(draft_info,),
-                daemon=True
-            ).start()
+            for draft_info in self.prepared_drafts:
+                email_handler.create_outlook_draft(draft_info)
+
+            self.log_firma("Creazione bozze in Outlook completata.", "SUCCESS")
+            # Clear the prepared drafts after they have been created
+            self.prepared_drafts = []
+            self.master.after(0, self.preview_frame.pack_forget)
+
+        finally:
+            # Reset the UI to the initial state, ready for a new signature process
+            self.master.after(0, self._update_button_states, True, False, False)
 
     def log_firma(self, message, level='INFO'):
         """
