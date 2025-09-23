@@ -20,7 +20,12 @@ class MainApplication(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Gestione Documenti Ufficio (Refactored)")
-        self.center_window(950, 850)
+        try:
+            self.state('zoomed')
+        except tk.TclError:
+            # Fallback for other OSes or environments that don't support 'zoomed'
+            self.geometry("1200x900")
+            self.center_window(1200, 900)
         self.resizable(True, True)
 
         self.config_manager = ConfigManager()
@@ -32,6 +37,12 @@ class MainApplication(tk.Tk):
         self._load_config_into_vars()
 
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
+        self.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _on_mousewheel(self, event):
+        # The delta is usually 120 per "click" of the wheel on Windows.
+        # We divide by a factor (e.g., 40) to get a smoother scroll.
+        self.canvas.yview_scroll(int(-1 * (event.delta / 40)), "units")
 
     def center_window(self, width, height):
         screen_width = self.winfo_screenwidth()
@@ -72,6 +83,9 @@ class MainApplication(tk.Tk):
         self.firma_pdf_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.FIRMA_PDF_OUTPUT_DIR))
         self.firma_ghostscript_path = tk.StringVar()
         self.firma_processing_mode = tk.StringVar(value="schede")
+        self.email_to = tk.StringVar()
+        self.email_subject = tk.StringVar()
+        # The email body doesn't use a StringVar as it's a Text widget
 
         # Rename Tab Vars
         self.rinomina_path = tk.StringVar()
@@ -113,9 +127,35 @@ class MainApplication(tk.Tk):
         self.canoni_caldarella_num.set(self.config_manager.get("canoni_caldarella_num"))
         self.canoni_word_path.set(self.config_manager.get("canoni_word_path"))
         self.selected_printer.set(self.config_manager.get("selected_printer"))
+        self.email_to.set(self.config_manager.get("email_to"))
+        self.email_subject.set(self.config_manager.get("email_subject"))
 
     def _create_widgets(self):
-        notebook = ttk.Notebook(self)
+        # --- Create a main container with a scrollbar ---
+        main_container = ttk.Frame(self)
+        main_container.pack(fill=tk.BOTH, expand=True)
+
+        self.canvas = tk.Canvas(main_container)
+        scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=self.canvas.yview)
+        scrollable_frame = ttk.Frame(self.canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas_window = self.canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
+
+        self.canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        scrollbar.pack(side="right", fill="y")
+
+        # --- Place the notebook inside the scrollable frame ---
+        notebook = ttk.Notebook(scrollable_frame)
         notebook.pack(expand=True, fill='both', padx=10, pady=10)
 
         # Create a container frame for each tab that includes the tab content and the log area
@@ -180,7 +220,9 @@ class MainApplication(tk.Tk):
             "canoni_naselli_num": self.canoni_naselli_num.get(),
             "canoni_caldarella_num": self.canoni_caldarella_num.get(),
             "canoni_word_path": self.canoni_word_path.get(),
-            "selected_printer": self.selected_printer.get()
+            "selected_printer": self.selected_printer.get(),
+            "email_to": self.email_to.get(),
+            "email_subject": self.email_subject.get()
         }
         self.config_manager.save(current_config)
         self.destroy()

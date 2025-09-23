@@ -27,7 +27,9 @@ class ConfigManager:
             "canoni_naselli_num": "",
             "canoni_caldarella_num": "",
             "canoni_word_path": const.CANONI_WORD_DEFAULT_PATH,
-            "selected_printer": ""
+            "selected_printer": "",
+            "email_to": "",
+            "email_subject": "Documenti Firmati"
         }
 
     def load(self):
