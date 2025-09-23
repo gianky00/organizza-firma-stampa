@@ -74,20 +74,35 @@ class SignatureTab(ttk.Frame):
         email_frame.pack(fill=tk.X, pady=10)
         email_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(email_frame, text="Destinatario(i):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        # --- Row 0: TCL and Style ---
+        tcl_style_frame = ttk.Frame(email_frame)
+        tcl_style_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 5))
+
+        ttk.Label(tcl_style_frame, text="Template TCL:").pack(side=tk.LEFT, padx=(5, 5))
+        tcl_options = [""] + list(self.app_config.TCL_CONTACTS.keys())
+        self.tcl_combo = ttk.Combobox(tcl_style_frame, textvariable=self.app_config.email_tcl, values=tcl_options, state="readonly", width=25)
+        self.tcl_combo.pack(side=tk.LEFT, padx=(0, 20))
+
+        self.style_check = ttk.Checkbutton(tcl_style_frame, text="Usa stile Formale", variable=self.app_config.email_is_formal, onvalue=True, offvalue=False)
+        self.style_check.pack(side=tk.LEFT, padx=5)
+
+        # --- Row 1 & 2: To and Subject ---
+        ttk.Label(email_frame, text="Destinatario(i):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
         self.email_to_entry = ttk.Entry(email_frame, textvariable=self.app_config.email_to)
-        self.email_to_entry.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=2)
+        self.email_to_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=2)
 
-        ttk.Label(email_frame, text="Oggetto:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(email_frame, text="Oggetto:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
         self.email_subject_entry = ttk.Entry(email_frame, textvariable=self.app_config.email_subject)
-        self.email_subject_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=2)
+        self.email_subject_entry.grid(row=2, column=1, sticky=tk.EW, padx=5, pady=2)
 
-        ttk.Label(email_frame, text="Corpo del Messaggio:").grid(row=2, column=0, sticky=tk.NW, padx=5, pady=5)
-        self.email_body_text = tk.Text(email_frame, height=5, font=("Segoe UI", 9))
-        self.email_body_text.grid(row=2, column=1, sticky=tk.EW, padx=5, pady=2)
+        # --- Row 3: Body ---
+        ttk.Label(email_frame, text="Corpo del Messaggio:").grid(row=3, column=0, sticky=tk.NW, padx=5, pady=5)
+        self.email_body_text = tk.Text(email_frame, height=8, font=("Segoe UI", 9))
+        self.email_body_text.grid(row=3, column=1, sticky=tk.EW, padx=5, pady=2)
 
-        self.email_button = ttk.Button(email_frame, text="Crea Bozza Email con Allegati", command=self.create_email_draft)
-        self.email_button.grid(row=3, column=1, sticky=tk.E, pady=(10, 0), padx=5)
+        # --- Row 4: Button ---
+        self.email_button = ttk.Button(email_frame, text="Conferma e Crea Bozza Outlook", command=self.create_email_draft)
+        self.email_button.grid(row=4, column=1, sticky=tk.E, pady=(10, 0), padx=5)
         self.email_button.config(state='disabled') # Disabled by default
 
         # --- Progress Bar ---
@@ -98,6 +113,11 @@ class SignatureTab(ttk.Frame):
         self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='determinate')
         self.progressbar.pack(fill=tk.X, expand=True)
         self.progress_frame.pack_forget() # Hide by default
+
+        # --- Bindings ---
+        self.tcl_combo.bind("<<ComboboxSelected>>", self._update_email_preview)
+        self.style_check.config(command=self._update_email_preview)
+        self._update_email_preview() # Initial population of the email body
 
         # --- Cleanup buttons would be added here, similar structure ---
         # For brevity in refactoring, they are omitted but would follow the same pattern
@@ -131,17 +151,16 @@ class SignatureTab(ttk.Frame):
         # --- Gather data from UI ---
         to = self.app_config.email_to.get()
         subject = self.app_config.email_subject.get()
-        body = self.email_body_text.get("1.0", tk.END) # Get text from Text widget
-
-        if not to:
-            self.log_firma("ERRORE: Il campo 'Destinatario(i)' non può essere vuoto.", "ERROR")
-            return
+        intro_text = self.email_body_text.get("1.0", tk.END).strip()
 
         # --- Find all PDF files in the output directory ---
         pdf_dir = self.app_config.firma_pdf_dir.get()
         attachments = []
+        file_list_for_body = []
         if os.path.isdir(pdf_dir):
-            attachments = [os.path.join(pdf_dir, f) for f in os.listdir(pdf_dir) if f.lower().endswith('.pdf')]
+            all_files = [f for f in os.listdir(pdf_dir) if f.lower().endswith('.pdf')]
+            attachments = [os.path.join(pdf_dir, f) for f in all_files]
+            file_list_for_body = [os.path.splitext(f)[0] for f in all_files]
 
         if not attachments:
             self.log_firma("ATTENZIONE: Nessun file PDF trovato nella cartella di output da allegare.", "WARNING")
@@ -150,7 +169,7 @@ class SignatureTab(ttk.Frame):
         email_handler = EmailHandler(self.log_firma)
         threading.Thread(
             target=email_handler.create_outlook_draft,
-            args=(to, subject, body, attachments),
+            args=(to, subject, intro_text, file_list_for_body, attachments),
             daemon=True
         ).start()
 
@@ -172,3 +191,34 @@ class SignatureTab(ttk.Frame):
 
     def hide_progress(self):
         self.progress_frame.pack_forget()
+
+    def _update_email_preview(self, event=None):
+        """
+        Updates the email recipient and body based on the TCL and style selections.
+        """
+        tcl_name = self.app_config.email_tcl.get()
+        is_formal = self.app_config.email_is_formal.get()
+
+        body_template = ""
+
+        if tcl_name and tcl_name in self.app_config.TCL_CONTACTS:
+            # A specific TCL is selected
+            email = self.app_config.TCL_CONTACTS[tcl_name]
+            self.app_config.email_to.set(email)
+
+            first_name = tcl_name.split()[0]
+            if is_formal:
+                body_template = self.app_config.EMAIL_BODY_FORMAL.format(name=first_name, file_list="{file_list}")
+            else:
+                body_template = self.app_config.EMAIL_BODY_INFORMAL.format(name=first_name, file_list="{file_list}")
+        else:
+            # Generic/blank TCL selected
+            self.app_config.email_to.set("")
+            if is_formal:
+                body_template = self.app_config.EMAIL_BODY_GENERIC_FORMAL.format(file_list="{file_list}")
+            else:
+                body_template = self.app_config.EMAIL_BODY_GENERIC_INFORMAL.format(file_list="{file_list}")
+
+        # Update the text body, preserving the placeholder for the file list
+        self.email_body_text.delete("1.0", tk.END)
+        self.email_body_text.insert("1.0", body_template)

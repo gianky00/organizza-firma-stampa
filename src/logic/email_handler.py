@@ -8,14 +8,15 @@ class EmailHandler:
     def __init__(self, logger):
         self.logger = logger
 
-    def create_outlook_draft(self, to, subject, body, attachments):
+    def create_outlook_draft(self, to, subject, intro_text, file_list, attachments):
         """
-        Creates and displays an Outlook email draft with the specified details.
+        Creates and displays an Outlook email draft, preserving the default signature.
 
         Args:
             to (str): The recipient's email address(es).
             subject (str): The email's subject line.
-            body (str): The plain text body of the email.
+            intro_text (str): The initial part of the email body (greeting, etc.).
+            file_list (list): A list of filenames (without extension) to include in the body.
             attachments (list): A list of full file paths to attach.
         """
         try:
@@ -24,20 +25,32 @@ class EmailHandler:
 
             mail.To = to
             mail.Subject = subject
-            mail.Body = body
 
-            if not attachments:
-                self.logger("Nessun allegato da aggiungere.", "WARNING")
-            else:
-                self.logger(f"Aggiunta di {len(attachments)} allegati...", "INFO")
-                for attachment_path in attachments:
-                    try:
-                        mail.Attachments.Add(attachment_path)
-                    except Exception as e:
-                        self.logger(f"Impossibile aggiungere l'allegato: {attachment_path}. Errore: {e}", "ERROR")
+            # This is the key part: Display the item first to resolve the signature.
+            mail.Display()
 
-            # Display the draft in an Outlook window
-            mail.Display(True) # True makes it modal
+            # Get the signature, which is now part of the HTMLBody
+            signature = mail.HTMLBody
+
+            # Create the file list as a simple HTML list
+            files_html = "<br>".join(file_list)
+
+            # Construct the full HTML body
+            # We replace the placeholder and prepend it to the signature
+            body_html = intro_text.replace("{file_list}", files_html)
+
+            # Convert to HTML paragraphs
+            body_with_br = body_html.replace('\n', '<br>')
+
+            mail.HTMLBody = f"<p style='font-family:calibri; font-size:11pt'>{body_with_br}</p>" + signature
+
+            self.logger(f"Aggiunta di {len(attachments)} allegati...", "INFO")
+            for attachment_path in attachments:
+                try:
+                    mail.Attachments.Add(attachment_path)
+                except Exception as e:
+                    self.logger(f"Impossibile aggiungere l'allegato: {attachment_path}. Errore: {e}", "ERROR")
+
             self.logger("Bozza email creata e mostrata con successo.", "SUCCESS")
 
         except Exception as e:
