@@ -70,12 +70,12 @@ class SignatureTab(ttk.Frame):
         self.run_button.pack(fill=tk.X, ipady=8, pady=5)
 
         # --- Email Frame ---
-        email_frame = ttk.LabelFrame(main_frame, text="4. Crea Bozza Email con PDF Firmati", padding="15")
-        email_frame.pack(fill=tk.X, pady=10)
-        email_frame.columnconfigure(1, weight=1)
+        self.email_frame = ttk.LabelFrame(main_frame, text="4. Crea Bozza Email con PDF Firmati", padding="15")
+        self.email_frame.pack(fill=tk.X, pady=10)
+        self.email_frame.columnconfigure(1, weight=1)
 
         # --- Row 0: TCL and Style ---
-        tcl_style_frame = ttk.Frame(email_frame)
+        tcl_style_frame = ttk.Frame(self.email_frame)
         tcl_style_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 5))
 
         ttk.Label(tcl_style_frame, text="Template TCL:").pack(side=tk.LEFT, padx=(5, 5))
@@ -87,21 +87,21 @@ class SignatureTab(ttk.Frame):
         self.style_check.pack(side=tk.LEFT, padx=5)
 
         # --- Row 1 & 2: To and Subject ---
-        ttk.Label(email_frame, text="Destinatario(i):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
-        self.email_to_entry = ttk.Entry(email_frame, textvariable=self.app_config.email_to)
+        ttk.Label(self.email_frame, text="Destinatario(i):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        self.email_to_entry = ttk.Entry(self.email_frame, textvariable=self.app_config.email_to)
         self.email_to_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=2)
 
-        ttk.Label(email_frame, text="Oggetto:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
-        self.email_subject_entry = ttk.Entry(email_frame, textvariable=self.app_config.email_subject)
+        ttk.Label(self.email_frame, text="Oggetto:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
+        self.email_subject_entry = ttk.Entry(self.email_frame, textvariable=self.app_config.email_subject)
         self.email_subject_entry.grid(row=2, column=1, sticky=tk.EW, padx=5, pady=2)
 
         # --- Row 3: Body ---
-        ttk.Label(email_frame, text="Corpo del Messaggio:").grid(row=3, column=0, sticky=tk.NW, padx=5, pady=5)
-        self.email_body_text = tk.Text(email_frame, height=8, font=("Segoe UI", 9))
+        ttk.Label(self.email_frame, text="Corpo del Messaggio:").grid(row=3, column=0, sticky=tk.NW, padx=5, pady=5)
+        self.email_body_text = tk.Text(self.email_frame, height=8, font=("Segoe UI", 9))
         self.email_body_text.grid(row=3, column=1, sticky=tk.EW, padx=5, pady=2)
 
         # --- Row 4: Button ---
-        self.email_button = ttk.Button(email_frame, text="Conferma e Crea Bozza Outlook", command=self.create_email_draft)
+        self.email_button = ttk.Button(self.email_frame, text="Conferma e Crea Bozza Outlook", command=self.create_email_draft)
         self.email_button.grid(row=4, column=1, sticky=tk.E, pady=(10, 0), padx=5)
         self.email_button.config(state='disabled') # Disabled by default
 

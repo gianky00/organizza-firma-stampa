@@ -45,10 +45,10 @@ class OrganizeTab(ttk.Frame):
         ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
 
         # --- Printing Frame ---
-        print_frame = ttk.LabelFrame(main_frame, text="2. Stampa Schede Organizzate", padding="15")
-        print_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        self.print_frame = ttk.LabelFrame(main_frame, text="2. Stampa Schede Organizzate", padding="15")
+        self.print_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
-        print_controls_frame = ttk.Frame(print_frame)
+        print_controls_frame = ttk.Frame(self.print_frame)
         print_controls_frame.pack(fill=tk.X, pady=(0, 10))
         self.print_button = ttk.Button(print_controls_frame, text="🖨️ Stampa Selezionate", command=self.start_printing_process)
         self.print_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
@@ -58,7 +58,7 @@ class OrganizeTab(ttk.Frame):
         self.open_folder_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
 
         # --- Checkbox list for printing ---
-        list_container = ttk.Frame(print_frame)
+        list_container = ttk.Frame(self.print_frame)
         list_container.pack(fill=tk.BOTH, expand=True)
         canvas = tk.Canvas(list_container, borderwidth=0, highlightthickness=0)
         self.stampa_checkbox_frame = ttk.Frame(canvas)
@@ -115,7 +115,7 @@ class OrganizeTab(ttk.Frame):
 
     def setup_progress(self, max_value, label_text="Progresso:"):
         self.progress_label['text'] = label_text
-        self.progress_frame.pack(fill=tk.X, pady=(10, 5))
+        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.print_frame)
         self.progressbar['maximum'] = max_value
         self.progressbar['value'] = 0
         self.percent_label['text'] = "0%"
