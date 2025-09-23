@@ -103,16 +103,21 @@ class MainApplication(tk.Tk):
         today = datetime.now()
         prev_month_date = today - timedelta(days=20)
         prev_month_year_str = str(prev_month_date.year)
-        prev_month_name = const.NOMI_MESI_ITALIANI[prev_month_date.month - 1]
+
+        # Month name for Fees Tab (e.g., "Agosto")
+        fees_tab_month_name = const.NOMI_MESI_ITALIANI[prev_month_date.month - 1]
+
+        # Month string for Organize Tab folder (e.g., "08 - AGOSTO")
+        organize_folder_month_str = f"{prev_month_date.month:02d} - {fees_tab_month_name.upper()}"
 
         # Organize Tab Vars
-        organize_default_path = os.path.join(const.ORGANIZZA_BASE_DIR, prev_month_year_str, prev_month_name)
+        organize_default_path = os.path.join(const.ORGANIZZA_BASE_DIR, prev_month_year_str, organize_folder_month_str)
         self.organizza_source_dir = tk.StringVar(value=organize_default_path)
         self.organizza_dest_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_DEST_DIR))
 
         # Fees Tab Vars
         self.canoni_selected_year = tk.StringVar(value=prev_month_year_str)
-        self.canoni_selected_month = tk.StringVar(value=prev_month_name)
+        self.canoni_selected_month = tk.StringVar(value=fees_tab_month_name)
         self.canoni_messina_num = tk.StringVar()
         self.canoni_naselli_num = tk.StringVar()
         self.canoni_caldarella_num = tk.StringVar()
