@@ -9,22 +9,23 @@ class OrganizeTab(ttk.Frame):
     """
     GUI for the Organize and Print tab.
     """
-    def __init__(self, parent, app_config, logger):
+    def __init__(self, parent, app_config, logger, organization_processor, fees_processor):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
         self.stampa_checkbox_vars = {}
+        self.processor = organization_processor # This is the OrganizationProcessor
+        self.fees_processor = fees_processor   # This is the MonthlyFeesProcessor
+
+        # Link the GUI callbacks to the processor
+        self.processor.gui = self
+        self.processor.logger = self.log_organizza
+        self.processor.setup_progress = self.setup_progress
+        self.processor.update_progress = self.update_progress
+        self.processor.hide_progress = self.hide_progress
 
         self._create_widgets()
         self.populate_stampa_list()
-
-        self.processor = OrganizationProcessor(
-            self,
-            app_config,
-            self.setup_progress,
-            self.update_progress,
-            self.hide_progress
-        )
 
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding="15")
@@ -87,7 +88,7 @@ class OrganizeTab(ttk.Frame):
         # Get the ODC to Canone mapping from the logic processor
         year = self.app_config.canoni_selected_year.get()
         month = self.app_config.canoni_selected_month.get()
-        odc_map = self.processor.get_odc_to_canone_map(year, month)
+        odc_map = self.fees_processor.get_odc_to_canone_map(year, month)
 
         dest_path = self.app_config.organizza_dest_dir.get()
         if not os.path.isdir(dest_path):

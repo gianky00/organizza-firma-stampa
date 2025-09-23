@@ -9,11 +9,13 @@ class FeesTab(ttk.Frame):
     """
     GUI for the Monthly Fees Printing tab.
     """
-    def __init__(self, parent, app_config, logger):
+    def __init__(self, parent, app_config, logger, processor):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
-        self.processor = MonthlyFeesProcessor(self, app_config)
+        self.processor = processor
+        self.processor.gui = self # Re-link the gui to the tab
+        self.processor.logger = self.log_canoni # Re-link the logger
 
         current_year = datetime.now().year
         self.anni_giornaliera = [str(y) for y in range(current_year - 5, current_year + 6)]

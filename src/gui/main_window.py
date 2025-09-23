@@ -13,6 +13,12 @@ from src.gui.tabs.rename_tab import RenameTab
 from src.gui.tabs.organize_tab import OrganizeTab
 from src.gui.tabs.fees_tab import FeesTab
 
+# Import logic processors
+from src.logic.signature import SignatureProcessor
+from src.logic.renaming import RenameProcessor
+from src.logic.organization import OrganizationProcessor
+from src.logic.monthly_fees import MonthlyFeesProcessor
+
 class MainApplication(tk.Tk):
     """
     The main window of the application, hosting the notebook with all the tabs.
@@ -33,6 +39,7 @@ class MainApplication(tk.Tk):
 
         self._initialize_stringvars()
         self._setup_style()
+        # Processors must be created after widgets so they can be passed logger/progress callbacks
         self._create_widgets()
         self._load_config_into_vars()
 
@@ -205,17 +212,22 @@ class MainApplication(tk.Tk):
         log_widget_canoni = create_log_widget(log_frame_canoni)
 
         # --- Create and Pack Tab Content ---
-        # Pass the application config (self) and the specific logger to each tab
+        # The processors are created and passed to the tabs here.
+        # The tabs themselves will link the callbacks.
         signature_tab = SignatureTab(firma_container, self, lambda msg, level='INFO': log_message(log_widget_firma, msg, level))
         signature_tab.pack(fill='both', expand=True, before=log_frame_firma)
 
         rename_tab = RenameTab(rinomina_container, self, lambda msg, level='INFO': log_message(log_widget_rinomina, msg, level))
         rename_tab.pack(fill='both', expand=True, before=log_frame_rinomina)
 
-        organize_tab = OrganizeTab(organizza_container, self, lambda msg, level='INFO': log_message(log_widget_organizza, msg, level))
+        # Fees and Organize processors have dependencies, so we manage them carefully.
+        fees_processor = MonthlyFeesProcessor(None, self)
+        organization_processor = OrganizationProcessor(None, self, None, None, None)
+
+        organize_tab = OrganizeTab(organizza_container, self, lambda msg, level='INFO': log_message(log_widget_organizza, msg, level), organization_processor, fees_processor)
         organize_tab.pack(fill='both', expand=True, before=log_frame_organizza)
 
-        fees_tab = FeesTab(canoni_container, self, lambda msg, level='INFO': log_message(log_widget_canoni, msg, level))
+        fees_tab = FeesTab(canoni_container, self, lambda msg, level='INFO': log_message(log_widget_canoni, msg, level), fees_processor)
         fees_tab.pack(fill='both', expand=True, before=log_frame_canoni)
 
     def _on_closing(self):

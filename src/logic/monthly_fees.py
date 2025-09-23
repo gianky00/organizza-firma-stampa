@@ -180,3 +180,45 @@ class MonthlyFeesProcessor:
             return False
 
         return True
+
+    def get_odc_to_canone_map(self, year, month):
+        """
+        Reads the 'Giornaliera' file for the given period and returns a dictionary
+        mapping ODC numbers to canone names (e.g., {'5400...': 'canone messina'}).
+        """
+        self.logger(f"Lettura del file Giornaliera per {month} {year} per mappare gli ODC...", "INFO")
+        giornaliera_path = self.get_giornaliera_path(year, month)
+
+        if not os.path.isfile(giornaliera_path):
+            self.logger(f"File Giornaliera non trovato al percorso: {giornaliera_path}", "WARNING")
+            return {}
+
+        mapping = {}
+        with ExcelHandler(self.logger) as excel:
+            if not excel:
+                return {}
+
+            wb = None
+            try:
+                wb = excel.Workbooks.Open(giornaliera_path, ReadOnly=True)
+                ws = wb.Worksheets("RIEPILOGO")
+
+                cells_to_check = [("S16", "S17"), ("U16", "U17"), ("V16", "V17")]
+                for header_cell, value_cell in cells_to_check:
+                    header = ws.Range(header_cell).Value
+                    value_raw = ws.Range(value_cell).Value
+
+                    if header and value_raw:
+                        # Clean the value, e.g., "5400261236\ncanone" -> "5400261236"
+                        odc_num = str(value_raw).split('\n')[0].strip()
+                        if odc_num.isdigit():
+                            mapping[odc_num] = str(header).lower()
+
+            except Exception as e:
+                self.logger(f"Errore durante la lettura del file Giornaliera: {e}", "ERROR")
+            finally:
+                if wb:
+                    wb.Close(SaveChanges=False)
+
+        self.logger(f"Mappa ODC creata con {len(mapping)} voci.", "INFO")
+        return mapping
