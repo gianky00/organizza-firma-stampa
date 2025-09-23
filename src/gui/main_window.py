@@ -72,6 +72,9 @@ class MainApplication(tk.Tk):
         self.firma_pdf_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.FIRMA_PDF_OUTPUT_DIR))
         self.firma_ghostscript_path = tk.StringVar()
         self.firma_processing_mode = tk.StringVar(value="schede")
+        self.email_to = tk.StringVar()
+        self.email_subject = tk.StringVar()
+        # The email body doesn't use a StringVar as it's a Text widget
 
         # Rename Tab Vars
         self.rinomina_path = tk.StringVar()
@@ -113,6 +116,8 @@ class MainApplication(tk.Tk):
         self.canoni_caldarella_num.set(self.config_manager.get("canoni_caldarella_num"))
         self.canoni_word_path.set(self.config_manager.get("canoni_word_path"))
         self.selected_printer.set(self.config_manager.get("selected_printer"))
+        self.email_to.set(self.config_manager.get("email_to"))
+        self.email_subject.set(self.config_manager.get("email_subject"))
 
     def _create_widgets(self):
         notebook = ttk.Notebook(self)
@@ -180,7 +185,9 @@ class MainApplication(tk.Tk):
             "canoni_naselli_num": self.canoni_naselli_num.get(),
             "canoni_caldarella_num": self.canoni_caldarella_num.get(),
             "canoni_word_path": self.canoni_word_path.get(),
-            "selected_printer": self.selected_printer.get()
+            "selected_printer": self.selected_printer.get(),
+            "email_to": self.email_to.get(),
+            "email_subject": self.email_subject.get()
         }
         self.config_manager.save(current_config)
         self.destroy()
