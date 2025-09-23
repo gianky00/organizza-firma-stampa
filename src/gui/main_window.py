@@ -92,6 +92,7 @@ class MainApplication(tk.Tk):
         self.email_subject = tk.StringVar()
         self.email_tcl = tk.StringVar()
         self.email_is_formal = tk.BooleanVar(value=False)
+        self.email_size_limit = tk.StringVar(value="6") # Default to 6 MB
         # The email body doesn't use a StringVar as it's a Text widget
 
         # Rename Tab Vars
@@ -138,6 +139,7 @@ class MainApplication(tk.Tk):
         self.email_subject.set(self.config_manager.get("email_subject"))
         self.email_tcl.set(self.config_manager.get("email_tcl"))
         self.email_is_formal.set(self.config_manager.get("email_is_formal"))
+        self.email_size_limit.set(self.config_manager.get("email_size_limit"))
 
     def _create_widgets(self):
         # --- Create a main container with a scrollbar ---
@@ -233,7 +235,8 @@ class MainApplication(tk.Tk):
             "email_to": self.email_to.get(),
             "email_subject": self.email_subject.get(),
             "email_tcl": self.email_tcl.get(),
-            "email_is_formal": self.email_is_formal.get()
+            "email_is_formal": self.email_is_formal.get(),
+            "email_size_limit": self.email_size_limit.get()
         }
         self.config_manager.save(current_config)
         self.destroy()
