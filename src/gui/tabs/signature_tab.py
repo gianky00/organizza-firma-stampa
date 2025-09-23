@@ -107,11 +107,12 @@ class SignatureTab(ttk.Frame):
 
         # --- Progress Bar ---
         self.progress_frame = ttk.Frame(main_frame)
-        self.progress_frame.pack(fill=tk.X, pady=(10, 5))
         self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
         self.progress_label.pack(side=tk.LEFT, padx=(5, 5))
         self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='determinate')
-        self.progressbar.pack(fill=tk.X, expand=True)
+        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.percent_label = ttk.Label(self.progress_frame, text="0%", width=5)
+        self.percent_label.pack(side=tk.LEFT)
         self.progress_frame.pack_forget() # Hide by default
 
         # --- Bindings ---
@@ -182,12 +183,17 @@ class SignatureTab(ttk.Frame):
         self.master.after(0, self.log_widget, message, level)
 
     def setup_progress(self, max_value):
-        self.progress_frame.pack(fill=tk.X, pady=(10, 5))
+        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.email_frame)
         self.progressbar['maximum'] = max_value
         self.progressbar['value'] = 0
+        self.percent_label['text'] = "0%"
 
     def update_progress(self, value):
         self.progressbar['value'] = value
+        max_val = self.progressbar['maximum']
+        if max_val > 0:
+            percent = (value / max_val) * 100
+            self.percent_label['text'] = f"{percent:.0f}%"
 
     def hide_progress(self):
         self.progress_frame.pack_forget()
