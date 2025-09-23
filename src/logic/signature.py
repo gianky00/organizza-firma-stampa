@@ -25,22 +25,26 @@ class SignatureProcessor:
         """
         Main entry point for the signature process. Called from the GUI thread.
         """
+        self.logger("Avvio del processo di firma...", 'HEADER')
         pythoncom.CoInitialize()
         try:
             if not self._validate_paths():
+                self.logger("Processo interrotto a causa di percorsi non validi.", 'ERROR')
                 return
 
-            self.logger("--- FASE 1: ELABORAZIONE EXCEL E CONVERSIONE PDF ---", 'HEADER')
-            if not self._process_excel_files():
+            self.logger("--- FASE 1: Elaborazione Excel e Conversione PDF ---", 'HEADER')
+            success = self._process_excel_files()
+
+            if not success:
                 self.logger("Fase 1 terminata con errori. Processo interrotto.", 'ERROR')
                 return
 
-            self.logger("--- FASE 2: COMPRESSIONE PDF ---", 'HEADER')
+            self.logger("--- FASE 2: Compressione dei file PDF ---", 'HEADER')
             self._compress_pdfs()
-            self.logger("--- PROCESSO FIRMA COMPLETATO ---", 'SUCCESS')
+            self.logger("--- PROCESSO DI FIRMA COMPLETATO ---", 'SUCCESS')
 
         except Exception as e:
-            self.logger(f"ERRORE CRITICO: {e}", "ERROR")
+            self.logger(f"ERRORE CRITICO E IMPREVISTO: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
             pythoncom.CoUninitialize()
@@ -89,17 +93,18 @@ class SignatureProcessor:
                 workbook = None
                 try:
                     workbook = excel.Workbooks.Open(file_path, 0, True)
+                    self.logger(f"  -> File '{file_name}' aperto con successo.", 'INFO')
                     if mode == "schede":
                         self._apply_signature_schede(workbook, file_name)
                     elif mode == "preventivi":
                         self._apply_signature_preventivi(workbook, file_name)
                 except Exception as e:
-                    self.logger(f"ERRORE durante l'elaborazione del file {file_name}: {e}", 'ERROR')
+                    self.logger(f"  -> ERRORE: Impossibile aprire o elaborare il file {file_name}. Dettagli: {e}", 'ERROR')
                 finally:
                     if workbook:
                         workbook.Close(SaveChanges=False)
         except Exception as e:
-            self.logger(f"ERRORE grave con l'applicazione Excel: {e}", 'ERROR')
+            self.logger(f"ERRORE FATALE con l'applicazione Excel. Potrebbe essere necessario riavviare il programma. Dettagli: {e}", 'ERROR')
             self.logger(traceback.format_exc(), "ERROR")
             return False
         finally:

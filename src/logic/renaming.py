@@ -18,9 +18,10 @@ class RenameProcessor:
         """
         Main entry point for the renaming process.
         """
+        self.logger("Avvio del processo di ridenominazione...", "HEADER")
         root_path = self.config.rinomina_path.get()
         if not os.path.isdir(root_path):
-            self.logger(f"ERRORE: Percorso non valido o inesistente: '{root_path}'", "ERROR")
+            self.logger(f"ERRORE: La cartella specificata non è valida o non esiste: '{root_path}'", "ERROR")
             self.gui.after(0, self.gui.toggle_rinomina_buttons, 'normal')
             return
 
@@ -28,7 +29,7 @@ class RenameProcessor:
         try:
             self._rename_excel_files_in_place(root_path)
         except Exception as e:
-            self.logger(f"ERRORE CRITICO INASPETTATO: {e}", "ERROR")
+            self.logger(f"ERRORE CRITICO E IMPREVISTO durante la ridenominazione: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
             pythoncom.CoUninitialize()

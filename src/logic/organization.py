@@ -25,19 +25,20 @@ class OrganizationProcessor:
         """
         Main entry point for organizing files.
         """
+        self.logger("Avvio del processo di organizzazione...", "HEADER")
         pythoncom.CoInitialize()
         try:
-            # The destination folder is cleared before organizing
+            self.logger("Pulizia della cartella di destinazione...", "INFO")
             self._clear_folder_content(
                 self.config.organizza_dest_dir.get(),
                 self.config.ORGANIZZA_DEST_DIR,
                 self.logger
             )
             self._organize_files()
-            # After organizing, refresh the list in the GUI
+            self.logger("Organizzazione completata. Aggiornamento della lista file...", "SUCCESS")
             self.gui.after(0, self.gui.populate_stampa_list)
         except Exception as e:
-            self.logger(f"ERRORE CRITICO durante l'organizzazione: {e}", "ERROR")
+            self.logger(f"ERRORE CRITICO E IMPREVISTO durante l'organizzazione: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
             pythoncom.CoUninitialize()

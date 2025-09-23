@@ -63,22 +63,25 @@ class MonthlyFeesProcessor:
         """
         Main entry point for the printing process.
         """
+        self.logger("Avvio del processo di stampa canoni...", "HEADER")
         pythoncom.CoInitialize()
         excel_app, word_app = None, None
         docs_to_close = []
         try:
+            self.logger("Validazione dei percorsi e delle impostazioni...", "INFO")
             if not self._validate_paths(paths_to_print, printer_name, macro_name):
+                self.logger("Processo interrotto a causa di percorsi o impostazioni non valide.", "ERROR")
                 return
 
-            self.logger("Avvio applicazioni Excel e Word...", 'INFO')
+            self.logger("Avvio applicazioni in background (Excel e Word)...", 'INFO')
             excel_app = win32com.client.Dispatch("Excel.Application")
             excel_app.DisplayAlerts = False
             word_app = win32com.client.Dispatch("Word.Application")
 
             word_app.ActivePrinter = printer_name
-            self.logger(f"Stampante impostata su: '{printer_name}'", "SUCCESS")
+            self.logger(f"Stampante attiva impostata su: '{printer_name}'", "SUCCESS")
 
-            self.logger("--- Apertura file sorgente ---", 'HEADER')
+            self.logger("--- Apertura dei documenti necessari ---", 'HEADER')
             giornaliera_path = paths_to_print["giornaliera"]
             wb_giornaliera = excel_app.Workbooks.Open(giornaliera_path)
             docs_to_close.append(wb_giornaliera)

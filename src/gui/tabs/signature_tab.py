@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 from src.logic.signature import SignatureProcessor
-from src.utils.ui_utils import create_path_entry, select_file_dialog
+from src.utils.ui_utils import create_path_entry, select_file_dialog, open_folder_in_explorer
 
 class SignatureTab(ttk.Frame):
     """
@@ -25,27 +25,37 @@ class SignatureTab(ttk.Frame):
         desc_label.pack(fill=tk.X, pady=(0, 15), anchor='w')
 
         # --- Paths Frame ---
-        paths_frame = ttk.LabelFrame(main_frame, text="1. Percorsi (Firma)", padding="10")
-        paths_frame.pack(fill=tk.X, pady=(0, 5))
+        paths_frame = ttk.LabelFrame(main_frame, text="1. Percorsi (Firma)", padding="15")
+        paths_frame.pack(fill=tk.X, pady=(0, 10))
+
+        paths_frame.columnconfigure(1, weight=1)
+
         create_path_entry(paths_frame, "Cartella Excel:", self.app_config.firma_excel_dir, 0, readonly=True)
-        create_path_entry(paths_frame, "Cartella PDF:", self.app_config.firma_pdf_dir, 1, readonly=True)
+
+        # PDF Path with "Open" button
+        ttk.Label(paths_frame, text="Cartella PDF di Output:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        pdf_entry = ttk.Entry(paths_frame, textvariable=self.app_config.firma_pdf_dir, state='readonly')
+        pdf_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=5)
+        open_button = ttk.Button(paths_frame, text="Apri Cartella", command=lambda: open_folder_in_explorer(self.app_config.firma_pdf_dir.get()))
+        open_button.grid(row=1, column=2, sticky=tk.E, padx=(5, 0), pady=5)
+
         create_path_entry(paths_frame, "Immagine Firma:", self.app_config.firma_image_path, 2, readonly=True)
         create_path_entry(paths_frame, "Ghostscript:", self.app_config.firma_ghostscript_path, 3, readonly=False,
                           browse_command=lambda: select_file_dialog(self.app_config.firma_ghostscript_path, "Seleziona eseguibile Ghostscript", [("Executable", "*.exe")]))
 
-        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
 
         # --- Mode Frame ---
-        mode_frame = ttk.LabelFrame(main_frame, text="2. Tipo di Documento da Firmare", padding="10")
-        mode_frame.pack(fill=tk.X, pady=5)
-        ttk.Radiobutton(mode_frame, text="Schede (Controllo, Manutenzione, etc.)", variable=self.app_config.firma_processing_mode, value="schede").pack(anchor=tk.W, padx=5, pady=2)
-        ttk.Radiobutton(mode_frame, text="Preventivi (Basato su foglio 'Consuntivo')", variable=self.app_config.firma_processing_mode, value="preventivi").pack(anchor=tk.W, padx=5, pady=2)
+        mode_frame = ttk.LabelFrame(main_frame, text="2. Tipo di Documento da Firmare", padding="15")
+        mode_frame.pack(fill=tk.X, pady=10)
+        ttk.Radiobutton(mode_frame, text="Schede (Controllo, Manutenzione, etc.)", variable=self.app_config.firma_processing_mode, value="schede").pack(anchor=tk.W, padx=5, pady=5)
+        ttk.Radiobutton(mode_frame, text="Preventivi (Basato su foglio 'Consuntivo')", variable=self.app_config.firma_processing_mode, value="preventivi").pack(anchor=tk.W, padx=5, pady=5)
 
-        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
 
         # --- Actions Frame ---
-        actions_frame = ttk.LabelFrame(main_frame, text="3. Azioni Firma", padding="10")
-        actions_frame.pack(fill=tk.X, pady=5)
+        actions_frame = ttk.LabelFrame(main_frame, text="3. Azioni Firma", padding="15")
+        actions_frame.pack(fill=tk.X, pady=10)
         self.run_button = ttk.Button(actions_frame, text="▶  AVVIA PROCESSO FIRMA COMPLETO", style='primary.TButton', command=self.start_signature_process)
         self.run_button.pack(fill=tk.X, ipady=8, pady=5)
 

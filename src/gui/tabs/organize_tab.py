@@ -3,7 +3,7 @@ from tkinter import ttk
 import threading
 import os
 from src.logic.organization import OrganizationProcessor
-from src.utils.ui_utils import create_path_entry, select_folder_dialog
+from src.utils.ui_utils import create_path_entry, select_folder_dialog, open_folder_in_explorer
 
 class OrganizeTab(ttk.Frame):
     """
@@ -28,25 +28,27 @@ class OrganizeTab(ttk.Frame):
         desc_label.pack(fill=tk.X, pady=(0, 15), anchor='w')
 
         # --- Organization Frame ---
-        org_frame = ttk.LabelFrame(main_frame, text="1. Elabora e Organizza per ODC", padding="10")
-        org_frame.pack(fill=tk.X, pady=(0, 5))
-        create_path_entry(org_frame, "Cartella di origine:", self.app_config.organizza_source_dir, 0, readonly=False,
+        org_frame = ttk.LabelFrame(main_frame, text="1. Elabora e Organizza per ODC", padding="15")
+        org_frame.pack(fill=tk.X, pady=(0, 10))
+        create_path_entry(org_frame, "Cartella di Origine:", self.app_config.organizza_source_dir, 0, readonly=False,
                           browse_command=lambda: select_folder_dialog(self.app_config.organizza_source_dir, "Seleziona cartella schede da organizzare"))
-        self.organize_button = ttk.Button(org_frame, text="🚀 AVVIA ORGANIZZAZIONE", style='primary.TButton', command=self.start_organization_process)
-        self.organize_button.grid(row=1, column=0, columnspan=3, sticky="we", pady=(10, 0))
+        self.organize_button = ttk.Button(org_frame, text="🚀 Avvia Organizzazione", style='primary.TButton', command=self.start_organization_process)
+        self.organize_button.grid(row=1, column=0, columnspan=3, sticky="we", pady=(10, 5))
 
-        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=10)
+        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
 
         # --- Printing Frame ---
-        print_frame = ttk.LabelFrame(main_frame, text="2. Stampa Schede Organizzate", padding="10")
-        print_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        print_frame = ttk.LabelFrame(main_frame, text="2. Stampa Schede Organizzate", padding="15")
+        print_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
         print_controls_frame = ttk.Frame(print_frame)
         print_controls_frame.pack(fill=tk.X, pady=(0, 10))
-        self.print_button = ttk.Button(print_controls_frame, text="🖨️ STAMPA SELEZIONATE", command=self.start_printing_process)
+        self.print_button = ttk.Button(print_controls_frame, text="🖨️ Stampa Selezionate", command=self.start_printing_process)
         self.print_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        self.refresh_button = ttk.Button(print_controls_frame, text="🔄 AGGIORNA LISTA", command=self.populate_stampa_list)
-        self.refresh_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        self.refresh_button = ttk.Button(print_controls_frame, text="🔄 Aggiorna Lista", command=self.populate_stampa_list)
+        self.refresh_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
+        self.open_folder_button = ttk.Button(print_controls_frame, text="📂 Apri Cartella", command=lambda: open_folder_in_explorer(self.app_config.organizza_dest_dir.get()))
+        self.open_folder_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
 
         # --- Checkbox list for printing ---
         list_container = ttk.Frame(print_frame)
