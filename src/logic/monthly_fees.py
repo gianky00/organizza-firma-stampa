@@ -10,10 +10,9 @@ class MonthlyFeesProcessor:
     """
     Handles the complex workflow for printing monthly fee documents.
     """
-    def __init__(self, gui, config):
-        self.gui = gui
-        self.config = config
-        self.logger = gui.log_canoni
+    def __init__(self, app_config, logger_cb):
+        self.config = app_config
+        self.logger = logger_cb
 
     def get_printers(self):
         """Returns a list of available printer names."""
@@ -99,62 +98,54 @@ class MonthlyFeesProcessor:
         Main entry point for the printing process.
         """
         self.logger("Avvio del processo di stampa canoni...", "HEADER")
-        try:
-            self.logger("Validazione dei percorsi e delle impostazioni...", "INFO")
-            if not self._validate_paths(paths_to_print, printer_name, macro_name):
-                self.logger("Processo interrotto a causa di percorsi o impostazioni non valide.", "ERROR")
+        self.logger("Validazione dei percorsi e delle impostazioni...", "INFO")
+        if not self._validate_paths(paths_to_print, printer_name, macro_name):
+            self.logger("Processo interrotto a causa di percorsi o impostazioni non valide.", "ERROR")
+            return
+
+        with ExcelHandler(self.logger) as excel_app, WordHandler(self.logger) as word_app:
+            if not excel_app or not word_app:
+                self.logger("Impossibile avviare Excel o Word. Processo interrotto.", "ERROR")
                 return
 
-            with ExcelHandler(self.logger) as excel_app, WordHandler(self.logger) as word_app:
-                if not excel_app or not word_app:
-                    self.logger("Impossibile avviare Excel o Word. Processo interrotto.", "ERROR")
-                    return
+            word_app.ActivePrinter = printer_name
+            self.logger(f"Stampante attiva impostata su: '{printer_name}'", "SUCCESS")
 
-                word_app.ActivePrinter = printer_name
-                self.logger(f"Stampante attiva impostata su: '{printer_name}'", "SUCCESS")
+            self.logger("--- Apertura dei documenti necessari ---", 'HEADER')
+            giornaliera_path = paths_to_print["giornaliera"]
+            cons_paths = paths_to_print["consuntivi"]
+            word_path = paths_to_print["word"]
 
-                self.logger("--- Apertura dei documenti necessari ---", 'HEADER')
-                giornaliera_path = paths_to_print["giornaliera"]
-                cons_paths = paths_to_print["consuntivi"]
-                word_path = paths_to_print["word"]
+            # Open all documents
+            wb_giornaliera = excel_app.Workbooks.Open(giornaliera_path)
+            self.logger(f"File Giornaliera aperto: {os.path.basename(giornaliera_path)}", 'SUCCESS')
 
-                # Open all documents
-                wb_giornaliera = excel_app.Workbooks.Open(giornaliera_path)
-                self.logger(f"File Giornaliera aperto: {os.path.basename(giornaliera_path)}", 'SUCCESS')
+            wb_cons_list = [excel_app.Workbooks.Open(p) for p in cons_paths]
+            for i, wb in enumerate(wb_cons_list):
+                self.logger(f"Aperto Consuntivo {i+1}: {os.path.basename(wb.FullName)}", 'INFO')
 
-                wb_cons_list = [excel_app.Workbooks.Open(p) for p in cons_paths]
-                for i, wb in enumerate(wb_cons_list):
-                    self.logger(f"Aperto Consuntivo {i+1}: {os.path.basename(wb.FullName)}", 'INFO')
+            doc_word = word_app.Documents.Open(word_path)
+            self.logger(f"Aperto documento Word: {os.path.basename(word_path)}", 'INFO')
 
-                doc_word = word_app.Documents.Open(word_path)
-                self.logger(f"Aperto documento Word: {os.path.basename(word_path)}", 'INFO')
+            self.logger("--- Inizio sequenza operazioni ---", 'HEADER')
+            for i, cons_wb in enumerate(wb_cons_list):
+                leaf_name = cons_wb.Name
+                self.logger(f"Esecuzione macro '{macro_name}' su {leaf_name}...", 'INFO')
+                excel_app.Run(f"'{leaf_name}'!{macro_name}")
+                self.logger(f"Macro su Consuntivo {i+1} completata.", 'SUCCESS')
 
-                self.logger("--- Inizio sequenza operazioni ---", 'HEADER')
-                for i, cons_wb in enumerate(wb_cons_list):
-                    leaf_name = cons_wb.Name
-                    self.logger(f"Esecuzione macro '{macro_name}' su {leaf_name}...", 'INFO')
-                    excel_app.Run(f"'{leaf_name}'!{macro_name}")
-                    self.logger(f"Macro su Consuntivo {i+1} completata.", 'SUCCESS')
+                if i < len(wb_cons_list) - 1:
+                    self.logger(f"Stampa file Word: {doc_word.Name}...", 'INFO')
+                    doc_word.PrintOut()
+                    self.logger("Comando di stampa Word inviato.", 'SUCCESS')
 
-                    if i < len(wb_cons_list) - 1:
-                        self.logger(f"Stampa file Word: {doc_word.Name}...", 'INFO')
-                        doc_word.PrintOut()
-                        self.logger("Comando di stampa Word inviato.", 'SUCCESS')
+            # Close documents manually before quitting apps via context manager
+            doc_word.Close(SaveChanges=0)
+            for wb in wb_cons_list:
+                wb.Close(SaveChanges=False)
+            wb_giornaliera.Close(SaveChanges=False)
 
-                # Close documents manually before quitting apps via context manager
-                doc_word.Close(SaveChanges=0)
-                for wb in wb_cons_list:
-                    wb.Close(SaveChanges=False)
-                wb_giornaliera.Close(SaveChanges=False)
-
-            self.logger("--- PROCESSO STAMPA CANONI COMPLETATO ---", 'SUCCESS')
-
-        except Exception as e:
-            self.logger(f"ERRORE CRITICO nel processo: {e}", "ERROR")
-            self.logger(traceback.format_exc(), "ERROR")
-            self.logger("Il processo è stato interrotto.", "WARNING")
-        finally:
-            self.gui.after(0, self.gui.toggle_stampa_canoni_buttons, 'normal')
+        self.logger("--- PROCESSO STAMPA CANONI COMPLETATO ---", 'SUCCESS')
 
 
     def _validate_paths(self, paths, printer, macro):

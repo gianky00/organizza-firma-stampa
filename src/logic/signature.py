@@ -8,10 +8,9 @@ class SignatureProcessor:
     """
     Handles the logic for signing Excel files and converting them to compressed PDFs.
     """
-    def __init__(self, gui, config, setup_progress_cb, update_progress_cb, hide_progress_cb):
-        self.gui = gui
-        self.config = config
-        self.logger = gui.log_firma
+    def __init__(self, app_config, logger_cb, setup_progress_cb, update_progress_cb, hide_progress_cb):
+        self.config = app_config
+        self.logger = logger_cb
         self.setup_progress = setup_progress_cb
         self.update_progress = update_progress_cb
         self.hide_progress = hide_progress_cb
@@ -25,38 +24,30 @@ class SignatureProcessor:
 
     def run_full_signature_process(self):
         """
-        Main entry point for the signature process. Called from the GUI thread.
+        Main entry point for the signature process. This is now called from a worker thread.
         """
         self.logger("Avvio del processo di firma...", 'HEADER')
-        try:
-            if not self._validate_paths():
-                self.logger("Processo interrotto a causa di percorsi non validi.", 'ERROR')
-                return
 
-            # Pre-calculate total steps for the progress bar
-            excel_path = self.config.firma_excel_dir.get()
-            excel_files = [f for f in os.listdir(excel_path) if f.lower().endswith(('.xlsx', '.xls', '.xlsm')) and not f.startswith('~')]
-            # The number of PDFs to compress will be the same as the number of excel files processed.
-            total_steps = len(excel_files) * 2
-            self.gui.after(0, self.setup_progress, total_steps)
+        if not self._validate_paths():
+            self.logger("Processo interrotto a causa di percorsi non validi.", 'ERROR')
+            return
 
-            self.logger("--- FASE 1: Elaborazione Excel e Conversione PDF ---", 'HEADER')
-            processed_ok = self._process_excel_files(excel_files)
+        excel_path = self.config.firma_excel_dir.get()
+        excel_files = [f for f in os.listdir(excel_path) if f.lower().endswith(('.xlsx', '.xls', '.xlsm')) and not f.startswith('~')]
+        total_steps = len(excel_files) * 2
+        # The GUI thread will handle the `after` call for setup_progress
+        self.setup_progress(total_steps)
 
-            if not processed_ok:
-                self.logger("Fase 1 terminata con errori. Processo interrotto.", 'ERROR')
-                return
+        self.logger("--- FASE 1: Elaborazione Excel e Conversione PDF ---", 'HEADER')
+        processed_ok = self._process_excel_files(excel_files)
 
-            self.logger("--- FASE 2: Compressione dei file PDF ---", 'HEADER')
-            self._compress_pdfs(len(excel_files)) # Pass the offset
-            self.logger("--- PROCESSO DI FIRMA COMPLETATO ---", 'SUCCESS')
+        if not processed_ok:
+            self.logger("Fase 1 terminata con errori. Processo interrotto.", 'ERROR')
+            return
 
-        except Exception as e:
-            self.logger(f"ERRORE CRITICO E IMPREVISTO: {e}", "ERROR")
-            self.logger(traceback.format_exc(), "ERROR")
-        finally:
-            self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui._update_button_states, True, True, False)
+        self.logger("--- FASE 2: Compressione dei file PDF ---", 'HEADER')
+        self._compress_pdfs(len(excel_files)) # Pass the offset
+        self.logger("--- PROCESSO DI FIRMA COMPLETATO ---", 'SUCCESS')
 
 
     def _validate_paths(self):
@@ -88,7 +79,7 @@ class SignatureProcessor:
 
             mode = self.config.firma_processing_mode.get()
             for i, file_name in enumerate(excel_files):
-                self.gui.after(0, self.update_progress, i + 1)
+                self.update_progress(i + 1)
                 file_path = os.path.join(excel_path, file_name)
                 self.logger("-" * 50)
                 self.logger(f"Elaborazione: {file_name}", 'INFO')
@@ -187,7 +178,7 @@ class SignatureProcessor:
         gs_exe = self.config.firma_ghostscript_path.get()
 
         for i, pdf_file in enumerate(pdf_files):
-            self.gui.after(0, self.update_progress, progress_offset + i + 1)
+            self.update_progress(progress_offset + i + 1)
             input_pdf = os.path.join(pdf_path, pdf_file)
             temp_output_pdf = os.path.join(pdf_path, f"temp_{pdf_file}")
             self.logger(f"Compressione: {pdf_file}", 'INFO')

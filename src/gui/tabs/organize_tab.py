@@ -9,20 +9,13 @@ class OrganizeTab(ttk.Frame):
     """
     GUI for the Organize and Print tab.
     """
-    def __init__(self, parent, app_config, logger, organization_processor, fees_processor):
+    def __init__(self, parent, app_config, logger):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
         self.stampa_checkbox_vars = {}
-        self.processor = organization_processor # This is the OrganizationProcessor
-        self.fees_processor = fees_processor   # This is the MonthlyFeesProcessor
-
-        # Link the GUI callbacks to the processor
-        self.processor.gui = self
-        self.processor.logger = self.log_organizza
-        self.processor.setup_progress = self.setup_progress
-        self.processor.update_progress = self.update_progress
-        self.processor.hide_progress = self.hide_progress
+        self.processor = None # Will be set by main_window
+        self.fees_processor = None # Will be set by main_window
 
         self._create_widgets()
         self.populate_stampa_list()
@@ -110,15 +103,37 @@ class OrganizeTab(ttk.Frame):
             self.log_organizza(f"Errore durante la lettura delle cartelle organizzate: {e}", "ERROR")
 
     def start_organization_process(self):
-        self.toggle_organizza_buttons('disabled')
-        threading.Thread(target=self.processor.run_organization_process, daemon=True).start()
+        self.toggle_organizza_buttons(False)
+        threading.Thread(target=self._organization_worker, daemon=True).start()
+
+    def _organization_worker(self):
+        try:
+            self.organization_processor.run_organization_process()
+            self.master.after(0, self.populate_stampa_list)
+        except Exception as e:
+            self.log_organizza(f"ERRORE CRITICO: {e}", "ERROR")
+            self.log_organizza(traceback.format_exc(), "ERROR")
+        finally:
+            self.master.after(0, self.toggle_organizza_buttons, True)
+            self.master.after(0, self.hide_progress)
 
     def start_printing_process(self):
         selected_folders = [d["path"] for d in self.stampa_checkbox_vars.values() if d["var"].get() == 1]
-        self.toggle_organizza_buttons('disabled')
-        threading.Thread(target=self.processor.run_printing_process, args=(selected_folders,), daemon=True).start()
+        self.toggle_organizza_buttons(False)
+        threading.Thread(target=self._printing_worker, args=(selected_folders,), daemon=True).start()
 
-    def toggle_organizza_buttons(self, state):
+    def _printing_worker(self, folders):
+        try:
+            self.organization_processor.run_printing_process(folders)
+        except Exception as e:
+            self.log_organizza(f"ERRORE CRITICO: {e}", "ERROR")
+            self.log_organizza(traceback.format_exc(), "ERROR")
+        finally:
+            self.master.after(0, self.toggle_organizza_buttons, True)
+            self.master.after(0, self.hide_progress)
+
+    def toggle_organizza_buttons(self, enabled):
+        state = 'normal' if enabled else 'disabled'
         self.organize_button.config(state=state)
         self.print_button.config(state=state)
         self.refresh_button.config(state=state)

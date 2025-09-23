@@ -212,23 +212,29 @@ class MainApplication(tk.Tk):
         log_widget_canoni = create_log_widget(log_frame_canoni)
 
         # --- Create and Pack Tab Content ---
-        # The processors are created and passed to the tabs here.
-        # The tabs themselves will link the callbacks.
         signature_tab = SignatureTab(firma_container, self, lambda msg, level='INFO': log_message(log_widget_firma, msg, level))
         signature_tab.pack(fill='both', expand=True, before=log_frame_firma)
 
         rename_tab = RenameTab(rinomina_container, self, lambda msg, level='INFO': log_message(log_widget_rinomina, msg, level))
         rename_tab.pack(fill='both', expand=True, before=log_frame_rinomina)
 
-        # Fees and Organize processors have dependencies, so we manage them carefully.
-        fees_processor = MonthlyFeesProcessor(None, self)
-        organization_processor = OrganizationProcessor(None, self, None, None, None)
-
-        organize_tab = OrganizeTab(organizza_container, self, lambda msg, level='INFO': log_message(log_widget_organizza, msg, level), organization_processor, fees_processor)
+        organize_tab = OrganizeTab(organizza_container, self, lambda msg, level='INFO': log_message(log_widget_organizza, msg, level))
         organize_tab.pack(fill='both', expand=True, before=log_frame_organizza)
 
-        fees_tab = FeesTab(canoni_container, self, lambda msg, level='INFO': log_message(log_widget_canoni, msg, level), fees_processor)
+        fees_tab = FeesTab(canoni_container, self, lambda msg, level='INFO': log_message(log_widget_canoni, msg, level))
         fees_tab.pack(fill='both', expand=True, before=log_frame_canoni)
+
+        # --- Create and Link Processors ---
+        # This is done *after* the tabs are created so their callback methods exist.
+        signature_tab.processor = SignatureProcessor(self, signature_tab.log_firma, signature_tab.setup_progress, signature_tab.update_progress, signature_tab.hide_progress)
+        rename_tab.processor = RenameProcessor(self, rename_tab.log_rinomina, rename_tab.setup_progress, rename_tab.update_progress, rename_tab.hide_progress)
+
+        fees_processor = MonthlyFeesProcessor(self, fees_tab.log_canoni)
+        fees_tab.processor = fees_processor
+
+        organization_processor = OrganizationProcessor(self, organize_tab.log_organizza, organize_tab.setup_progress, organize_tab.update_progress, organize_tab.hide_progress)
+        organize_tab.processor = organization_processor
+        organize_tab.fees_processor = fees_processor
 
     def _on_closing(self):
         """

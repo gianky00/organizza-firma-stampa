@@ -12,16 +12,9 @@ class RenameTab(ttk.Frame):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
+        self.processor = None # Will be set by main_window
 
         self._create_widgets()
-
-        self.processor = RenameProcessor(
-            self,
-            app_config,
-            self.setup_progress,
-            self.update_progress,
-            self.hide_progress
-        )
 
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding="15")
@@ -60,14 +53,18 @@ class RenameTab(ttk.Frame):
         """
         Starts the renaming process in a new thread.
         """
-        self.toggle_rinomina_buttons('disabled')
-        threading.Thread(target=self.processor.run_rename_process, daemon=True).start()
+        self.run_button.config(state='disabled')
+        threading.Thread(target=self._rename_worker, daemon=True).start()
 
-    def toggle_rinomina_buttons(self, state):
-        """
-        Enables or disables the buttons in this tab.
-        """
-        self.run_button.config(state=state)
+    def _rename_worker(self):
+        try:
+            self.processor.run_rename_process()
+        except Exception as e:
+            self.log_rinomina(f"ERRORE CRITICO E IMPREVISTO: {e}", "ERROR")
+            self.log_rinomina(traceback.format_exc(), "ERROR")
+        finally:
+            self.master.after(0, self.hide_progress)
+            self.master.after(0, self.run_button.config, {'state': 'normal'})
 
     def log_rinomina(self, message, level='INFO'):
         """

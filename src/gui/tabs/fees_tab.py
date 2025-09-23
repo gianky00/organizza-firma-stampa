@@ -9,13 +9,11 @@ class FeesTab(ttk.Frame):
     """
     GUI for the Monthly Fees Printing tab.
     """
-    def __init__(self, parent, app_config, logger, processor):
+    def __init__(self, parent, app_config, logger):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
-        self.processor = processor
-        self.processor.gui = self # Re-link the gui to the tab
-        self.processor.logger = self.log_canoni # Re-link the logger
+        self.processor = None # Will be set by main_window
 
         current_year = datetime.now().year
         self.anni_giornaliera = [str(y) for y in range(current_year - 5, current_year + 6)]
@@ -123,10 +121,9 @@ class FeesTab(ttk.Frame):
         self.app_config.canoni_cons3_path.set(c3_path)
 
     def start_printing_process(self):
-        self.toggle_stampa_canoni_buttons('disabled')
+        self.run_button.config(state='disabled')
         self.show_progress()
 
-        # Gather all paths and settings for the processor
         paths_to_print = {
             "giornaliera": self.app_config.canoni_giornaliera_path.get(),
             "consuntivi": [
@@ -139,14 +136,19 @@ class FeesTab(ttk.Frame):
         printer = self.app_config.selected_printer.get()
         macro = self.app_config.canoni_macro_name.get()
 
-        threading.Thread(target=self.processor.run_printing_process,
+        threading.Thread(target=self._printing_worker,
                          args=(paths_to_print, printer, macro),
                          daemon=True).start()
 
-    def toggle_stampa_canoni_buttons(self, state):
-        self.run_button.config(state=state)
-        if state == 'normal':
-            self.hide_progress()
+    def _printing_worker(self, paths, printer, macro):
+        try:
+            self.processor.run_printing_process(paths, printer, macro)
+        except Exception as e:
+            self.log_canoni(f"ERRORE CRITICO: {e}", "ERROR")
+            self.log_canoni(traceback.format_exc(), "ERROR")
+        finally:
+            self.master.after(0, self.hide_progress)
+            self.master.after(0, self.run_button.config, {'state': 'normal'})
 
     def show_progress(self):
         self.progress_frame.pack(fill=tk.X, pady=(10, 5))

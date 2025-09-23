@@ -8,10 +8,9 @@ class RenameProcessor:
     """
     Handles the logic for renaming Excel files based on a date found within them.
     """
-    def __init__(self, gui, config, setup_progress_cb, update_progress_cb, hide_progress_cb):
-        self.gui = gui
-        self.config = config
-        self.logger = gui.log_rinomina
+    def __init__(self, app_config, logger_cb, setup_progress_cb, update_progress_cb, hide_progress_cb):
+        self.config = app_config
+        self.logger = logger_cb
         self.setup_progress = setup_progress_cb
         self.update_progress = update_progress_cb
         self.hide_progress = hide_progress_cb
@@ -24,17 +23,9 @@ class RenameProcessor:
         root_path = self.config.rinomina_path.get()
         if not os.path.isdir(root_path):
             self.logger(f"ERRORE: La cartella specificata non è valida o non esiste: '{root_path}'", "ERROR")
-            self.gui.after(0, self.gui.toggle_rinomina_buttons, 'normal')
             return
 
-        try:
-            self._rename_excel_files_in_place(root_path)
-        except Exception as e:
-            self.logger(f"ERRORE CRITICO E IMPREVISTO durante la ridenominazione: {e}", "ERROR")
-            self.logger(traceback.format_exc(), "ERROR")
-        finally:
-            self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.toggle_rinomina_buttons, 'normal')
+        self._rename_excel_files_in_place(root_path)
 
     def _rename_excel_files_in_place(self, root_path):
         self.logger("[FASE 1/2] Raccolta file Excel...", "HEADER")

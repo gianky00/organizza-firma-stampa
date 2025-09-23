@@ -9,10 +9,9 @@ class OrganizationProcessor:
     """
     Handles organizing Excel files by ODC and batch printing them.
     """
-    def __init__(self, gui, config, setup_progress_cb, update_progress_cb, hide_progress_cb):
-        self.gui = gui
-        self.config = config
-        self.logger = gui.log_organizza
+    def __init__(self, app_config, logger_cb, setup_progress_cb, update_progress_cb, hide_progress_cb):
+        self.config = app_config
+        self.logger = logger_cb
         self.setup_progress = setup_progress_cb
         self.update_progress = update_progress_cb
         self.hide_progress = hide_progress_cb
@@ -29,22 +28,14 @@ class OrganizationProcessor:
         Main entry point for organizing files.
         """
         self.logger("Avvio del processo di organizzazione...", "HEADER")
-        try:
-            self.logger("Pulizia della cartella di destinazione...", "INFO")
-            self._clear_folder_content(
-                self.config.organizza_dest_dir.get(),
-                self.config.ORGANIZZA_DEST_DIR,
-                self.logger
-            )
-            self._organize_files()
-            self.logger("Organizzazione completata. Aggiornamento della lista file...", "SUCCESS")
-            self.gui.after(0, self.gui.populate_stampa_list)
-        except Exception as e:
-            self.logger(f"ERRORE CRITICO E IMPREVISTO durante l'organizzazione: {e}", "ERROR")
-            self.logger(traceback.format_exc(), "ERROR")
-        finally:
-            self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.toggle_organizza_buttons, 'normal')
+        self.logger("Pulizia della cartella di destinazione...", "INFO")
+        self._clear_folder_content(
+            self.config.organizza_dest_dir.get(),
+            self.config.ORGANIZZA_DEST_DIR,
+            self.logger
+        )
+        self._organize_files()
+        self.logger("Organizzazione completata. Aggiornamento della lista file...", "SUCCESS")
 
     def run_printing_process(self, folders_to_print):
         """
@@ -52,19 +43,11 @@ class OrganizationProcessor:
         """
         if not folders_to_print:
             self.logger("Nessuna cartella selezionata per la stampa.", "WARNING")
-            self.gui.after(0, self.gui.toggle_organizza_buttons, 'normal')
             return
 
-        try:
-            self.logger(f"--- Avvio Stampa per {len(folders_to_print)} cartelle ---", "HEADER")
-            self._print_files_in_folders(folders_to_print)
-            self.logger("--- Stampa Completata ---", "SUCCESS")
-        except Exception as e:
-            self.logger(f"ERRORE CRITICO durante la stampa: {e}", "ERROR")
-            self.logger(traceback.format_exc(), "ERROR")
-        finally:
-            self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.toggle_organizza_buttons, 'normal')
+        self.logger(f"--- Avvio Stampa per {len(folders_to_print)} cartelle ---", "HEADER")
+        self._print_files_in_folders(folders_to_print)
+        self.logger("--- Stampa Completata ---", "SUCCESS")
 
     def _organize_files(self):
         source_dir = self.config.organizza_source_dir.get()

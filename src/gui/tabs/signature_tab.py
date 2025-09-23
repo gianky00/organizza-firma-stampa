@@ -16,19 +16,11 @@ class SignatureTab(ttk.Frame):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
+        self.processor = None # Will be set by main_window
         self.prepared_drafts = []
         self.current_draft_index = 0
 
         self._create_widgets()
-
-        # Pass the progress bar methods to the processor
-        self.processor = SignatureProcessor(
-            self,
-            app_config,
-            self.setup_progress,
-            self.update_progress,
-            self.hide_progress
-        )
 
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding="15")
@@ -158,8 +150,21 @@ class SignatureTab(ttk.Frame):
         self._update_button_states(signing=False, prepare=False, create=False)
         self.preview_frame.pack_forget() # Hide preview while processing
         self.prepared_drafts = [] # Clear old drafts
-        # The actual work is now in SignatureProcessor
-        threading.Thread(target=self.processor.run_full_signature_process, daemon=True).start()
+        threading.Thread(target=self._signature_worker, daemon=True).start()
+
+    def _signature_worker(self):
+        """
+        Worker thread that runs the signature process and handles UI updates.
+        """
+        try:
+            self.processor.run_full_signature_process()
+        except Exception as e:
+            self.log_firma(f"ERRORE CRITICO E IMPREVISTO: {e}", "ERROR")
+            self.log_firma(traceback.format_exc(), "ERROR")
+        finally:
+            self.master.after(0, self.hide_progress)
+            # After signing, enable the main button and the prepare drafts button
+            self.master.after(0, self._update_button_states, True, True, False)
 
     def _update_button_states(self, signing, prepare, create):
         """
