@@ -83,6 +83,12 @@ class OrganizeTab(ttk.Frame):
         for widget in self.stampa_checkbox_frame.winfo_children():
             widget.destroy()
         self.stampa_checkbox_vars.clear()
+
+        # Get the ODC to Canone mapping from the logic processor
+        year = self.app_config.canoni_selected_year.get()
+        month = self.app_config.canoni_selected_month.get()
+        odc_map = self.processor.get_odc_to_canone_map(year, month)
+
         dest_path = self.app_config.organizza_dest_dir.get()
         if not os.path.isdir(dest_path):
             return
@@ -90,7 +96,13 @@ class OrganizeTab(ttk.Frame):
             folders = sorted([d for d in os.listdir(dest_path) if os.path.isdir(os.path.join(dest_path, d))])
             for folder_name in folders:
                 var = tk.IntVar()
-                cb = ttk.Checkbutton(self.stampa_checkbox_frame, text=folder_name, variable=var)
+
+                # Check if the folder name (ODC) is in our map
+                display_text = folder_name
+                if folder_name in odc_map:
+                    display_text = f"{folder_name} ({odc_map[folder_name]})"
+
+                cb = ttk.Checkbutton(self.stampa_checkbox_frame, text=display_text, variable=var)
                 cb.pack(anchor="w", padx=5, fill='x')
                 self.stampa_checkbox_vars[folder_name] = {"var": var, "path": os.path.join(dest_path, folder_name)}
         except Exception as e:

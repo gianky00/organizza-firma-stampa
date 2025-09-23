@@ -3,6 +3,7 @@ import re
 import shutil
 import traceback
 from src.utils.excel_handler import ExcelHandler
+from src.logic.monthly_fees import MonthlyFeesProcessor
 
 class OrganizationProcessor:
     """
@@ -182,6 +183,49 @@ class OrganizationProcessor:
                 self.logger("\n--- RIEPILOGO ERRORI DI STAMPA ---", "HEADER")
                 for item_name, error_msg in errors:
                     self.logger(f"- {item_name}: {error_msg}", "ERROR")
+
+    def get_odc_to_canone_map(self, year, month):
+        """
+        Reads the 'Giornaliera' file for the given period and returns a dictionary
+        mapping ODC numbers to canone names (e.g., {'5400...': 'canone messina'}).
+        """
+        self.logger(f"Lettura del file Giornaliera per {month} {year} per mappare gli ODC...", "INFO")
+        fees_processor = MonthlyFeesProcessor(self.gui, self.config)
+        giornaliera_path = fees_processor.get_giornaliera_path(year, month)
+
+        if not os.path.isfile(giornaliera_path):
+            self.logger(f"File Giornaliera non trovato al percorso: {giornaliera_path}", "WARNING")
+            return {}
+
+        mapping = {}
+        with ExcelHandler(self.logger) as excel:
+            if not excel:
+                return {}
+
+            wb = None
+            try:
+                wb = excel.Workbooks.Open(giornaliera_path, ReadOnly=True)
+                ws = wb.Worksheets("RIEPILOGO")
+
+                cells_to_check = [("S16", "S17"), ("U16", "U17"), ("V16", "V17")]
+                for header_cell, value_cell in cells_to_check:
+                    header = ws.Range(header_cell).Value
+                    value_raw = ws.Range(value_cell).Value
+
+                    if header and value_raw:
+                        # Clean the value, e.g., "5400261236\ncanone" -> "5400261236"
+                        odc_num = str(value_raw).split('\n')[0].strip()
+                        if odc_num.isdigit():
+                            mapping[odc_num] = str(header).lower()
+
+            except Exception as e:
+                self.logger(f"Errore durante la lettura del file Giornaliera: {e}", "ERROR")
+            finally:
+                if wb:
+                    wb.Close(SaveChanges=False)
+
+        self.logger(f"Mappa ODC creata con {len(mapping)} voci.", "INFO")
+        return mapping
 
     def _clear_folder_content(self, folder_path, folder_display_name, logger):
         """Utility to clear the contents of a folder."""

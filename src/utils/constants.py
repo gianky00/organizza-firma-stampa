@@ -25,6 +25,7 @@ CONFIG_FILE_NAME = "config_programma.json"
 # These are unlikely to change but are kept here for centralization
 CANONI_GIORNALIERA_BASE_DIR = r"\\192.168.11.251\Database_Tecnico_SMI\Giornaliere"
 CANONI_CONSUNTIVI_BASE_DIR = r"\\192.168.11.251\Database_Tecnico_SMI\Contabilita' strumentale"
+ORGANIZZA_BASE_DIR = r"\\192.168.11.251\Database_Tecnico_SMI\STORICO GENERALE SCHEDE STRUMENTALI\STORICO SCHEDE\Archivio Schede Elaborate"
 CANONI_WORD_DEFAULT_PATH = r"C:\Users\Coemi\Desktop\foglioNuovoCanone.docx"
 DEFAULT_GHOSTSCRIPT_PATH = r"C:\Program Files\gs\gs10.05.0\bin\gswin64c.exe"
 

@@ -20,11 +20,14 @@ class ConfigManager:
         # Go back ~20 days to ensure we are in the previous month.
         prev_month_date = today - timedelta(days=20)
 
+        organize_default_folder = f"{prev_month_date.month:02d} - {const.NOMI_MESI_ITALIANI[prev_month_date.month - 1].upper()}"
+        organize_default_path = os.path.join(const.ORGANIZZA_BASE_DIR, str(prev_month_date.year), organize_default_folder)
+
         self.defaults = {
             "firma_ghostscript_path": const.DEFAULT_GHOSTSCRIPT_PATH,
             "rinomina_path": os.path.join(const.APPLICATION_PATH, const.RINOMINA_DEFAULT_DIR),
             "rinomina_password": "coemi", # Default password
-            "organizza_source_dir": os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_SOURCE_DIR),
+            "organizza_source_dir": organize_default_path,
             "canoni_selected_year": str(prev_month_date.year),
             "canoni_selected_month": const.NOMI_MESI_ITALIANI[prev_month_date.month - 1],
             "canoni_messina_num": "",
