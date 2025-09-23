@@ -190,8 +190,18 @@ class OrganizationProcessor:
         mapping ODC numbers to canone names (e.g., {'5400...': 'canone messina'}).
         """
         self.logger(f"Lettura del file Giornaliera per {month} {year} per mappare gli ODC...", "INFO")
-        fees_processor = MonthlyFeesProcessor(self.gui, self.config)
-        giornaliera_path = fees_processor.get_giornaliera_path(year, month)
+
+        # Build the path to the 'Giornaliera' file directly to avoid incorrect dependencies.
+        if not year or not month:
+            giornaliera_path = ""
+        else:
+            month_number = self.config.mesi_giornaliera_map.get(month)
+            if not month_number:
+                giornaliera_path = ""
+            else:
+                year_folder_name = f"Giornaliere {year}"
+                file_name = f"Giornaliera {month_number}-{year}.xlsm"
+                giornaliera_path = os.path.join(self.config.CANONI_GIORNALIERA_BASE_DIR, year_folder_name, file_name)
 
         if not os.path.isfile(giornaliera_path):
             self.logger(f"File Giornaliera non trovato al percorso: {giornaliera_path}", "WARNING")
