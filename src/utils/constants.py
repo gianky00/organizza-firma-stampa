@@ -5,7 +5,8 @@ import os
 if getattr(os.sys, 'frozen', False):
     APPLICATION_PATH = os.path.dirname(os.sys.executable)
 else:
-    APPLICATION_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Go up two levels from this file's location (src/utils/constants.py) to get to the project root.
+    APPLICATION_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # --- DEFAULT FOLDER AND FILE NAMES ---
 FIRMA_EXCEL_INPUT_DIR = "FILE EXCEL DA FIRMARE"
