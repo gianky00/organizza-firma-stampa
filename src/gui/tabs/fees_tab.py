@@ -6,14 +6,12 @@ from src.logic.monthly_fees import MonthlyFeesProcessor
 from src.utils.ui_utils import create_path_entry, select_file_dialog
 
 class FeesTab(ttk.Frame):
-    def __init__(self, parent, app_config, logger, fees_processor):
+    def __init__(self, parent, app_config, logger):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
         self.cancel_event = threading.Event()
-        self.processor = fees_processor
-        self.processor.gui = self # Set the GUI instance on the shared processor
-        self.processor.logger = self.log_canoni # Set the correct logger
+        self.processor = MonthlyFeesProcessor(self, app_config)
         current_year = datetime.now().year
         self.anni_giornaliera = [str(y) for y in range(current_year - 5, current_year + 6)]
         self._create_widgets()
