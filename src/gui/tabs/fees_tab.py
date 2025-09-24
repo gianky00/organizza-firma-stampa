@@ -121,9 +121,12 @@ class FeesTab(ttk.Frame):
             month = self.app_config.canoni_selected_month.get()
             tcls_to_find = {"MESSINA": self.app_config.canoni_messina_num, "NASELLI": self.app_config.canoni_naselli_num, "CALDARELLA": self.app_config.canoni_caldarella_num}
             for tcl, var in tcls_to_find.items():
-                if cancel_event.is_set(): self.log_canoni("Ricerca annullata.", "WARNING"); break
+                if cancel_event.is_set():
+                    self.log_canoni("Ricerca annullata.", "WARNING")
+                    break
                 number, _ = self.processor.find_consuntivo_for_tcl(year, month, tcl, cancel_event)
-                if number: self.master.after(0, var.set, number)
+                if number:
+                    self.master.after(0, var.set, number)
         finally:
             self.master.after(0, self.on_process_finished)
 

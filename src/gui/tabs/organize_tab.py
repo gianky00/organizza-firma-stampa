@@ -6,7 +6,7 @@ from src.logic.organization import OrganizationProcessor
 from src.utils.ui_utils import create_path_entry, select_folder_dialog, open_folder_in_explorer
 
 class OrganizeTab(ttk.Frame):
-    def __init__(self, parent, app_config, logger):
+    def __init__(self, parent, app_config, logger, fees_processor):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
@@ -15,7 +15,7 @@ class OrganizeTab(ttk.Frame):
         self.active_process_type = None
 
         self._create_widgets()
-        self.processor = OrganizationProcessor(self, app_config, self.setup_progress, self.update_progress, self.hide_progress)
+        self.processor = OrganizationProcessor(self, app_config, fees_processor, self.setup_progress, self.update_progress, self.hide_progress)
         self.after(100, self.populate_stampa_list)
 
     def _create_widgets(self):
