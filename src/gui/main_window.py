@@ -184,11 +184,7 @@ class MainApplication(tk.Tk):
         organize_tab = OrganizeTab(organizza_container, self, lambda msg, level='INFO': log_message(log_widget_organizza, msg, level), fees_processor)
         organize_tab.pack(fill='both', expand=True, before=log_frame_organizza)
 
-        # Pack containers into the notebook
-        firma_container.pack(fill='both', expand=True)
-        rinomina_container.pack(fill='both', expand=True)
-        organizza_container.pack(fill='both', expand=True)
-        canoni_container.pack(fill='both', expand=True)
+        # The containers are added to the notebook via notebook.add(), so no separate pack call is needed.
 
     def _on_closing(self):
         # ... (this method is unchanged)
