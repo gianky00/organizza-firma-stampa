@@ -39,13 +39,13 @@ class RenameTab(ttk.Frame):
         create_path_entry(settings_frame, "Password (opzionale):", self.app_config.rinomina_password, 1, readonly=False)
 
         # --- Actions Frame ---
-        actions_frame = ttk.LabelFrame(self, text="2. Azioni", padding=15)
-        actions_frame.pack(fill=tk.X, pady=5)
-        actions_frame.columnconfigure(0, weight=1)
+        self.actions_frame = ttk.LabelFrame(self, text="2. Azioni", padding=15)
+        self.actions_frame.pack(fill=tk.X, pady=5)
+        self.actions_frame.columnconfigure(0, weight=1)
 
-        self.run_button = ttk.Button(actions_frame, text="▶ AVVIA PROCESSO DI RINOMINA", style='primary.TButton', command=self.start_rename_process)
+        self.run_button = ttk.Button(self.actions_frame, text="▶ AVVIA PROCESSO DI RINOMINA", style='primary.TButton', command=self.start_rename_process)
         self.run_button.pack(fill=tk.X, ipady=8)
-        self.cancel_button = ttk.Button(actions_frame, text="Annulla Processo", command=self.cancel_process)
+        self.cancel_button = ttk.Button(self.actions_frame, text="Annulla Processo", command=self.cancel_process)
         # self.cancel_button is packed dynamically
 
         # --- Progress Bar ---
@@ -86,7 +86,7 @@ class RenameTab(ttk.Frame):
         self.master.after(0, self.log_widget, message, level)
 
     def setup_progress(self, max_value):
-        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.run_button.master.master)
+        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.actions_frame)
         self.progressbar['maximum'] = max_value
         self.progressbar['value'] = 0
         self.percent_label['text'] = "0%"

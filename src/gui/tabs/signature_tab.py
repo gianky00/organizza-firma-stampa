@@ -43,9 +43,9 @@ class SignatureTab(ttk.Frame):
         mode_frame = ttk.LabelFrame(self, text="2. Tipo di Documento", padding=15)
         mode_frame.pack(fill=tk.X, pady=5)
 
-        actions_frame = ttk.LabelFrame(self, text="3. Azioni", padding=15)
-        actions_frame.pack(fill=tk.X, pady=5)
-        actions_frame.columnconfigure(0, weight=1)
+        self.actions_frame = ttk.LabelFrame(self, text="3. Azioni", padding=15)
+        self.actions_frame.pack(fill=tk.X, pady=5)
+        self.actions_frame.columnconfigure(0, weight=1)
 
         self.email_frame = ttk.LabelFrame(self, text="4. Crea Bozza Email con PDF Firmati", padding=15)
         self.email_frame.pack(fill=tk.X, pady=5)
