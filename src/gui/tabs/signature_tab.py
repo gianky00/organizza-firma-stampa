@@ -69,9 +69,9 @@ class SignatureTab(ttk.Frame):
         ttk.Radiobutton(mode_frame, text="Preventivi (Basato su foglio 'Consuntivo')", variable=self.app_config.firma_processing_mode, value="preventivi").pack(anchor=tk.W, padx=5, pady=2)
 
         # --- Actions Frame Content ---
-        self.run_button = ttk.Button(actions_frame, text="▶  AVVIA PROCESSO FIRMA COMPLETO", style='primary.TButton', command=self.start_signature_process)
+        self.run_button = ttk.Button(self.actions_frame, text="▶  AVVIA PROCESSO FIRMA COMPLETO", style='primary.TButton', command=self.start_signature_process)
         self.run_button.pack(fill=tk.X, ipady=8, pady=5)
-        self.cancel_button = ttk.Button(actions_frame, text="Annulla Processo", command=self.cancel_process)
+        self.cancel_button = ttk.Button(self.actions_frame, text="Annulla Processo", command=self.cancel_process)
         # self.cancel_button is packed/unpacked dynamically
 
         # --- Email Frame Content ---
