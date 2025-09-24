@@ -28,85 +28,100 @@ class SignatureTab(ttk.Frame):
         )
 
     def _create_widgets(self):
-        main_frame = ttk.Frame(self, padding="15")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        self.columnconfigure(0, weight=1)
 
-        desc_text = "Questa sezione automatizza il processo di firma dei documenti. Prende i file Excel dalla cartella 'FILE EXCEL DA FIRMARE', applica la firma 'TIMBRO.png' in base al tipo di documento selezionato, li converte in PDF nella cartella 'PDF' e infine li comprime."
-        desc_label = ttk.Label(main_frame, text=desc_text, wraplength=850, justify=tk.LEFT, style='info.TLabel')
+        # --- Description ---
+        desc_text = "Automatizza il processo di firma: apre file Excel, applica una firma, li converte in PDF e li comprime."
+        desc_label = ttk.Label(self, text=desc_text, wraplength=800, justify=tk.LEFT, style='info.TLabel')
         desc_label.pack(fill=tk.X, pady=(0, 15), anchor='w')
 
-        paths_frame = ttk.LabelFrame(main_frame, text="1. Percorsi (Firma)", padding="15")
-        paths_frame.pack(fill=tk.X, pady=(0, 10))
+        # --- Frame Setup ---
+        paths_frame = ttk.LabelFrame(self, text="1. Percorsi e Impostazioni", padding=15)
+        paths_frame.pack(fill=tk.X, pady=5)
         paths_frame.columnconfigure(1, weight=1)
+
+        mode_frame = ttk.LabelFrame(self, text="2. Tipo di Documento", padding=15)
+        mode_frame.pack(fill=tk.X, pady=5)
+
+        actions_frame = ttk.LabelFrame(self, text="3. Azioni", padding=15)
+        actions_frame.pack(fill=tk.X, pady=5)
+        actions_frame.columnconfigure(0, weight=1)
+
+        self.email_frame = ttk.LabelFrame(self, text="4. Crea Bozza Email con PDF Firmati", padding=15)
+        self.email_frame.pack(fill=tk.X, pady=5)
+        self.email_frame.columnconfigure(1, weight=1)
+
+        # --- Paths Frame Content ---
         create_path_entry(paths_frame, "Cartella Excel:", self.app_config.firma_excel_dir, 0, readonly=True)
+        pdf_frame = ttk.Frame(paths_frame)
+        pdf_frame.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=5)
+        pdf_entry = ttk.Entry(pdf_frame, textvariable=self.app_config.firma_pdf_dir, state='readonly')
+        pdf_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        open_button = ttk.Button(pdf_frame, text="Apri", command=lambda: open_folder_in_explorer(self.app_config.firma_pdf_dir.get()))
+        open_button.pack(side=tk.LEFT, padx=(5,0))
         ttk.Label(paths_frame, text="Cartella PDF di Output:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        pdf_entry = ttk.Entry(paths_frame, textvariable=self.app_config.firma_pdf_dir, state='readonly')
-        pdf_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=5)
-        open_button = ttk.Button(paths_frame, text="Apri Cartella", command=lambda: open_folder_in_explorer(self.app_config.firma_pdf_dir.get()))
-        open_button.grid(row=1, column=2, sticky=tk.E, padx=(5, 0), pady=5)
         create_path_entry(paths_frame, "Immagine Firma:", self.app_config.firma_image_path, 2, readonly=True)
         create_path_entry(paths_frame, "Ghostscript:", self.app_config.firma_ghostscript_path, 3, readonly=False,
                           browse_command=lambda: select_file_dialog(self.app_config.firma_ghostscript_path, "Seleziona eseguibile Ghostscript", [("Executable", "*.exe")]))
 
-        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
+        # --- Mode Frame Content ---
+        ttk.Radiobutton(mode_frame, text="Schede (Controllo, Manutenzione, etc.)", variable=self.app_config.firma_processing_mode, value="schede").pack(anchor=tk.W, padx=5, pady=2)
+        ttk.Radiobutton(mode_frame, text="Preventivi (Basato su foglio 'Consuntivo')", variable=self.app_config.firma_processing_mode, value="preventivi").pack(anchor=tk.W, padx=5, pady=2)
 
-        mode_frame = ttk.LabelFrame(main_frame, text="2. Tipo di Documento da Firmare", padding="15")
-        mode_frame.pack(fill=tk.X, pady=10)
-        ttk.Radiobutton(mode_frame, text="Schede (Controllo, Manutenzione, etc.)", variable=self.app_config.firma_processing_mode, value="schede").pack(anchor=tk.W, padx=5, pady=5)
-        ttk.Radiobutton(mode_frame, text="Preventivi (Basato su foglio 'Consuntivo')", variable=self.app_config.firma_processing_mode, value="preventivi").pack(anchor=tk.W, padx=5, pady=5)
-
-        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
-
-        actions_frame = ttk.LabelFrame(main_frame, text="3. Azioni Firma", padding="15")
-        actions_frame.pack(fill=tk.X, pady=10)
+        # --- Actions Frame Content ---
         self.run_button = ttk.Button(actions_frame, text="▶  AVVIA PROCESSO FIRMA COMPLETO", style='primary.TButton', command=self.start_signature_process)
         self.run_button.pack(fill=tk.X, ipady=8, pady=5)
         self.cancel_button = ttk.Button(actions_frame, text="Annulla Processo", command=self.cancel_process)
-        self.cancel_button.pack(fill=tk.X, ipady=8, pady=5)
+        # self.cancel_button is packed/unpacked dynamically
 
-        self.email_frame = ttk.LabelFrame(main_frame, text="4. Crea Bozza Email con PDF Firmati", padding="15")
-        self.email_frame.pack(fill=tk.X, pady=10)
-        self.email_frame.columnconfigure(1, weight=1)
-        settings_row_frame = ttk.Frame(self.email_frame)
-        settings_row_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 10))
-        ttk.Label(settings_row_frame, text="Template TCL:").pack(side=tk.LEFT, padx=(5, 5))
+        # --- Email Frame Content ---
+        email_settings_frame = ttk.Frame(self.email_frame)
+        email_settings_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 10))
+
+        ttk.Label(email_settings_frame, text="Template TCL:").pack(side=tk.LEFT, padx=(0, 5))
         tcl_options = [""] + list(self.app_config.TCL_CONTACTS.keys())
-        self.tcl_combo = ttk.Combobox(settings_row_frame, textvariable=self.app_config.email_tcl, values=tcl_options, state="readonly", width=25)
-        self.tcl_combo.pack(side=tk.LEFT, padx=(0, 15))
-        self.style_check = ttk.Checkbutton(settings_row_frame, text="Usa stile Formale", variable=self.app_config.email_is_formal, onvalue=True, offvalue=False)
-        self.style_check.pack(side=tk.LEFT, padx=(0, 15))
-        ttk.Label(settings_row_frame, text="Limite MB/Email:").pack(side=tk.LEFT, padx=(5, 5))
-        self.size_limit_entry = ttk.Entry(settings_row_frame, textvariable=self.app_config.email_size_limit, width=5)
+        self.tcl_combo = ttk.Combobox(email_settings_frame, textvariable=self.app_config.email_tcl, values=tcl_options, state="readonly", width=20)
+        self.tcl_combo.pack(side=tk.LEFT, padx=(0, 10))
+
+        self.style_check = ttk.Checkbutton(email_settings_frame, text="Usa stile Formale", variable=self.app_config.email_is_formal, onvalue=True, offvalue=False)
+        self.style_check.pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Label(email_settings_frame, text="Limite MB/Email:").pack(side=tk.LEFT, padx=(0, 5))
+        self.size_limit_entry = ttk.Entry(email_settings_frame, textvariable=self.app_config.email_size_limit, width=5)
         self.size_limit_entry.pack(side=tk.LEFT)
-        ttk.Label(self.email_frame, text="Destinatario(i):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
-        self.email_to_entry = ttk.Entry(self.email_frame, textvariable=self.app_config.email_to)
-        self.email_to_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=2)
-        ttk.Label(self.email_frame, text="Oggetto:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
-        self.email_subject_entry = ttk.Entry(self.email_frame, textvariable=self.app_config.email_subject)
-        self.email_subject_entry.grid(row=2, column=1, sticky=tk.EW, padx=5, pady=2)
+
+        create_path_entry(self.email_frame, "Destinatario(i):", self.app_config.email_to, 1, readonly=False)
+        create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, 2, readonly=False)
+
         ttk.Label(self.email_frame, text="Corpo del Messaggio:").grid(row=3, column=0, sticky=tk.NW, padx=5, pady=5)
-        self.email_body_text = tk.Text(self.email_frame, height=8, font=("Segoe UI", 9))
+        self.email_body_text = tk.Text(self.email_frame, height=8, font=("Segoe UI", 9), relief=tk.SOLID, borderwidth=1)
         self.email_body_text.grid(row=3, column=1, sticky=tk.EW, padx=5, pady=2)
+
         action_preview_frame = ttk.Frame(self.email_frame)
         action_preview_frame.grid(row=4, column=1, sticky=tk.EW, pady=(10, 0))
         self.prepare_button = ttk.Button(action_preview_frame, text="Prepara Bozze", command=self.prepare_email_drafts)
         self.prepare_button.pack(side=tk.LEFT)
+
         self.preview_frame = ttk.Frame(action_preview_frame)
+        # self.preview_frame is packed/unpacked dynamically
         self.prev_button = ttk.Button(self.preview_frame, text="<", command=self.show_prev_draft, width=3)
         self.prev_button.pack(side=tk.LEFT, padx=(10, 0))
         self.preview_label = ttk.Label(self.preview_frame, text="Anteprima 0/0", width=15, anchor='center')
         self.preview_label.pack(side=tk.LEFT)
         self.next_button = ttk.Button(self.preview_frame, text=">", command=self.show_next_draft, width=3)
         self.next_button.pack(side=tk.LEFT)
+
         self.email_button = ttk.Button(action_preview_frame, text="Crea Bozze in Outlook", command=self.start_email_creation_process)
         self.email_button.pack(side=tk.RIGHT)
-        self.progress_frame = ttk.Frame(main_frame)
+
+        # --- Progress Bar ---
+        self.progress_frame = ttk.Frame(self)
         self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
-        self.progress_label.pack(side=tk.LEFT, padx=(5, 5))
+        self.progress_label.pack(side=tk.LEFT, padx=(0, 5))
         self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='determinate')
-        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.percent_label = ttk.Label(self.progress_frame, text="0%", width=5)
-        self.percent_label.pack(side=tk.LEFT)
+        self.percent_label.pack(side=tk.LEFT, padx=(5, 0))
 
         self.tcl_combo.bind("<<ComboboxSelected>>", self._update_email_preview)
         self.style_check.config(command=self._update_email_preview)

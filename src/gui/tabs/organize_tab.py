@@ -19,55 +19,66 @@ class OrganizeTab(ttk.Frame):
         self.after(100, self.populate_stampa_list)
 
     def _create_widgets(self):
-        main_frame = ttk.Frame(self, padding="15")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        self.columnconfigure(0, weight=1)
 
-        desc_label = ttk.Label(main_frame, text="Questa sezione analizza i file Excel dalla 'Cartella di origine', legge un codice ODC e li copia in sottocartelle. Poi permette di selezionare le cartelle per la stampa di gruppo.", wraplength=850, justify=tk.LEFT, style='info.TLabel')
+        # --- Description ---
+        desc_label = ttk.Label(self, text="Analizza i file Excel da una cartella, li organizza in sottocartelle per ODC, e poi permette la stampa di gruppo.", wraplength=800, justify=tk.LEFT, style='info.TLabel')
         desc_label.pack(fill=tk.X, pady=(0, 15), anchor='w')
 
-        self.org_frame = ttk.LabelFrame(main_frame, text="1. Elabora e Organizza per ODC", padding="15")
-        self.org_frame.pack(fill=tk.X, pady=(0, 10))
+        # --- Organization Frame ---
+        self.org_frame = ttk.LabelFrame(self, text="1. Organizza File per ODC", padding=15)
+        self.org_frame.pack(fill=tk.X, pady=5)
+        self.org_frame.columnconfigure(1, weight=1)
         create_path_entry(self.org_frame, "Cartella di Origine:", self.app_config.organizza_source_dir, 0, readonly=False, browse_command=lambda: select_folder_dialog(self.app_config.organizza_source_dir, "Seleziona cartella schede da organizzare"))
-
         self.organize_button = ttk.Button(self.org_frame, text="🚀 Avvia Organizzazione", style='primary.TButton', command=self.start_organization_process)
-        self.organize_button.grid(row=1, column=0, columnspan=3, sticky="we", pady=(10, 5))
-
-        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
-
-        self.print_frame = ttk.LabelFrame(main_frame, text="2. Stampa Schede Organizzate", padding="15")
-        self.print_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
-
-        self.print_controls_frame = ttk.Frame(self.print_frame)
-        self.print_controls_frame.pack(fill=tk.X, pady=(0, 10))
-        self.print_button = ttk.Button(self.print_controls_frame, text="🖨️ Stampa Selezionate", command=self.start_printing_process)
-        self.print_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        self.refresh_button = ttk.Button(self.print_controls_frame, text="🔄 Aggiorna Lista", command=self.populate_stampa_list)
-        self.refresh_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
-        self.open_folder_button = ttk.Button(self.print_controls_frame, text="📂 Apri Cartella", command=lambda: open_folder_in_explorer(self.app_config.organizza_dest_dir.get()))
-        self.open_folder_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
-
+        self.organize_button.grid(row=1, column=0, columnspan=2, sticky="we", pady=(10, 0))
         self.cancel_org_button = ttk.Button(self.org_frame, text="Annulla Organizzazione", command=self.cancel_process)
-        self.cancel_print_button = ttk.Button(self.print_controls_frame, text="Annulla Stampa", command=self.cancel_process)
+        # self.cancel_org_button is managed dynamically by toggle_buttons
 
-        list_container = ttk.Frame(self.print_frame)
-        list_container.pack(fill=tk.BOTH, expand=False)
-        canvas = tk.Canvas(list_container, borderwidth=0, highlightthickness=0, height=300)
-        self.stampa_checkbox_frame = ttk.Frame(canvas)
+        # --- Printing Frame ---
+        self.print_frame = ttk.LabelFrame(self, text="2. Stampa Schede Organizzate", padding=15)
+        self.print_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        self.print_frame.rowconfigure(1, weight=1)
+        self.print_frame.columnconfigure(0, weight=1)
+
+        # --- Print Controls ---
+        self.print_controls_frame = ttk.Frame(self.print_frame)
+        self.print_controls_frame.grid(row=0, column=0, sticky='ew', pady=(0, 10))
+        self.print_button = ttk.Button(self.print_controls_frame, text="🖨️ Stampa Selezionate", style='primary.TButton', command=self.start_printing_process)
+        self.print_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5))
+        self.refresh_button = ttk.Button(self.print_controls_frame, text="🔄 Aggiorna", command=self.populate_stampa_list)
+        self.refresh_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        self.open_folder_button = ttk.Button(self.print_controls_frame, text="📂 Apri Cartella", command=lambda: open_folder_in_explorer(self.app_config.organizza_dest_dir.get()))
+        self.open_folder_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
+        self.cancel_print_button = ttk.Button(self.print_controls_frame, text="Annulla Stampa", command=self.cancel_process)
+        # self.cancel_print_button is managed dynamically
+
+        # --- Checkbox List ---
+        list_container = ttk.Frame(self.print_frame, borderwidth=1, relief="solid")
+        list_container.grid(row=1, column=0, sticky='nsew')
+        list_container.rowconfigure(0, weight=1)
+        list_container.columnconfigure(0, weight=1)
+
+        canvas = tk.Canvas(list_container, borderwidth=0, highlightthickness=0)
         scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=canvas.yview)
+        self.stampa_checkbox_frame = ttk.Frame(canvas)
         canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
+
+        canvas.grid(row=0, column=0, sticky='nsew')
+        scrollbar.grid(row=0, column=1, sticky='ns')
+
         self.canvas_window = canvas.create_window((0, 0), window=self.stampa_checkbox_frame, anchor="nw")
         self.stampa_checkbox_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.bind('<Configure>', lambda e: canvas.itemconfig(self.canvas_window, width=e.width))
 
-        self.progress_frame = ttk.Frame(main_frame)
+        # --- Progress Bar ---
+        self.progress_frame = ttk.Frame(self)
         self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
-        self.progress_label.pack(side=tk.LEFT, padx=(5, 5))
+        self.progress_label.pack(side=tk.LEFT, padx=(0, 5))
         self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='determinate')
-        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.percent_label = ttk.Label(self.progress_frame, text="0%", width=5)
-        self.percent_label.pack(side=tk.LEFT)
+        self.percent_label.pack(side=tk.LEFT, padx=(5, 0))
 
         self.on_process_finished()
 

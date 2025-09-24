@@ -3,13 +3,14 @@ import re
 import shutil
 import traceback
 import time
+from src.utils import constants as const
 from src.utils.excel_handler import ExcelHandler
 from src.utils.file_utils import clear_folder_content
 
 class OrganizationProcessor:
-    def __init__(self, gui, config, fees_processor, setup_progress_cb, update_progress_cb, hide_progress_cb):
+    def __init__(self, gui, app_config, fees_processor, setup_progress_cb, update_progress_cb, hide_progress_cb):
         self.gui = gui
-        self.config = config
+        self.app_config = app_config
         self.fees_processor = fees_processor
         self.logger = gui.log_organizza
         self.setup_progress = setup_progress_cb
@@ -24,7 +25,7 @@ class OrganizationProcessor:
 
     def run_organization_process(self, cancel_event):
         self.logger("Avvio del processo di organizzazione...", "HEADER")
-        dest_dir = self.config.organizza_dest_dir.get()
+        dest_dir = self.app_config.organizza_dest_dir.get()
         backup_dir = ""
         operation_successful = False
         try:
@@ -39,7 +40,7 @@ class OrganizationProcessor:
                 self.logger("L'operazione di organizzazione è stata interrotta per prevenire la perdita di dati.", "ERROR")
                 return # Abort the entire operation if backup fails
 
-            clear_folder_content(dest_dir, self.logger, folder_display_name=self.config.ORGANIZZA_DEST_DIR)
+            clear_folder_content(dest_dir, self.logger, folder_display_name=const.ORGANIZZA_DEST_DIR)
             os.makedirs(dest_dir, exist_ok=True)
             if cancel_event.is_set(): return
 
@@ -84,7 +85,7 @@ class OrganizationProcessor:
             self.gui.after(0, self.gui.on_process_finished)
 
     def _organize_files(self, cancel_event):
-        source_dir = self.config.organizza_source_dir.get(); dest_dir = self.config.organizza_dest_dir.get()
+        source_dir = self.app_config.organizza_source_dir.get(); dest_dir = self.app_config.organizza_dest_dir.get()
         if not os.path.isdir(source_dir): self.logger(f"ERRORE: Cartella di origine non trovata.", "ERROR"); return
         try:
             excel_files = [os.path.join(r, f) for r, _, fs in os.walk(source_dir) for f in fs if f.lower().endswith(('.xls', '.xlsx', '.xlsm', '.xlsb')) and not f.startswith('~')]

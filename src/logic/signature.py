@@ -2,14 +2,15 @@ import os
 import re
 import subprocess
 import traceback
+from src.utils import constants as const
 from src.utils.excel_handler import ExcelHandler
 from src.utils.file_utils import clear_folder_content
 
 
 class SignatureProcessor:
-    def __init__(self, gui, config, setup_progress_cb, update_progress_cb, hide_progress_cb):
+    def __init__(self, gui, app_config, setup_progress_cb, update_progress_cb, hide_progress_cb):
         self.gui = gui
-        self.config = config
+        self.app_config = app_config
         self.logger = gui.log_firma
         self.setup_progress = setup_progress_cb
         self.update_progress = update_progress_cb
@@ -25,15 +26,15 @@ class SignatureProcessor:
         self.logger("Avvio del processo di firma...", 'HEADER')
         try:
             clear_folder_content(
-                self.config.firma_pdf_dir.get(),
+                self.app_config.firma_pdf_dir.get(),
                 self.logger,
-                folder_display_name=self.config.FIRMA_PDF_OUTPUT_DIR
+                folder_display_name=const.FIRMA_PDF_OUTPUT_DIR
             )
             if not self._validate_paths():
                 self.logger("Processo interrotto a causa di percorsi non validi.", 'ERROR')
                 return
 
-            excel_path = self.config.firma_excel_dir.get()
+            excel_path = self.app_config.firma_excel_dir.get()
             excel_files = [f for f in os.listdir(excel_path) if f.lower().endswith(('.xlsx', '.xls', '.xlsm')) and not f.startswith('~')]
             total_steps = len(excel_files) * 2
             self.gui.after(0, self.setup_progress, total_steps)
@@ -64,8 +65,8 @@ class SignatureProcessor:
 
     def _validate_paths(self):
         paths_to_check = {
-            "Immagine Firma": self.config.firma_image_path.get(),
-            "Eseguibile Ghostscript": self.config.firma_ghostscript_path.get()
+            "Immagine Firma": self.app_config.firma_image_path.get(),
+            "Eseguibile Ghostscript": self.app_config.firma_ghostscript_path.get()
         }
         for name, path in paths_to_check.items():
             if not path or not os.path.isfile(path):
@@ -74,15 +75,15 @@ class SignatureProcessor:
         return True
 
     def _process_excel_files(self, excel_files, cancel_event):
-        excel_path = self.config.firma_excel_dir.get()
+        excel_path = self.app_config.firma_excel_dir.get()
         if not excel_files:
-            self.logger(f"Nessun file Excel da elaborare in: {self.config.FIRMA_EXCEL_INPUT_DIR}", 'WARNING')
+            self.logger(f"Nessun file Excel da elaborare in: {const.FIRMA_EXCEL_INPUT_DIR}", 'WARNING')
             return True
         self.logger(f"Inizio elaborazione di {len(excel_files)} file Excel...")
         errors = []
         with ExcelHandler(self.logger) as excel:
             if not excel: return False
-            mode = self.config.firma_processing_mode.get()
+            mode = self.app_config.firma_processing_mode.get()
             for i, file_name in enumerate(excel_files):
                 if cancel_event.is_set(): return False
                 self.gui.after(0, self.update_progress, i + 1)
@@ -120,8 +121,8 @@ class SignatureProcessor:
                 points_per_cm = 28.35; offset_1cm = 1.0 * points_per_cm; offset_03cm = 0.3 * points_per_cm
                 top_pos = max(0, target_cell.Top - (offset_03cm if cleaned_model == "SCHEDAMANUTENZIONE" else offset_1cm))
                 left_pos = max(0, target_cell.Left - offset_1cm)
-                ws.Shapes.AddPicture(self.config.firma_image_path.get(), True, True, left_pos, top_pos, img_width, img_height)
-                pdf_file_path = os.path.join(self.config.firma_pdf_dir.get(), f"{os.path.splitext(file_name)[0]}.pdf")
+                ws.Shapes.AddPicture(self.app_config.firma_image_path.get(), True, True, left_pos, top_pos, img_width, img_height)
+                pdf_file_path = os.path.join(self.app_config.firma_pdf_dir.get(), f"{os.path.splitext(file_name)[0]}.pdf")
                 workbook.ActiveSheet.ExportAsFixedFormat(0, pdf_file_path)
                 self.logger("Firma applicata e PDF esportato.", 'SUCCESS')
             else: self.logger(f"Modello non gestito: '{cleaned_model}'. File ignorato.", 'WARNING')
@@ -132,18 +133,18 @@ class SignatureProcessor:
             ws = next((s for s in workbook.Worksheets if s.Name == "Consuntivo"), None)
             if ws is None: self.logger("Foglio 'Consuntivo' non trovato.", 'WARNING'); return
             ws.Activate(); ws.PageSetup.PrintArea = "A3:L63"; target_cell = ws.Cells(59, 3); top_position = target_cell.Top + 10
-            ws.Shapes.AddPicture(self.config.firma_image_path.get(), True, True, target_cell.Left, top_position, 150, 50)
-            pdf_file_path = os.path.join(self.config.firma_pdf_dir.get(), f"{os.path.splitext(file_name)[0]}.pdf")
+            ws.Shapes.AddPicture(self.app_config.firma_image_path.get(), True, True, target_cell.Left, top_position, 150, 50)
+            pdf_file_path = os.path.join(self.app_config.firma_pdf_dir.get(), f"{os.path.splitext(file_name)[0]}.pdf")
             ws.ExportAsFixedFormat(0, pdf_file_path)
             self.logger("Firma applicata e PDF esportato.", 'SUCCESS')
         except Exception as e: self.logger(f"ERRORE in _apply_signature_preventivi: {e}", 'ERROR')
 
     def _compress_pdfs(self, cancel_event, progress_offset=0):
-        pdf_path = self.config.firma_pdf_dir.get()
+        pdf_path = self.app_config.firma_pdf_dir.get()
         pdf_files = [f for f in os.listdir(pdf_path) if f.lower().endswith('.pdf')]
         if not pdf_files: self.logger("Nessun PDF da comprimere.", 'WARNING'); return
         self.logger(f"Trovati {len(pdf_files)} PDF da comprimere.")
-        gs_exe = self.config.firma_ghostscript_path.get()
+        gs_exe = self.app_config.firma_ghostscript_path.get()
         for i, pdf_file in enumerate(pdf_files):
             if cancel_event.is_set(): return
             self.gui.after(0, self.update_progress, progress_offset + i + 1)

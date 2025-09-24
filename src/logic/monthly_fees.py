@@ -3,13 +3,14 @@ import re
 import win32print
 import traceback
 from datetime import datetime
+from src.utils import constants as const
 from src.utils.excel_handler import ExcelHandler
 from src.utils.word_handler import WordHandler
 
 class MonthlyFeesProcessor:
-    def __init__(self, gui, config):
+    def __init__(self, gui, app_config):
         self.gui = gui
-        self.config = config
+        self.app_config = app_config
         self.logger = gui.log_canoni
 
     def get_printers(self):
@@ -23,16 +24,16 @@ class MonthlyFeesProcessor:
 
     def get_giornaliera_path(self, year, month_name):
         if not year or not month_name: return "Seleziona Anno e Mese"
-        month_number = self.config.mesi_giornaliera_map.get(month_name)
+        month_number = self.app_config.mesi_giornaliera_map.get(month_name)
         if not month_number: return "Mese non valido"
         year_folder_name = f"Giornaliere {year}"
         file_name = f"Giornaliera {month_number}-{year}.xlsm"
-        return os.path.join(self.config.CANONI_GIORNALIERA_BASE_DIR, year_folder_name, file_name)
+        return os.path.join(const.CANONI_GIORNALIERA_BASE_DIR, year_folder_name, file_name)
 
     def get_consuntivo_path(self, year, consuntivo_num):
         if not year: return "Anno non selezionato"
         if not consuntivo_num.strip().isdigit(): return "Inserire un numero valido"
-        cons_dir = os.path.join(self.config.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
+        cons_dir = os.path.join(const.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
         if not os.path.isdir(cons_dir): return f"ERRORE: Cartella non trovata"
         try:
             for filename in os.listdir(cons_dir):
@@ -45,7 +46,7 @@ class MonthlyFeesProcessor:
 
     def find_consuntivo_for_tcl(self, year, month_name, tcl_name, cancel_event):
         if not year or not month_name: return None, "Periodo non selezionato"
-        cons_dir = os.path.join(self.config.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
+        cons_dir = os.path.join(const.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
         if not os.path.isdir(cons_dir): return None, f"Cartella non trovata: {cons_dir}"
         try:
             files_in_dir = os.listdir(cons_dir)
