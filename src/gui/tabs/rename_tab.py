@@ -22,38 +22,42 @@ class RenameTab(ttk.Frame):
         )
 
     def _create_widgets(self):
-        main_frame = ttk.Frame(self, padding="15")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        self.columnconfigure(0, weight=1)
 
-        desc_text = "Questa funzione analizza tutti i file Excel in una cartella, cerca la data di emissione al loro interno e rinomina i file aggiungendo la data nel formato (GG-MM-AAAA). Se un file è protetto da password, proverà ad usare la password 'coemi'."
-        desc_label = ttk.Label(main_frame, text=desc_text, wraplength=850, justify=tk.LEFT, style='info.TLabel')
+        # --- Description ---
+        desc_text = "Analizza i file Excel in una cartella, trova la data di emissione e li rinomina nel formato NOME (GG-MM-AAAA). Prova ad usare una password per i file protetti."
+        desc_label = ttk.Label(self, text=desc_text, wraplength=800, justify=tk.LEFT, style='info.TLabel')
         desc_label.pack(fill=tk.X, pady=(0, 15), anchor='w')
 
-        paths_frame = ttk.LabelFrame(main_frame, text="1. Impostazioni di Ridenominazione", padding="15")
-        paths_frame.pack(fill=tk.X, pady=(0, 10))
-        create_path_entry(paths_frame, "Cartella Schede da Rinominare:", self.app_config.rinomina_path, 0, readonly=False,
+        # --- Settings Frame ---
+        settings_frame = ttk.LabelFrame(self, text="1. Impostazioni", padding=15)
+        settings_frame.pack(fill=tk.X, pady=5)
+        settings_frame.columnconfigure(1, weight=1)
+
+        create_path_entry(settings_frame, "Cartella da Analizzare:", self.app_config.rinomina_path, 0, readonly=False,
                           browse_command=lambda: select_folder_dialog(self.app_config.rinomina_path, "Seleziona cartella con le schede da rinominare"))
-        create_path_entry(paths_frame, "Password per file protetti:", self.app_config.rinomina_password, 1, readonly=False)
+        create_path_entry(settings_frame, "Password (opzionale):", self.app_config.rinomina_password, 1, readonly=False)
 
-        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
+        # --- Actions Frame ---
+        actions_frame = ttk.LabelFrame(self, text="2. Azioni", padding=15)
+        actions_frame.pack(fill=tk.X, pady=5)
+        actions_frame.columnconfigure(0, weight=1)
 
-        actions_frame = ttk.LabelFrame(main_frame, text="2. Azioni", padding="15")
-        actions_frame.pack(fill=tk.X, pady=10)
-        self.run_button = ttk.Button(actions_frame, text="▶  AVVIA PROCESSO DI RINOMINA", style='primary.TButton', command=self.start_rename_process)
-        self.run_button.pack(fill=tk.X, ipady=8, pady=5)
+        self.run_button = ttk.Button(actions_frame, text="▶ AVVIA PROCESSO DI RINOMINA", style='primary.TButton', command=self.start_rename_process)
+        self.run_button.pack(fill=tk.X, ipady=8)
         self.cancel_button = ttk.Button(actions_frame, text="Annulla Processo", command=self.cancel_process)
-        self.cancel_button.pack(fill=tk.X, ipady=8, pady=5)
+        # self.cancel_button is packed dynamically
+
+        # --- Progress Bar ---
+        self.progress_frame = ttk.Frame(self)
+        self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
+        self.progress_label.pack(side=tk.LEFT, padx=(0, 5))
+        self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='determinate')
+        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.percent_label = ttk.Label(self.progress_frame, text="0%", width=5)
+        self.percent_label.pack(side=tk.LEFT, padx=(5, 0))
 
         self.on_process_finished()
-
-        self.progress_frame = ttk.Frame(main_frame)
-        self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
-        self.progress_label.pack(side=tk.LEFT, padx=(5, 5))
-        self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='determinate')
-        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        self.percent_label = ttk.Label(self.progress_frame, text="0%", width=5)
-        self.percent_label.pack(side=tk.LEFT)
-        self.progress_frame.pack_forget()
 
     def start_rename_process(self):
         self.cancel_event.clear()

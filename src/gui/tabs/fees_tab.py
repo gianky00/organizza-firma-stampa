@@ -19,17 +19,21 @@ class FeesTab(ttk.Frame):
         self.after(150, self._update_paths_from_ui)
 
     def _create_widgets(self):
-        main_frame = ttk.Frame(self, padding="15")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        desc_label = ttk.Label(main_frame, text="Questa sezione automatizza la stampa dei canoni mensili. Seleziona i file e il periodo, poi avvia il processo per eseguire macro VBA e stampare documenti Word in sequenza.", wraplength=850, justify=tk.LEFT, style='info.TLabel')
+        self.columnconfigure(0, weight=1)
+
+        # --- Description ---
+        desc_label = ttk.Label(self, text="Automatizza la stampa dei canoni mensili eseguendo macro VBA su file Excel e stampando documenti Word in sequenza.", wraplength=800, justify=tk.LEFT, style='info.TLabel')
         desc_label.pack(fill=tk.X, pady=(0, 15), anchor='w')
 
-        settings_frame = ttk.LabelFrame(main_frame, text="1. Impostazioni di Stampa", padding="15")
-        settings_frame.pack(fill=tk.X, pady=(0, 10))
+        # --- Settings Frame ---
+        settings_frame = ttk.LabelFrame(self, text="1. Impostazioni di Stampa", padding=15)
+        settings_frame.pack(fill=tk.X, pady=5)
         settings_frame.columnconfigure(1, weight=1)
 
-        period_frame = ttk.LabelFrame(settings_frame, text="Periodo", padding=10)
-        period_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, padx=5, pady=5)
+        # --- Periodo ---
+        period_frame = ttk.Frame(settings_frame)
+        period_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 10))
+        ttk.Label(period_frame, text="Periodo:", font=self.app_config.font_bold).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Label(period_frame, text="Anno:").pack(side=tk.LEFT, padx=(5,5))
         self.anno_combo = ttk.Combobox(period_frame, textvariable=self.app_config.canoni_selected_year, values=self.anni_giornaliera, state="readonly", width=10)
         self.anno_combo.pack(side=tk.LEFT, padx=(0,15))
@@ -37,34 +41,46 @@ class FeesTab(ttk.Frame):
         self.mese_combo = ttk.Combobox(period_frame, textvariable=self.app_config.canoni_selected_month, values=self.app_config.nomi_mesi_italiani, state="readonly", width=15)
         self.mese_combo.pack(side=tk.LEFT, padx=(0, 5))
 
+        # --- Numeri Consuntivo ---
         consuntivi_frame = ttk.LabelFrame(settings_frame, text="Numeri Consuntivo", padding=10)
-        consuntivi_frame.grid(row=1, column=0, columnspan=2, sticky=tk.EW, padx=5, pady=5)
+        consuntivi_frame.grid(row=1, column=0, columnspan=2, sticky=tk.EW, pady=5)
         consuntivi_frame.columnconfigure(1, weight=1)
         create_path_entry(consuntivi_frame, "N° Canone Messina:", self.app_config.canoni_messina_num, 0, readonly=False)
         create_path_entry(consuntivi_frame, "N° Canone Naselli:", self.app_config.canoni_naselli_num, 1, readonly=False)
         create_path_entry(consuntivi_frame, "N° Canone Caldarella:", self.app_config.canoni_caldarella_num, 2, readonly=False)
         self.find_numbers_button = ttk.Button(consuntivi_frame, text="Trova Numeri Automaticamente", command=self.find_numbers_and_populate)
-        self.find_numbers_button.grid(row=3, column=0, columnspan=3, sticky="we", pady=(10, 5))
+        self.find_numbers_button.grid(row=3, column=0, columnspan=2, sticky="we", pady=(10, 0))
 
-        create_path_entry(settings_frame, "File Giornaliera (Automatico):", self.app_config.canoni_giornaliera_path, 2, readonly=True)
+        # --- Altri Percorsi ---
+        paths_frame = ttk.LabelFrame(settings_frame, text="Percorsi File", padding=10)
+        paths_frame.grid(row=2, column=0, columnspan=2, sticky=tk.EW, pady=5)
+        paths_frame.columnconfigure(1, weight=1)
+        create_path_entry(paths_frame, "File Giornaliera (Auto):", self.app_config.canoni_giornaliera_path, 0, readonly=True)
         word_ft = [("File Word", "*.docx *.doc"), ("Tutti i file", "*.*")]
-        create_path_entry(settings_frame, "File Foglio Canone (Word):", self.app_config.canoni_word_path, 3, readonly=False, browse_command=lambda: select_file_dialog(self.app_config.canoni_word_path, "Seleziona Foglio Canone Word", word_ft))
-        ttk.Label(settings_frame, text="Stampante:").grid(row=4, column=0, sticky=tk.W, padx=5, pady=5)
-        self.printer_combo = ttk.Combobox(settings_frame, textvariable=self.app_config.selected_printer, state="readonly")
-        self.printer_combo.grid(row=4, column=1, sticky=tk.EW, padx=5, pady=5)
-        create_path_entry(settings_frame, "Nome Macro VBA:", self.app_config.canoni_macro_name, 5, readonly=True)
+        create_path_entry(paths_frame, "File Foglio Canone (Word):", self.app_config.canoni_word_path, 1, readonly=False, browse_command=lambda: select_file_dialog(self.app_config.canoni_word_path, "Seleziona Foglio Canone Word", word_ft))
 
-        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=15, padx=5)
-        self.actions_frame = ttk.LabelFrame(main_frame, text="2. Azione", padding="15")
-        self.actions_frame.pack(fill=tk.X, pady=10)
-        self.run_button = ttk.Button(self.actions_frame, text="▶  AVVIA PROCESSO STAMPA CANONI", style='primary.TButton', command=self.start_printing_process)
-        self.run_button.pack(fill=tk.X, ipady=8, pady=5)
+        # --- Stampante e Macro ---
+        printer_macro_frame = ttk.LabelFrame(settings_frame, text="Dispositivo e Macro", padding=10)
+        printer_macro_frame.grid(row=3, column=0, columnspan=2, sticky=tk.EW, pady=5)
+        printer_macro_frame.columnconfigure(1, weight=1)
+        ttk.Label(printer_macro_frame, text="Stampante:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.printer_combo = ttk.Combobox(printer_macro_frame, textvariable=self.app_config.selected_printer, state="readonly")
+        self.printer_combo.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
+        create_path_entry(printer_macro_frame, "Nome Macro VBA:", self.app_config.canoni_macro_name, 1, readonly=True)
+
+        # --- Azioni ---
+        self.actions_frame = ttk.LabelFrame(self, text="2. Azione", padding=15)
+        self.actions_frame.pack(fill=tk.X, pady=5)
+        self.actions_frame.columnconfigure(0, weight=1)
+        self.run_button = ttk.Button(self.actions_frame, text="▶ AVVIA PROCESSO STAMPA CANONI", style='primary.TButton', command=self.start_printing_process)
+        self.run_button.pack(fill=tk.X, ipady=8)
         self.cancel_button = ttk.Button(self.actions_frame, text="Annulla Processo", command=self.cancel_process)
-        self.cancel_button.pack(fill=tk.X, ipady=8, pady=5)
+        # self.cancel_button is packed dynamically
 
-        self.progress_frame = ttk.Frame(main_frame)
+        # --- Progress Bar ---
+        self.progress_frame = ttk.Frame(self)
         self.progress_label = ttk.Label(self.progress_frame, text="Elaborazione in corso...")
-        self.progress_label.pack(side=tk.LEFT, padx=(5, 5))
+        self.progress_label.pack(side=tk.LEFT, padx=(0, 5))
         self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='indeterminate')
         self.progressbar.pack(fill=tk.X, expand=True)
 

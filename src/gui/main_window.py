@@ -33,10 +33,6 @@ class MainApplication(tk.Tk):
         self._load_config_into_vars()
 
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
-        self.bind_all("<MouseWheel>", self._on_mousewheel)
-
-    def _on_mousewheel(self, event):
-        self.canvas.yview_scroll(int(-1 * (event.delta / 40)), "units")
 
     def center_window(self, width, height):
         screen_width = self.winfo_screenwidth()
@@ -48,16 +44,32 @@ class MainApplication(tk.Tk):
     def _setup_style(self):
         self.font_main = ("Segoe UI", 10)
         self.font_bold = ("Segoe UI", 11, "bold")
+        self.background_color = "#f0f0f0"
+
         style = ttk.Style(self)
-        style.theme_use('vista')
-        style.configure('.', font=self.font_main)
-        style.configure('TLabel', font=self.font_main)
-        style.configure('TLabelframe.Label', font=self.font_bold)
-        style.configure('info.TLabel', foreground='#333333')
-        style.configure('TButton', padding=6, foreground='black')
-        style.configure('primary.TButton', background='#0078D4')
-        style.map('primary.TButton', background=[('active', '#005a9e')])
-        style.configure('danger.TButton')
+        style.theme_use('clam')
+
+        style.configure('.', font=self.font_main, background=self.background_color)
+        style.configure('TLabel', font=self.font_main, background=self.background_color)
+        style.configure('TLabelframe', background=self.background_color, bordercolor="#cccccc")
+        style.configure('TLabelframe.Label', font=self.font_bold, background=self.background_color)
+        style.configure('info.TLabel', foreground='#333333', background=self.background_color)
+
+        style.configure('TButton', padding=6, font=self.font_main)
+        style.map('TButton',
+                  background=[('active', '#e0e0e0')],
+                  foreground=[('disabled', '#a0a0a0')])
+
+        style.configure('primary.TButton', background='#0078D4', foreground='white', font=self.font_bold)
+        style.map('primary.TButton',
+                  background=[('active', '#005a9e'), ('disabled', '#a0a0a0')],
+                  foreground=[('disabled', '#ffffff')])
+
+        style.configure('TNotebook', background=self.background_color, borderwidth=0)
+        style.configure('TNotebook.Tab', padding=[12, 6], font=self.font_main)
+        style.map('TNotebook.Tab',
+                  background=[('selected', self.background_color), ('!selected', '#d0d0d0')],
+                  expand=[("selected", [0, 2, 0, 0])])
 
     def _initialize_stringvars(self):
         # ... (this method is unchanged)
@@ -125,66 +137,62 @@ class MainApplication(tk.Tk):
         self.email_size_limit.set(self.config_manager.get("email_size_limit"))
 
     def _create_widgets(self):
-        main_container = ttk.Frame(self)
+        self.configure(background=self.background_color)
+        main_container = ttk.Frame(self, padding="10")
         main_container.pack(fill=tk.BOTH, expand=True)
-        self.canvas = tk.Canvas(main_container)
-        scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=self.canvas.yview)
-        scrollable_frame = ttk.Frame(self.canvas)
-        scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas_window = self.canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=scrollbar.set)
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
-        self.canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-        scrollbar.pack(side="right", fill="y")
 
-        notebook = ttk.Notebook(scrollable_frame)
-        notebook.pack(expand=True, fill='both', padx=10, pady=10)
+        # --- Notebook for Tabs ---
+        notebook = ttk.Notebook(main_container)
+        notebook.pack(expand=True, fill='both')
 
-        firma_container = ttk.Frame(notebook)
-        rinomina_container = ttk.Frame(notebook)
-        organizza_container = ttk.Frame(notebook)
-        canoni_container = ttk.Frame(notebook)
+        # --- Create Tab Containers ---
+        self.firma_container = ttk.Frame(notebook, padding="15")
+        self.rinomina_container = ttk.Frame(notebook, padding="15")
+        self.organizza_container = ttk.Frame(notebook, padding="15")
+        self.canoni_container = ttk.Frame(notebook, padding="15")
 
-        notebook.add(firma_container, text=' Apponi Firma ')
-        notebook.add(rinomina_container, text=' Aggiungi Data Schede ')
-        notebook.add(organizza_container, text=' Organizza e Stampa Schede ')
-        notebook.add(canoni_container, text=' Stampa Canoni Mensili ')
+        self.firma_container.columnconfigure(0, weight=1)
+        self.rinomina_container.columnconfigure(0, weight=1)
+        self.organizza_container.columnconfigure(0, weight=1)
+        self.canoni_container.columnconfigure(0, weight=1)
 
-        log_frame_firma = ttk.LabelFrame(firma_container, text="Log Esecuzione (Firma)", padding="10")
-        log_frame_firma.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
-        log_widget_firma = create_log_widget(log_frame_firma)
+        notebook.add(self.firma_container, text=' Apponi Firma ')
+        notebook.add(self.rinomina_container, text=' Aggiungi Data Schede ')
+        notebook.add(self.organizza_container, text=' Organizza e Stampa Schede ')
+        notebook.add(self.canoni_container, text=' Stampa Canoni Mensili ')
 
-        log_frame_rinomina = ttk.LabelFrame(rinomina_container, text="Log Esecuzione (Aggiungi Data)", padding="10")
-        log_frame_rinomina.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
-        log_widget_rinomina = create_log_widget(log_frame_rinomina)
+        # --- Create Log Widgets ---
+        self.log_widget_firma = self._create_log_frame(self.firma_container, "Log Esecuzione (Firma)")
+        self.log_widget_rinomina = self._create_log_frame(self.rinomina_container, "Log Esecuzione (Aggiungi Data)")
+        self.log_widget_organizza = self._create_log_frame(self.organizza_container, "Log Esecuzione (Organizza/Stampa)")
+        self.log_widget_canoni = self._create_log_frame(self.canoni_container, "Log Esecuzione (Stampa Canoni)")
 
-        log_frame_organizza = ttk.LabelFrame(organizza_container, text="Log Esecuzione (Organizza/Stampa)", padding="10")
-        log_frame_organizza.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
-        log_widget_organizza = create_log_widget(log_frame_organizza)
+        # --- Dependency Injection and Tab Creation ---
+        self.signature_tab = SignatureTab(self.firma_container, self, lambda msg, level='INFO': log_message(self.log_widget_firma, msg, level))
+        self.signature_tab.pack(fill='both', expand=True)
+        self.log_widget_firma.master.pack_forget() # Hide log frame initially
+        self.log_widget_firma.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
-        log_frame_canoni = ttk.LabelFrame(canoni_container, text="Log Esecuzione (Stampa Canoni)", padding="10")
-        log_frame_canoni.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
-        log_widget_canoni = create_log_widget(log_frame_canoni)
+        self.rename_tab = RenameTab(self.rinomina_container, self, lambda msg, level='INFO': log_message(self.log_widget_rinomina, msg, level))
+        self.rename_tab.pack(fill='both', expand=True)
+        self.log_widget_rinomina.master.pack_forget()
+        self.log_widget_rinomina.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
-        # --- Create and Pack Tab Content with correct dependency injection ---
+        self.fees_tab = FeesTab(self.canoni_container, self, lambda msg, level='INFO': log_message(self.log_widget_canoni, msg, level))
+        self.fees_tab.pack(fill='both', expand=True)
+        self.log_widget_canoni.master.pack_forget()
+        self.log_widget_canoni.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
-        # 1. Create Signature and Rename tabs (no dependencies)
-        signature_tab = SignatureTab(firma_container, self, lambda msg, level='INFO': log_message(log_widget_firma, msg, level))
-        signature_tab.pack(fill='both', expand=True, before=log_frame_firma)
+        self.organize_tab = OrganizeTab(self.organizza_container, self, lambda msg, level='INFO': log_message(self.log_widget_organizza, msg, level), self.fees_tab.processor)
+        self.organize_tab.pack(fill='both', expand=True)
+        self.log_widget_organizza.master.pack_forget()
+        self.log_widget_organizza.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
-        rename_tab = RenameTab(rinomina_container, self, lambda msg, level='INFO': log_message(log_widget_rinomina, msg, level))
-        rename_tab.pack(fill='both', expand=True, before=log_frame_rinomina)
-
-        # 2. Create FeesTab, which creates its own processor
-        fees_tab = FeesTab(canoni_container, self, lambda msg, level='INFO': log_message(log_widget_canoni, msg, level))
-        fees_tab.pack(fill='both', expand=True, before=log_frame_canoni)
-
-        # 3. Get the processor from FeesTab and pass it to OrganizeTab
-        fees_processor = fees_tab.processor
-        organize_tab = OrganizeTab(organizza_container, self, lambda msg, level='INFO': log_message(log_widget_organizza, msg, level), fees_processor)
-        organize_tab.pack(fill='both', expand=True, before=log_frame_organizza)
-
-        # The containers are added to the notebook via notebook.add(), so no separate pack call is needed.
+    def _create_log_frame(self, parent, title):
+        log_frame = ttk.LabelFrame(parent, text=title, padding="10")
+        # The frame is packed by the caller
+        log_widget = create_log_widget(log_frame)
+        return log_widget
 
     def _on_closing(self):
         # ... (this method is unchanged)

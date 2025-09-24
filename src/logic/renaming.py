@@ -5,9 +5,9 @@ import traceback
 from src.utils.excel_handler import ExcelHandler
 
 class RenameProcessor:
-    def __init__(self, gui, config, setup_progress_cb, update_progress_cb, hide_progress_cb):
+    def __init__(self, gui, app_config, setup_progress_cb, update_progress_cb, hide_progress_cb):
         self.gui = gui
-        self.config = config
+        self.app_config = app_config
         self.logger = gui.log_rinomina
         self.setup_progress = setup_progress_cb
         self.update_progress = update_progress_cb
@@ -15,7 +15,7 @@ class RenameProcessor:
 
     def run_rename_process(self, cancel_event):
         self.logger("Avvio del processo di ridenominazione...", "HEADER")
-        root_path = self.config.rinomina_path.get()
+        root_path = self.app_config.rinomina_path.get()
         if not os.path.isdir(root_path):
             self.logger(f"ERRORE: La cartella specificata non è valida o non esiste: '{root_path}'", "ERROR")
             self.gui.after(0, self.gui.on_process_finished)
@@ -62,7 +62,7 @@ class RenameProcessor:
                 try:
                     try: wb = excel_app.Workbooks.Open(file_path, ReadOnly=True)
                     except Exception:
-                        password = self.config.rinomina_password.get()
+                        password = self.app_config.rinomina_password.get()
                         self.logger(f"  -> File protetto. Tentativo con password '{password}'...", "WARNING")
                         wb = excel_app.Workbooks.Open(file_path, ReadOnly=True, Password=password)
                     ws = wb.Worksheets(1)
