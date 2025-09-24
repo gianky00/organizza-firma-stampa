@@ -7,9 +7,10 @@ from src.utils.excel_handler import ExcelHandler
 from src.utils.file_utils import clear_folder_content
 
 class OrganizationProcessor:
-    def __init__(self, gui, config, setup_progress_cb, update_progress_cb, hide_progress_cb):
+    def __init__(self, gui, config, fees_processor, setup_progress_cb, update_progress_cb, hide_progress_cb):
         self.gui = gui
         self.config = config
+        self.fees_processor = fees_processor
         self.logger = gui.log_organizza
         self.setup_progress = setup_progress_cb
         self.update_progress = update_progress_cb
@@ -27,11 +28,16 @@ class OrganizationProcessor:
         backup_dir = ""
         operation_successful = False
         try:
-            if os.path.isdir(dest_dir) and os.listdir(dest_dir):
-                timestamp = time.strftime("%Y%m%d-%H%M%S")
-                backup_dir = f"{dest_dir}_backup_{timestamp}"
-                self.logger(f"Creazione backup: {os.path.basename(backup_dir)}", "INFO")
-                shutil.copytree(dest_dir, backup_dir)
+            try:
+                if os.path.isdir(dest_dir) and os.listdir(dest_dir):
+                    timestamp = time.strftime("%Y%m%d-%H%M%S")
+                    backup_dir = f"{dest_dir}_backup_{timestamp}"
+                    self.logger(f"Creazione backup: {os.path.basename(backup_dir)}", "INFO")
+                    shutil.copytree(dest_dir, backup_dir)
+            except Exception as e:
+                self.logger(f"ERRORE CRITICO durante la creazione del backup: {e}", "ERROR")
+                self.logger("L'operazione di organizzazione è stata interrotta per prevenire la perdita di dati.", "ERROR")
+                return # Abort the entire operation if backup fails
 
             clear_folder_content(dest_dir, self.logger, folder_display_name=self.config.ORGANIZZA_DEST_DIR)
             os.makedirs(dest_dir, exist_ok=True)
@@ -145,14 +151,12 @@ class OrganizationProcessor:
 
     def get_odc_to_canone_map(self, year, month):
         self.logger(f"Lettura del file Giornaliera per {month} {year}...", "INFO")
-        if not year or not month: giornaliera_path = ""
-        else:
-            month_number = self.config.mesi_giornaliera_map.get(month)
-            if not month_number: giornaliera_path = ""
-            else:
-                year_folder_name = f"Giornaliere {year}"; file_name = f"Giornaliera {month_number}-{year}.xlsm"
-                giornaliera_path = os.path.join(self.config.CANONI_GIORNALIERA_BASE_DIR, year_folder_name, file_name)
-        if not os.path.isfile(giornaliera_path): self.logger(f"File Giornaliera non trovato.", "WARNING"); return {}
+        giornaliera_path = self.fees_processor.get_giornaliera_path(year, month)
+
+        if not os.path.isfile(giornaliera_path):
+            self.logger(f"File Giornaliera non trovato: {giornaliera_path}", "WARNING")
+            return {}
+
         mapping = {}
         with ExcelHandler(self.logger) as excel:
             if not excel: return {}

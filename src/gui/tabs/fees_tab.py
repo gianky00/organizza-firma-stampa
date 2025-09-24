@@ -6,12 +6,14 @@ from src.logic.monthly_fees import MonthlyFeesProcessor
 from src.utils.ui_utils import create_path_entry, select_file_dialog
 
 class FeesTab(ttk.Frame):
-    def __init__(self, parent, app_config, logger):
+    def __init__(self, parent, app_config, logger, fees_processor):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
         self.cancel_event = threading.Event()
-        self.processor = MonthlyFeesProcessor(self, app_config)
+        self.processor = fees_processor
+        self.processor.gui = self # Set the GUI instance on the shared processor
+        self.processor.logger = self.log_canoni # Set the correct logger
         current_year = datetime.now().year
         self.anni_giornaliera = [str(y) for y in range(current_year - 5, current_year + 6)]
         self._create_widgets()
@@ -121,9 +123,12 @@ class FeesTab(ttk.Frame):
             month = self.app_config.canoni_selected_month.get()
             tcls_to_find = {"MESSINA": self.app_config.canoni_messina_num, "NASELLI": self.app_config.canoni_naselli_num, "CALDARELLA": self.app_config.canoni_caldarella_num}
             for tcl, var in tcls_to_find.items():
-                if cancel_event.is_set(): self.log_canoni("Ricerca annullata.", "WARNING"); break
+                if cancel_event.is_set():
+                    self.log_canoni("Ricerca annullata.", "WARNING")
+                    break
                 number, _ = self.processor.find_consuntivo_for_tcl(year, month, tcl, cancel_event)
-                if number: self.master.after(0, var.set, number)
+                if number:
+                    self.master.after(0, var.set, number)
         finally:
             self.master.after(0, self.on_process_finished)
 

@@ -12,6 +12,7 @@ from src.gui.tabs.signature_tab import SignatureTab
 from src.gui.tabs.rename_tab import RenameTab
 from src.gui.tabs.organize_tab import OrganizeTab
 from src.gui.tabs.fees_tab import FeesTab
+from src.logic.monthly_fees import MonthlyFeesProcessor
 
 class MainApplication(tk.Tk):
     """
@@ -131,12 +132,15 @@ class MainApplication(tk.Tk):
         today = datetime.now()
         prev_month_date = today - timedelta(days=20)
         prev_month_year_str = str(prev_month_date.year)
-        prev_month_name = const.NOMI_MESI_ITALIANI[prev_month_date.month - 1]
 
+        # For Fees Tab (e.g., "Agosto")
+        fees_tab_month_name = const.NOMI_MESI_ITALIANI[prev_month_date.month - 1]
         self.canoni_selected_year.set(prev_month_year_str)
-        self.canoni_selected_month.set(prev_month_name)
+        self.canoni_selected_month.set(fees_tab_month_name)
 
-        organize_default_path = os.path.join(const.ORGANIZZA_BASE_DIR, prev_month_year_str, prev_month_name)
+        # For Organize Tab (e.g., "08 - AGOSTO")
+        organize_folder_month_str = f"{prev_month_date.month:02d} - {fees_tab_month_name.upper()}"
+        organize_default_path = os.path.join(const.ORGANIZZA_BASE_DIR, prev_month_year_str, organize_folder_month_str)
         self.organizza_source_dir.set(organize_default_path)
         self.canoni_messina_num.set(self.config_manager.get("canoni_messina_num"))
         self.canoni_naselli_num.set(self.config_manager.get("canoni_naselli_num"))
@@ -211,17 +215,22 @@ class MainApplication(tk.Tk):
         log_widget_canoni = create_log_widget(log_frame_canoni)
 
         # --- Create and Pack Tab Content ---
-        # Pass the application config (self) and the specific logger to each tab
+        # Create a single instance of the fees processor to be shared
+        # This processor needs a logger, but the fees_tab itself provides it.
+        # We will create a temporary logger for the processor and then let the FeesTab set its own logger.
+        fees_processor = MonthlyFeesProcessor(gui=None, config=self) # Temp gui=None
+
         signature_tab = SignatureTab(firma_container, self, lambda msg, level='INFO': log_message(log_widget_firma, msg, level))
         signature_tab.pack(fill='both', expand=True, before=log_frame_firma)
 
         rename_tab = RenameTab(rinomina_container, self, lambda msg, level='INFO': log_message(log_widget_rinomina, msg, level))
         rename_tab.pack(fill='both', expand=True, before=log_frame_rinomina)
 
-        organize_tab = OrganizeTab(organizza_container, self, lambda msg, level='INFO': log_message(log_widget_organizza, msg, level))
+        # Pass the shared fees_processor to the organize and fees tabs
+        organize_tab = OrganizeTab(organizza_container, self, lambda msg, level='INFO': log_message(log_widget_organizza, msg, level), fees_processor)
         organize_tab.pack(fill='both', expand=True, before=log_frame_organizza)
 
-        fees_tab = FeesTab(canoni_container, self, lambda msg, level='INFO': log_message(log_widget_canoni, msg, level))
+        fees_tab = FeesTab(canoni_container, self, lambda msg, level='INFO': log_message(log_widget_canoni, msg, level), fees_processor)
         fees_tab.pack(fill='both', expand=True, before=log_frame_canoni)
 
     def _on_closing(self):
