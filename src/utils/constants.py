@@ -45,7 +45,16 @@ TCL_CONTACTS = {
     "Francesco Naselli": "fnaselli@isab.com",
     "Ferdinando Caldarella": "fcaldarella@isab.com",
     "Manuel Prezzavento": "mprezzavento@isab.com",
-    "Ivan Messina": "imessina@isab.com"
+    "Ivan Messina": "imessina@isab.com",
+    "Schede": "schede"
+}
+
+
+EMAIL_TCL_SCHEDE = {
+    'to': 'ASpicuglia@isab.com',
+    'cc': 'fnaselli@isab.com; fcaldarella@isab.com; mprezzavento@isab.com; imessina@isab.com; dpassanisi@isab.com; francesco.millo@coemi.it; concetto.siringo@coemi.it; ciro.scaravelli@coemi.it',
+    'subject': 'COEMI - Schede controlli strumentali dal {data_inizio} al {data_fine}.',
+    'body': 'Gentilissimi Signori,\nCon la presente sottopongo alla Vostra attenzione le schede dei controlli eseguiti dal {data_inizio} al {data_fine}.\n\n{file_list}\n\nSaluti,'
 }
 
 # Placeholders: {name} for the first name, {file_list} for the list of files.

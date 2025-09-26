@@ -4,6 +4,7 @@ import threading
 import os
 import math
 import re
+from datetime import datetime
 from src.logic.signature import SignatureProcessor
 from src.logic.email_handler import EmailHandler
 from src.utils.ui_utils import create_path_entry, select_file_dialog, open_folder_in_explorer
@@ -91,14 +92,15 @@ class SignatureTab(ttk.Frame):
         self.size_limit_entry.pack(side=tk.LEFT)
 
         create_path_entry(self.email_frame, "Destinatario(i):", self.app_config.email_to, 1, readonly=False)
-        create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, 2, readonly=False)
+        create_path_entry(self.email_frame, "CC:", self.app_config.email_cc, 2, readonly=False)
+        create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, 3, readonly=False)
 
-        ttk.Label(self.email_frame, text="Corpo del Messaggio:").grid(row=3, column=0, sticky=tk.NW, padx=5, pady=5)
+        ttk.Label(self.email_frame, text="Corpo del Messaggio:").grid(row=4, column=0, sticky=tk.NW, padx=5, pady=5)
         self.email_body_text = tk.Text(self.email_frame, height=8, font=("Segoe UI", 9), relief=tk.SOLID, borderwidth=1)
-        self.email_body_text.grid(row=3, column=1, sticky=tk.EW, padx=5, pady=2)
+        self.email_body_text.grid(row=4, column=1, sticky=tk.EW, padx=5, pady=2)
 
         action_preview_frame = ttk.Frame(self.email_frame)
-        action_preview_frame.grid(row=4, column=1, sticky=tk.EW, pady=(10, 0))
+        action_preview_frame.grid(row=5, column=1, sticky=tk.EW, pady=(10, 0))
         self.prepare_button = ttk.Button(action_preview_frame, text="Prepara Bozze", command=self.prepare_email_drafts)
         self.prepare_button.pack(side=tk.LEFT)
 
@@ -197,6 +199,7 @@ class SignatureTab(ttk.Frame):
         for i, chunk in enumerate(chunks):
             draft = {}
             draft['to'] = self.app_config.email_to.get()
+            draft['cc'] = self.app_config.email_cc.get()
             draft['subject'] = f"[{i+1}/{num_drafts}] {base_subject}" if num_drafts > 1 else base_subject
             draft['attachments'] = chunk
             draft['file_list'] = [os.path.splitext(os.path.basename(p))[0] for p in chunk]
@@ -276,11 +279,58 @@ class SignatureTab(ttk.Frame):
     def hide_progress(self):
         self.progress_frame.pack_forget()
 
+    def _get_date_range_from_filenames(self):
+        pdf_dir = self.app_config.firma_pdf_dir.get()
+        if not os.path.isdir(pdf_dir):
+            return None, None
+
+        date_pattern = re.compile(r'(\d{2}-\d{2}-\d{4})')
+        dates = []
+        for filename in os.listdir(pdf_dir):
+            if filename.lower().endswith('.pdf'):
+                match = date_pattern.search(filename)
+                if match:
+                    try:
+                        date_obj = datetime.strptime(match.group(1), '%d-%m-%Y')
+                        dates.append(date_obj)
+                    except ValueError:
+                        continue # Ignore invalid date formats
+
+        if not dates:
+            return None, None
+
+        min_date = min(dates).strftime('%d/%m/%Y')
+        max_date = max(dates).strftime('%d/%m/%Y')
+        return min_date, max_date
+
     def _update_email_preview(self, event=None):
         tcl_name = self.app_config.email_tcl.get()
         is_formal = self.app_config.email_is_formal.get()
         body_template = ""
-        if tcl_name and tcl_name in self.app_config.TCL_CONTACTS:
+        subject_template = ""
+
+        # Clear fields before populating
+        self.app_config.email_to.set("")
+        self.app_config.email_cc.set("")
+        self.app_config.email_subject.set("")
+
+        if tcl_name == "Schede":
+            template_data = self.app_config.EMAIL_TCL_SCHEDE
+            self.app_config.email_to.set(template_data['to'])
+            self.app_config.email_cc.set(template_data['cc'])
+
+            data_inizio, data_fine = self._get_date_range_from_filenames()
+            if data_inizio and data_fine:
+                subject_template = template_data['subject'].format(data_inizio=data_inizio, data_fine=data_fine)
+                body_template = template_data['body'].replace("{data_inizio}", data_inizio).replace("{data_fine}", data_fine)
+            else:
+                # Fallback if no dates found
+                subject_template = template_data['subject'].replace("{data_inizio}", "GG/MM/AAAA").replace("{data_fine}", "GG/MM/AAAA")
+                body_template = template_data['body'].replace("{data_inizio}", "GG/MM/AAAA").replace("{data_fine}", "GG/MM/AAAA")
+
+            self.app_config.email_subject.set(subject_template)
+
+        elif tcl_name and tcl_name in self.app_config.TCL_CONTACTS:
             email = self.app_config.TCL_CONTACTS[tcl_name]
             self.app_config.email_to.set(email)
             first_name = tcl_name.split()[0]
@@ -288,11 +338,11 @@ class SignatureTab(ttk.Frame):
                 body_template = self.app_config.EMAIL_BODY_FORMAL.format(name=first_name, file_list="{file_list}")
             else:
                 body_template = self.app_config.EMAIL_BODY_INFORMAL.format(name=first_name, file_list="{file_list}")
-        else:
-            self.app_config.email_to.set("")
+        else: # Generic or empty selection
             if is_formal:
                 body_template = self.app_config.EMAIL_BODY_GENERIC_FORMAL.format(file_list="{file_list}")
             else:
                 body_template = self.app_config.EMAIL_BODY_GENERIC_INFORMAL.format(file_list="{file_list}")
+
         self.email_body_text.delete("1.0", tk.END)
         self.email_body_text.insert("1.0", body_template)

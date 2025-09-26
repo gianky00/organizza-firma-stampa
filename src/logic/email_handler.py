@@ -20,6 +20,7 @@ class EmailHandler:
         pythoncom.CoInitialize()
         try:
             to = draft_info['to']
+            cc = draft_info.get('cc', '')
             subject = draft_info['subject']
             intro_text = draft_info['intro_text']
             file_list = draft_info['file_list']
@@ -29,6 +30,7 @@ class EmailHandler:
             mail = outlook.CreateItem(0)
 
             mail.To = to
+            mail.CC = cc
             mail.Subject = subject
 
             mail.Display()
