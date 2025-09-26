@@ -80,6 +80,7 @@ class MainApplication(tk.Tk):
         self.mesi_giornaliera_map = const.MESI_GIORNALIERA_MAP
         self.nomi_mesi_italiani = const.NOMI_MESI_ITALIANI
         self.TCL_CONTACTS = const.TCL_CONTACTS
+        self.EMAIL_TCL_SCHEDE = const.EMAIL_TCL_SCHEDE
         self.EMAIL_BODY_INFORMAL = const.EMAIL_BODY_INFORMAL
         self.EMAIL_BODY_FORMAL = const.EMAIL_BODY_FORMAL
         self.EMAIL_BODY_GENERIC_INFORMAL = const.EMAIL_BODY_GENERIC_INFORMAL
@@ -90,6 +91,7 @@ class MainApplication(tk.Tk):
         self.firma_ghostscript_path = tk.StringVar()
         self.firma_processing_mode = tk.StringVar(value="schede")
         self.email_to = tk.StringVar()
+        self.email_cc = tk.StringVar()
         self.email_subject = tk.StringVar()
         self.email_tcl = tk.StringVar()
         self.email_is_formal = tk.BooleanVar(value=False)
@@ -131,6 +133,7 @@ class MainApplication(tk.Tk):
         self.canoni_word_path.set(self.config_manager.get("canoni_word_path"))
         self.selected_printer.set(self.config_manager.get("selected_printer"))
         self.email_to.set(self.config_manager.get("email_to"))
+        self.email_cc.set(self.config_manager.get("email_cc"))
         self.email_subject.set(self.config_manager.get("email_subject"))
         self.email_tcl.set(self.config_manager.get("email_tcl"))
         self.email_is_formal.set(self.config_manager.get("email_is_formal"))
@@ -206,6 +209,7 @@ class MainApplication(tk.Tk):
             "canoni_word_path": self.canoni_word_path.get(),
             "selected_printer": self.selected_printer.get(),
             "email_to": self.email_to.get(),
+            "email_cc": self.email_cc.get(),
             "email_subject": self.email_subject.get(),
             "email_tcl": self.email_tcl.get(),
             "email_is_formal": self.email_is_formal.get(),
