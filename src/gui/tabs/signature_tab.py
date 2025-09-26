@@ -322,7 +322,7 @@ class SignatureTab(ttk.Frame):
             data_inizio, data_fine = self._get_date_range_from_filenames()
             if data_inizio and data_fine:
                 subject_template = template_data['subject'].format(data_inizio=data_inizio, data_fine=data_fine)
-                body_template = template_data['body'].format(data_inizio=data_inizio, data_fine=data_fine)
+                body_template = template_data['body'].replace("{data_inizio}", data_inizio).replace("{data_fine}", data_fine)
             else:
                 # Fallback if no dates found
                 subject_template = template_data['subject'].replace("{data_inizio}", "GG/MM/AAAA").replace("{data_fine}", "GG/MM/AAAA")
