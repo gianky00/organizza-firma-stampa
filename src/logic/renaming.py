@@ -95,6 +95,8 @@ class RenameProcessor:
                         base_name, ext = os.path.splitext(original_filename)
                         cleaned_base_name = DATE_IN_FILENAME_REGEX.sub('', base_name).strip()
                         cleaned_base_name = self._clean_windows_duplicate_marker(cleaned_base_name)
+                        # Remove spaces from the cleaned base name
+                        cleaned_base_name = cleaned_base_name.replace(" ", "")
                         new_filename = f"{cleaned_base_name} ({emission_date.strftime('%d-%m-%Y')}){ext}"
                         wb.Close(SaveChanges=False); wb = None
                         if new_filename.lower() != original_filename.lower():
