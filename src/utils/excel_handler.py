@@ -1,6 +1,14 @@
-import pythoncom
-import win32com.client
 import traceback
+import tkinter as tk
+from tkinter import messagebox
+
+# Try to import the COM modules, but handle the error if they are not available.
+try:
+    import pythoncom
+    import win32com.client
+except ImportError:
+    pythoncom = None
+    win32com = None
 
 class ExcelHandler:
     """
@@ -18,6 +26,15 @@ class ExcelHandler:
         Initializes COM and starts the Excel application.
         Returns the Excel application object.
         """
+        if not pythoncom or not win32com:
+            self.logger("ERRORE FATALE: Le librerie necessarie (pywin32) per controllare Excel non sono installate.", "ERROR")
+            messagebox.showerror(
+                "Errore di Dipendenze",
+                "Le librerie 'pywin32' necessarie per comunicare con Excel non sono installate. "
+                "Si prega di installarle eseguendo 'pip install pywin32' da un terminale."
+            )
+            return None
+
         try:
             pythoncom.CoInitialize()
             self.excel_app = win32com.client.Dispatch("Excel.Application")
@@ -26,8 +43,10 @@ class ExcelHandler:
             self.logger("Applicazione Excel avviata in background.", "INFO")
             return self.excel_app
         except Exception as e:
-            self.logger(f"ERRORE FATALE: Impossibile avviare l'applicazione Excel. Verificare che sia installata correttamente. Dettagli: {e}", "ERROR")
+            error_message = f"Impossibile avviare l'applicazione Excel. Verificare che sia installata correttamente. Dettagli: {e}"
+            self.logger(f"ERRORE FATALE: {error_message}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
+            messagebox.showerror("Errore Avvio Excel", error_message)
             # Uninitialize if we failed to start
             pythoncom.CoUninitialize()
             return None
