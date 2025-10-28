@@ -37,8 +37,12 @@ class ExcelHandler:
 
         try:
             pythoncom.CoInitialize()
-            self.excel_app = win32com.client.Dispatch("Excel.Application")
-            self.excel_app.Visible = self.visible
+            # Use DispatchEx to ensure a new instance is created, which can help avoid errors.
+            self.excel_app = win32com.client.DispatchEx("Excel.Application")
+            # Only set Visible if it's explicitly required to be True.
+            # Avoids setting it to False, which can cause "can not be set" errors in some environments.
+            if self.visible:
+                self.excel_app.Visible = True
             self.excel_app.DisplayAlerts = self.display_alerts
             self.logger("Applicazione Excel avviata in background.", "INFO")
             return self.excel_app
