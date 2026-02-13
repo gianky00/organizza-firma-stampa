@@ -105,6 +105,11 @@ class MainApplication(tk.Tk):
         self.canoni_messina_num = tk.StringVar()
         self.canoni_naselli_num = tk.StringVar()
         self.canoni_caldarella_num = tk.StringVar()
+        self.canoni_caldarella2_num = tk.StringVar()
+        self.canoni_messina_print = tk.BooleanVar(value=True)
+        self.canoni_naselli_print = tk.BooleanVar(value=True)
+        self.canoni_caldarella_print = tk.BooleanVar(value=True)
+        self.canoni_caldarella2_print = tk.BooleanVar(value=False)
         self.canoni_word_path = tk.StringVar()
         self.selected_printer = tk.StringVar()
         self.canoni_macro_name = tk.StringVar(value=const.DEFAULT_MACRO_NAME)
@@ -112,6 +117,7 @@ class MainApplication(tk.Tk):
         self.canoni_cons1_path = tk.StringVar()
         self.canoni_cons2_path = tk.StringVar()
         self.canoni_cons3_path = tk.StringVar()
+        self.canoni_cons4_path = tk.StringVar()
 
     def _load_config_into_vars(self):
         # ... (this method is unchanged)
@@ -130,6 +136,11 @@ class MainApplication(tk.Tk):
         self.canoni_messina_num.set(self.config_manager.get("canoni_messina_num"))
         self.canoni_naselli_num.set(self.config_manager.get("canoni_naselli_num"))
         self.canoni_caldarella_num.set(self.config_manager.get("canoni_caldarella_num"))
+        self.canoni_caldarella2_num.set(self.config_manager.get("canoni_caldarella2_num"))
+        self.canoni_messina_print.set(self.config_manager.get("canoni_messina_print"))
+        self.canoni_naselli_print.set(self.config_manager.get("canoni_naselli_print"))
+        self.canoni_caldarella_print.set(self.config_manager.get("canoni_caldarella_print"))
+        self.canoni_caldarella2_print.set(self.config_manager.get("canoni_caldarella2_print"))
         self.canoni_word_path.set(self.config_manager.get("canoni_word_path"))
         self.selected_printer.set(self.config_manager.get("selected_printer"))
         self.email_to.set(self.config_manager.get("email_to"))
@@ -206,6 +217,11 @@ class MainApplication(tk.Tk):
             "canoni_messina_num": self.canoni_messina_num.get(),
             "canoni_naselli_num": self.canoni_naselli_num.get(),
             "canoni_caldarella_num": self.canoni_caldarella_num.get(),
+            "canoni_caldarella2_num": self.canoni_caldarella2_num.get(),
+            "canoni_messina_print": self.canoni_messina_print.get(),
+            "canoni_naselli_print": self.canoni_naselli_print.get(),
+            "canoni_caldarella_print": self.canoni_caldarella_print.get(),
+            "canoni_caldarella2_print": self.canoni_caldarella2_print.get(),
             "canoni_word_path": self.canoni_word_path.get(),
             "selected_printer": self.selected_printer.get(),
             "email_to": self.email_to.get(),

@@ -1,5 +1,3 @@
-import pythoncom
-import win32com.client
 import traceback
 
 class WordHandler:
@@ -15,6 +13,14 @@ class WordHandler:
         """
         Initializes COM and starts the Word application.
         """
+        # Lazy import
+        try:
+            import pythoncom
+            import win32com.client
+        except ImportError:
+            self.logger("ERRORE FATALE: pywin32 non installato.", "ERROR")
+            return None
+
         try:
             # No need to CoInitialize here as the parent thread should do it.
             # But it's safe to call it multiple times.
@@ -26,7 +32,10 @@ class WordHandler:
         except Exception as e:
             self.logger(f"ERRORE FATALE: Impossibile avviare l'applicazione Word. Verificare che sia installata correttamente. Dettagli: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
-            pythoncom.CoUninitialize()
+            try:
+                import pythoncom
+                pythoncom.CoUninitialize()
+            except: pass
             return None
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -40,5 +49,8 @@ class WordHandler:
             except Exception as e:
                 self.logger(f"ATTENZIONE: Si è verificato un errore durante la chiusura di Word. Potrebbe rimanere un processo attivo. Dettagli: {e}", "WARNING")
 
-        pythoncom.CoUninitialize()
+        try:
+            import pythoncom
+            pythoncom.CoUninitialize()
+        except: pass
         return False
