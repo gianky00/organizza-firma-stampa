@@ -1,6 +1,4 @@
-import win32com.client
 import traceback
-import pythoncom
 
 class EmailHandler:
     """
@@ -17,6 +15,13 @@ class EmailHandler:
             draft_info (dict): A dictionary containing 'to', 'subject', 'intro_text',
                                'file_list', and 'attachments'.
         """
+        try:
+            import pythoncom
+            import win32com.client
+        except ImportError:
+            self.logger("ERRORE FATALE: pywin32 non installato.", "ERROR")
+            return
+
         pythoncom.CoInitialize()
         try:
             to = draft_info['to']
@@ -55,4 +60,7 @@ class EmailHandler:
             self.logger(f"ERRORE FATALE: Impossibile creare la bozza dell'email. Verificare che Outlook sia installato e configurato. Dettagli: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            pythoncom.CoUninitialize()
+            try:
+                import pythoncom
+                pythoncom.CoUninitialize()
+            except: pass

@@ -1,6 +1,5 @@
 import os
 import re
-import win32print
 import traceback
 from datetime import datetime
 from src.utils import constants as const
@@ -15,6 +14,7 @@ class MonthlyFeesProcessor:
 
     def get_printers(self):
         try:
+            import win32print
             printers = [p[2] for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)]
             default_printer = win32print.GetDefaultPrinter()
             return printers, default_printer
@@ -81,21 +81,29 @@ class MonthlyFeesProcessor:
                 self.logger(f"Stampante attiva impostata su: '{printer_name}'", "SUCCESS")
 
                 giornaliera_path = paths_to_print["giornaliera"]
-                cons_paths = paths_to_print["consuntivi"]
+                consuntivi_data = paths_to_print["consuntivi"]
                 word_path = paths_to_print["word"]
 
+                # Filter only enabled consuntivi
+                enabled_consuntivi = [c for c in consuntivi_data if c["print"]]
+                if not enabled_consuntivi:
+                    self.logger("Nessun canone selezionato per la stampa.", "WARNING")
+                    return
+
+                self.logger(f"Canoni da stampare: {', '.join(c['name'] for c in enabled_consuntivi)}", "INFO")
+
                 wb_giornaliera = excel_app.Workbooks.Open(giornaliera_path)
-                wb_cons_list = [excel_app.Workbooks.Open(p) for p in cons_paths]
+                wb_cons_list = [(excel_app.Workbooks.Open(c["path"]), c["name"]) for c in enabled_consuntivi]
                 doc_word = word_app.Documents.Open(word_path)
                 self.logger("Documenti aperti.", 'INFO')
 
-                for i, cons_wb in enumerate(wb_cons_list):
+                for i, (cons_wb, cons_name) in enumerate(wb_cons_list):
                     if cancel_event.is_set(): break
 
                     leaf_name = cons_wb.Name
-                    self.logger(f"Esecuzione macro '{macro_name}' su {leaf_name}...", 'INFO')
+                    self.logger(f"Esecuzione macro '{macro_name}' su {leaf_name} ({cons_name})...", 'INFO')
                     excel_app.Run(f"'{leaf_name}'!{macro_name}")
-                    self.logger(f"Macro su Consuntivo {i+1} completata.", 'SUCCESS')
+                    self.logger(f"Macro su Consuntivo {cons_name} completata.", 'SUCCESS')
 
                     if i < len(wb_cons_list) - 1:
                         if cancel_event.is_set(): break
@@ -104,7 +112,7 @@ class MonthlyFeesProcessor:
                         self.logger("Comando di stampa Word inviato.", 'SUCCESS')
 
                 doc_word.Close(SaveChanges=0)
-                for wb in wb_cons_list: wb.Close(SaveChanges=False)
+                for wb, _ in wb_cons_list: wb.Close(SaveChanges=False)
                 wb_giornaliera.Close(SaveChanges=False)
 
             if not cancel_event.is_set():
@@ -118,7 +126,10 @@ class MonthlyFeesProcessor:
 
     def _validate_paths(self, paths, printer, macro):
         all_paths = {"File Giornaliera": paths["giornaliera"], "File Foglio Canone": paths["word"]}
-        for i, p in enumerate(paths["consuntivi"]): all_paths[f"Canone {i+1}"] = p
+        # Only validate paths for enabled consuntivi
+        for c in paths["consuntivi"]:
+            if c["print"]:
+                all_paths[f"Canone {c['name']}"] = c["path"]
         for name, path in all_paths.items():
             if not path or not os.path.isfile(path):
                 self.logger(f"ERRORE: Percorso per '{name}' non valido o file non trovato: '{path}'", 'ERROR')

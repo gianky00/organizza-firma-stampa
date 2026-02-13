@@ -1,0 +1,33 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database
+*.db
+
+# Environment
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Progetto - Cartelle di dati e output
+FILE EXCEL DA FIRMARE/*
+!FILE EXCEL DA FIRMARE/.gitkeep
+PDF/*
+!PDF/.gitkeep
+SCHEDE DA ORGANIZZARE/*
+!SCHEDE DA ORGANIZZARE/.gitkeep
+SCHEDE ORGANIZZATE/*
+!SCHEDE ORGANIZZATE/.gitkeep
+SCHEDE SENZA DATA/*
+!SCHEDE SENZA DATA/.gitkeep
+
+# Escludi file specifici se sono documenti di lavoro
+BUG_FIX_PLAN.md
+CLAUDE.md

@@ -2,14 +2,6 @@ import traceback
 import tkinter as tk
 from tkinter import messagebox
 
-# Try to import the COM modules, but handle the error if they are not available.
-try:
-    import pythoncom
-    import win32com.client
-except ImportError:
-    pythoncom = None
-    win32com = None
-
 class ExcelHandler:
     """
     A context manager to safely handle a single instance of the Excel application.
@@ -26,7 +18,11 @@ class ExcelHandler:
         Initializes COM and starts the Excel application.
         Returns the Excel application object.
         """
-        if not pythoncom or not win32com:
+        # Lazy import to speed up startup
+        try:
+            import pythoncom
+            import win32com.client
+        except ImportError:
             self.logger("ERRORE FATALE: Le librerie necessarie (pywin32) per controllare Excel non sono installate.", "ERROR")
             messagebox.showerror(
                 "Errore di Dipendenze",
@@ -67,7 +63,11 @@ class ExcelHandler:
                 self.logger(f"ATTENZIONE: Si è verificato un errore durante la chiusura di Excel. Potrebbe rimanere un processo attivo. Dettagli: {e}", "WARNING")
 
         # Always uninitialize COM
-        pythoncom.CoUninitialize()
+        try:
+            import pythoncom
+            pythoncom.CoUninitialize()
+        except ImportError:
+            pass # Should not happen if __enter__ succeeded
 
         # Return False to propagate exceptions if they occurred inside the 'with' block
         return False

@@ -45,11 +45,29 @@ class FeesTab(ttk.Frame):
         consuntivi_frame = ttk.LabelFrame(settings_frame, text="Numeri Consuntivo", padding=10)
         consuntivi_frame.grid(row=1, column=0, columnspan=2, sticky=tk.EW, pady=5)
         consuntivi_frame.columnconfigure(1, weight=1)
-        create_path_entry(consuntivi_frame, "N° Canone Messina:", self.app_config.canoni_messina_num, 0, readonly=False)
-        create_path_entry(consuntivi_frame, "N° Canone Naselli:", self.app_config.canoni_naselli_num, 1, readonly=False)
-        create_path_entry(consuntivi_frame, "N° Canone Caldarella:", self.app_config.canoni_caldarella_num, 2, readonly=False)
+
+        # Messina
+        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_messina_print).grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Label(consuntivi_frame, text="N° Canone Messina:").grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_messina_num, width=10).grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
+
+        # Naselli
+        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_naselli_print).grid(row=1, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Label(consuntivi_frame, text="N° Canone Naselli:").grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_naselli_num, width=10).grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
+
+        # Caldarella
+        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_caldarella_print).grid(row=2, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Label(consuntivi_frame, text="N° Canone Caldarella:").grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_caldarella_num, width=10).grid(row=2, column=2, sticky=tk.W, padx=5, pady=5)
+
+        # Caldarella2 (manuale)
+        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_caldarella2_print).grid(row=3, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Label(consuntivi_frame, text="N° Canone Caldarella2 (manuale):").grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
+        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_caldarella2_num, width=10).grid(row=3, column=2, sticky=tk.W, padx=5, pady=5)
+
         self.find_numbers_button = ttk.Button(consuntivi_frame, text="Trova Numeri Automaticamente", command=self.find_numbers_and_populate)
-        self.find_numbers_button.grid(row=3, column=0, columnspan=2, sticky="we", pady=(10, 0))
+        self.find_numbers_button.grid(row=4, column=0, columnspan=3, sticky="we", pady=(10, 0))
 
         # --- Altri Percorsi ---
         paths_frame = ttk.LabelFrame(settings_frame, text="Percorsi File", padding=10)
@@ -89,6 +107,7 @@ class FeesTab(ttk.Frame):
         self.app_config.canoni_messina_num.trace_add("write", self._update_paths_from_ui)
         self.app_config.canoni_naselli_num.trace_add("write", self._update_paths_from_ui)
         self.app_config.canoni_caldarella_num.trace_add("write", self._update_paths_from_ui)
+        self.app_config.canoni_caldarella2_num.trace_add("write", self._update_paths_from_ui)
 
         self.on_process_finished()
 
@@ -111,14 +130,23 @@ class FeesTab(ttk.Frame):
         self.app_config.canoni_cons2_path.set(c2_path)
         c3_path = self.processor.get_consuntivo_path(year, self.app_config.canoni_caldarella_num.get())
         self.app_config.canoni_cons3_path.set(c3_path)
+        c4_path = self.processor.get_consuntivo_path(year, self.app_config.canoni_caldarella2_num.get())
+        self.app_config.canoni_cons4_path.set(c4_path)
 
     def start_printing_process(self):
         self.cancel_event.clear()
         self.toggle_buttons(is_running=True)
         self.show_progress()
+        # Build list of consuntivi with their print flags
+        consuntivi_data = [
+            {"path": self.app_config.canoni_cons1_path.get(), "print": self.app_config.canoni_messina_print.get(), "name": "Messina"},
+            {"path": self.app_config.canoni_cons2_path.get(), "print": self.app_config.canoni_naselli_print.get(), "name": "Naselli"},
+            {"path": self.app_config.canoni_cons3_path.get(), "print": self.app_config.canoni_caldarella_print.get(), "name": "Caldarella"},
+            {"path": self.app_config.canoni_cons4_path.get(), "print": self.app_config.canoni_caldarella2_print.get(), "name": "Caldarella2"},
+        ]
         paths_to_print = {
             "giornaliera": self.app_config.canoni_giornaliera_path.get(),
-            "consuntivi": [self.app_config.canoni_cons1_path.get(), self.app_config.canoni_cons2_path.get(), self.app_config.canoni_cons3_path.get()],
+            "consuntivi": consuntivi_data,
             "word": self.app_config.canoni_word_path.get()
         }
         printer = self.app_config.selected_printer.get()
