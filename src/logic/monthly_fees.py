@@ -8,10 +8,12 @@ from src.utils.word_handler import WordHandler
 
 
 class MonthlyFeesProcessor:
-    def __init__(self, gui, app_config):
+    def __init__(self, gui, app_config, excel_handler_class=None, word_handler_class=None):
         self.gui = gui
         self.app_config = app_config
         self.logger = gui.log_canoni
+        self.excel_handler_class = excel_handler_class or ExcelHandler
+        self.word_handler_class = word_handler_class or WordHandler
 
     def get_printers(self):
         try:
@@ -88,7 +90,9 @@ class MonthlyFeesProcessor:
             if cancel_event.is_set():
                 return
 
-            with ExcelHandler(self.logger) as excel_app, WordHandler(self.logger) as word_app:
+            with self.excel_handler_class(self.logger) as excel_app, self.word_handler_class(
+                self.logger
+            ) as word_app:
                 if not excel_app or not word_app:
                     return
                 if cancel_event.is_set():

@@ -33,7 +33,7 @@ class ConfigManager:
         self.defaults = {
             "firma_ghostscript_path": const.DEFAULT_GHOSTSCRIPT_PATH,
             "rinomina_path": os.path.join(const.APPLICATION_PATH, const.RINOMINA_DEFAULT_DIR),
-            "rinomina_password": "coemi",  # Default password
+            "rinomina_password": "",  # Lasciata vuota per sicurezza, l'utente dovrà inserirla
             "organizza_source_dir": organize_default_path,
             "canoni_selected_year": str(prev_month_date.year),
             "canoni_selected_month": const.NOMI_MESI_ITALIANI[prev_month_date.month - 1],

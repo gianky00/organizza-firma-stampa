@@ -11,7 +11,7 @@ from src.utils.ui_utils import create_path_entry, open_folder_in_explorer, selec
 
 
 class SignatureTab(ttk.Frame):
-    def __init__(self, parent, app_config, logger):
+    def __init__(self, parent, app_config, logger, processor_class=None, excel_handler_class=None):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
@@ -21,8 +21,14 @@ class SignatureTab(ttk.Frame):
 
         self._create_widgets()
 
-        self.processor = SignatureProcessor(
-            self, app_config, self.setup_progress, self.update_progress, self.hide_progress
+        processor_cls = processor_class or SignatureProcessor
+        self.processor = processor_cls(
+            self,
+            app_config,
+            self.setup_progress,
+            self.update_progress,
+            self.hide_progress,
+            excel_handler_class=excel_handler_class,
         )
 
     def _create_widgets(self):

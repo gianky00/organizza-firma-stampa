@@ -8,7 +8,7 @@ from src.utils.ui_utils import create_path_entry, open_folder_in_explorer, selec
 
 
 class OrganizeTab(ttk.Frame):
-    def __init__(self, parent, app_config, logger, fees_processor):
+    def __init__(self, parent, app_config, logger, fees_processor, processor_class=None, excel_gateway_class=None):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
@@ -17,8 +17,15 @@ class OrganizeTab(ttk.Frame):
         self.active_process_type = None
 
         self._create_widgets()
-        self.processor = OrganizationProcessor(
-            self, app_config, fees_processor, self.setup_progress, self.update_progress, self.hide_progress
+        processor_cls = processor_class or OrganizationProcessor
+        self.processor = processor_cls(
+            self,
+            app_config,
+            fees_processor,
+            self.setup_progress,
+            self.update_progress,
+            self.hide_progress,
+            excel_gateway_class=excel_gateway_class,
         )
         self.after(100, self.populate_stampa_list)
 

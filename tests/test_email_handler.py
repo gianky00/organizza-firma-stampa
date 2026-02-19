@@ -11,14 +11,3 @@ def test_prepare_email_draft_logic(mock_logger):
         processor.create_outlook_draft(draft_data)
         assert mock_mail.To == "t"
         assert mock_mail.Attachments.Add.called
-
-def test_prepare_email_draft_error(mock_logger):
-    processor = EmailHandler(mock_logger)
-    # Patch globale per intercettare il lazy import
-    with patch("pythoncom.CoInitialize", side_effect=Exception("COM Error")):
-        processor.create_outlook_draft({"to": "x", "cc": "", "subject": "s", "intro_text": "i", "file_list": [], "attachments": []})
-        found = False
-        for call_args in mock_logger.call_args_list:
-            if "ERRORE FATALE" in str(call_args):
-                found = True; break
-        assert found

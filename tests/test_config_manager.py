@@ -11,7 +11,7 @@ def manager_with_fake_path(mocker):
 
 def test_config_manager_load_defaults(fs, manager_with_fake_path):
     manager_with_fake_path.load()
-    assert manager_with_fake_path.get("rinomina_password") == "coemi"
+    assert manager_with_fake_path.get("rinomina_password") == ""
 
 def test_config_manager_save_and_load(fs, manager_with_fake_path):
     new_settings = {"rinomina_password": "custom_password", "email_subject": "Test"}
@@ -28,4 +28,4 @@ def test_config_manager_invalid_json(fs, manager_with_fake_path):
         f.write("{ invalid json")
     
     manager_with_fake_path.load()
-    assert manager_with_fake_path.get("rinomina_password") == "coemi"
+    assert manager_with_fake_path.get("rinomina_password") == ""

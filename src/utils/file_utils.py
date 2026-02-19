@@ -27,3 +27,21 @@ def clear_folder_content(folder_path, logger, folder_display_name=None):
             except Exception as e:
                 logger(f"Impossibile eliminare '{item_name}': {e}", "ERROR")
     logger(f"--- Pulizia di '{folder_display_name}' completata. ---", "SUCCESS")
+
+
+def create_backup(folder_path: str) -> bool:
+    """
+    Crea un backup della cartella specificata aggiungendo un timestamp.
+    """
+    if not os.path.isdir(folder_path):
+        return False
+    
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = f"{folder_path}_backup_{timestamp}"
+    
+    try:
+        shutil.copytree(folder_path, backup_path)
+        return True
+    except Exception:
+        return False

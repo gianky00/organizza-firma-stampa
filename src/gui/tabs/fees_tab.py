@@ -8,12 +8,17 @@ from src.utils.ui_utils import create_path_entry, select_file_dialog
 
 
 class FeesTab(ttk.Frame):
-    def __init__(self, parent, app_config, logger):
+    def __init__(
+        self, parent, app_config, logger, processor_class=None, excel_handler_class=None, word_handler_class=None
+    ):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
         self.cancel_event = threading.Event()
-        self.processor = MonthlyFeesProcessor(self, app_config)
+        processor_cls = processor_class or MonthlyFeesProcessor
+        self.processor = processor_cls(
+            self, app_config, excel_handler_class=excel_handler_class, word_handler_class=word_handler_class
+        )
         current_year = datetime.now().year
         self.anni_giornaliera = [str(y) for y in range(current_year - 5, current_year + 6)]
         self._create_widgets()

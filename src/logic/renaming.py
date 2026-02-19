@@ -2,10 +2,9 @@ import os
 import re
 import traceback
 from datetime import datetime
-from typing import Any, TypedDict
+from typing import TypedDict
 
-from src.domain.models import DEFAULT_DATE_CANDIDATES, RENAME_MODELS
-from src.utils.excel_handler import ExcelHandler
+from src.utils.excel_gateway import ExcelGateway
 
 
 class RenameSummary(TypedDict):
@@ -16,13 +15,22 @@ class RenameSummary(TypedDict):
 
 
 class RenameProcessor:
-    def __init__(self, gui, app_config, setup_progress_cb, update_progress_cb, hide_progress_cb):
+    def __init__(
+        self,
+        gui,
+        app_config,
+        setup_progress_cb,
+        update_progress_cb,
+        hide_progress_cb,
+        excel_gateway_class=None,
+    ):
         self.gui = gui
         self.app_config = app_config
         self.logger = gui.log_rinomina
         self.setup_progress = setup_progress_cb
         self.update_progress = update_progress_cb
         self.hide_progress = hide_progress_cb
+        self.excel_gateway = (excel_gateway_class or ExcelGateway)(self.logger)
 
     def run_rename_process(self, cancel_event):
         self.logger("Avvio del processo di ridenominazione...", "HEADER")
@@ -55,62 +63,49 @@ class RenameProcessor:
 
         num_files = len(excel_files)
         self.logger(f"Trovati {num_files} file Excel. Inizio analisi.", "INFO")
-        self.gui.after(0, self.setup_progress, num_files)
-        self.logger("[FASE 2/2] Analisi e ridenominazione...", "HEADER")
+        self.gui.after(0, self.setup_progress, num_files, "Analisi e ridenominazione:")
 
         DATE_IN_FILENAME_REGEX = re.compile(r"\s*\(\d{2}-\d{2}-\d{4}\)")
         summary: RenameSummary = {"corrected": 0, "already_ok": 0, "no_date": 0, "errors": []}
 
-        with ExcelHandler(self.logger) as excel_app:
-            if not excel_app:
+        password = self.app_config.rinomina_password.get()
+
+        for i, file_path in enumerate(excel_files):
+            if cancel_event.is_set():
                 return
-            for i, file_path in enumerate(excel_files):
-                if cancel_event.is_set():
-                    return
-                self.gui.after(0, self.update_progress, i + 1)
-                self.logger(f"Analisi: {os.path.basename(file_path)}...")
-                wb = None
-                try:
-                    try:
-                        wb = excel_app.Workbooks.Open(file_path, ReadOnly=True)
-                    except Exception:
-                        password = self.app_config.rinomina_password.get()
-                        self.logger(f"  -> File protetto. Tentativo con password '{password}'...", "WARNING")
-                        wb = excel_app.Workbooks.Open(file_path, ReadOnly=True, Password=password)
-                    ws = wb.Worksheets(1)
+            self.gui.after(0, self.update_progress, i + 1)
+            self.logger(f"Analisi: {os.path.basename(file_path)}...")
+            
+            try:
+                emission_date = self.excel_gateway.get_workbook_date(file_path, password=password)
 
-                    emission_date = self._get_date_from_workbook(ws)
-
-                    if emission_date:
-                        original_dir, original_filename = os.path.split(file_path)
-                        base_name, ext = os.path.splitext(original_filename)
-                        cleaned_base_name = DATE_IN_FILENAME_REGEX.sub("", base_name).strip()
-                        cleaned_base_name = self._clean_windows_duplicate_marker(cleaned_base_name)
-                        # Remove spaces from the cleaned base name
-                        cleaned_base_name = cleaned_base_name.replace(" ", "")
-                        new_filename = f"{cleaned_base_name} ({emission_date.strftime('%d-%m-%Y')}){ext}"
-                        wb.Close(SaveChanges=False)
-                        wb = None
-                        if new_filename.lower() != original_filename.lower():
-                            new_filepath = os.path.join(original_dir, new_filename)
-                            final_path = self._get_unique_filepath(new_filepath)
-                            os.rename(file_path, final_path)
-                            self.logger(f"  -> RINOMINATO in: {os.path.basename(final_path)}", "SUCCESS")
-                            summary["corrected"] += 1
-                        else:
-                            self.logger("  -> Già corretto.", "INFO")
-                            summary["already_ok"] += 1
+                if emission_date:
+                    original_dir, original_filename = os.path.split(file_path)
+                    base_name, ext = os.path.splitext(original_filename)
+                    cleaned_base_name = DATE_IN_FILENAME_REGEX.sub("", base_name).strip()
+                    cleaned_base_name = self._clean_windows_duplicate_marker(cleaned_base_name)
+                    # Rimuove spazi e normalizza
+                    cleaned_base_name = cleaned_base_name.replace(" ", "")
+                    new_filename = f"{cleaned_base_name} ({emission_date.strftime('%d-%m-%Y')}){ext}"
+                    
+                    if new_filename.lower() != original_filename.lower():
+                        new_filepath = os.path.join(original_dir, new_filename)
+                        final_path = self._get_unique_filepath(new_filepath)
+                        os.rename(file_path, final_path)
+                        self.logger(f"  -> RINOMINATO in: {os.path.basename(final_path)}", "SUCCESS")
+                        summary["corrected"] += 1
                     else:
-                        self.logger("  -> Data non trovata.", "WARNING")
-                        summary["no_date"] += 1
-                except Exception as e:
-                    error_msg = f"Tipo errore: {type(e).__name__} - Messaggio: {e}"
-                    self.logger(f"--- ERRORE FILE: {os.path.basename(file_path)} ---", "ERROR")
-                    self.logger(error_msg, "ERROR")
-                    summary["errors"].append((os.path.basename(file_path), error_msg))
-                finally:
-                    if wb:
-                        wb.Close(SaveChanges=False)
+                        self.logger("  -> Già corretto.", "INFO")
+                        summary["already_ok"] += 1
+                else:
+                    self.logger("  -> Data non trovata.", "WARNING")
+                    summary["no_date"] += 1
+            except Exception as e:
+                error_msg = f"Dettagli: {e}"
+                self.logger(f"--- ERRORE FILE: {os.path.basename(file_path)} ---", "ERROR")
+                self.logger(error_msg, "ERROR")
+                summary["errors"].append((os.path.basename(file_path), error_msg))
+
         self.logger("\n--- RIEPILOGO PROCESSO RINOMINA ---", "HEADER")
         self.logger(f"File rinominati o corretti: {summary['corrected']}", "SUCCESS")
         self.logger(f"File già corretti: {summary['already_ok']}", "INFO")
@@ -118,9 +113,19 @@ class RenameProcessor:
         self.logger(f"File con errori: {len(summary['errors'])}", "ERROR")
         if summary["errors"]:
             self.logger("\n--- DETTAGLIO ERRORI ---", "HEADER")
-            for file_name, error_msg in summary["errors"]:
-                self.logger(f"- {file_name}: {error_msg}", "ERROR")
+            for file_name, err in summary["errors"]:
+                self.logger(f"- {file_name}: {err}", "ERROR")
         self.logger("--- COMPLETATO ---", "HEADER")
+
+    def _get_excel_files(self, root_path, cancel_event):
+        files = []
+        for r, _, fs in os.walk(root_path):
+            if cancel_event.is_set():
+                break
+            for f in fs:
+                if f.lower().endswith((".xls", ".xlsx", ".xlsm", ".xlsb")) and not f.startswith("~"):
+                    files.append(os.path.join(r, f))
+        return files
 
     def _get_unique_filepath(self, filepath: str) -> str:
         if not os.path.exists(filepath):
@@ -135,88 +140,3 @@ class RenameProcessor:
 
     def _clean_windows_duplicate_marker(self, name: str) -> str:
         return re.sub(r"\s*\(\d+\)$", "", name.strip())
-
-    def _normalize_model_string(self, s: Any) -> str:
-        if s is None:
-            return ""
-        s_str = str(s)
-        cleaned = re.sub(r"\s+", " ", s_str).strip()
-        return re.sub(r"[\W_]+", "", cleaned).lower()
-
-    def _extract_date_from_val(self, value: Any) -> tuple[str, datetime | None]:
-        if value is None or (isinstance(value, str) and not value.strip()):
-            return "EMPTY", None
-        if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
-            try:
-                return "VALID", datetime(value.year, value.month, value.day)
-            except Exception:
-                pass
-        if isinstance(value, str):
-            date_str = value.strip()
-            if not date_str:
-                return "EMPTY", None
-            range_match = re.match(r"^\d{1,2}\s*-\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", date_str)
-            if range_match:
-                date_str = range_match.group(1)
-            date_str = date_str.split("&")[0].strip()
-            if not date_str:
-                return "EMPTY", None
-            date_formats = (
-                "%d/%m/%Y",
-                "%m/%d/%Y",
-                "%Y-%m-%d",
-                "%d-%m-%Y",
-                "%d.%m.%Y",
-                "%d/%m/%y",
-                "%m/%d/%y",
-                "%y-%m-%d",
-                "%d-%m-%y",
-                "%d.%m.%y",
-            )
-            for fmt in date_formats:
-                try:
-                    dt_obj = datetime.strptime(date_str, fmt)
-                    if dt_obj.year < 100:
-                        current_year_base = datetime.now().year // 100 * 100
-                        year_adjusted = current_year_base + dt_obj.year
-                        if year_adjusted > datetime.now().year + 20:
-                            year_adjusted -= 100
-                        dt_obj = dt_obj.replace(year=year_adjusted)
-                    return "VALID", dt_obj
-                except ValueError:
-                    continue
-            return "TYPO", None
-        return "EMPTY", None
-
-    def _get_excel_files(self, root_path: str, cancel_event: Any) -> list[str]:
-        excel_files = []
-        for root, _, filenames in os.walk(root_path):
-            if cancel_event.is_set():
-                break
-            for filename in filenames:
-                if filename.lower().endswith((".xlsx", ".xlsm", ".xls")) and not filename.startswith("~"):
-                    excel_files.append(os.path.join(root, filename))
-        return excel_files
-
-    def _get_date_from_workbook(self, ws: Any) -> datetime | None:
-        """
-        Tries to identify the model and extract the date from the worksheet.
-        """
-        for model in RENAME_MODELS:
-            if model.id_cell:
-                val = self._normalize_model_string(ws.Range(model.id_cell).Value)
-                if val == model.match_value:
-                    for date_cell in model.date_cells:
-                        status, date_found = self._extract_date_from_val(ws.Range(date_cell).Value)
-                        if status == "VALID":
-                            return date_found
-                    # If model matched but no date found in specified cells, don't fallback to defaults immediately
-                    return None
-
-        # Fallback to default candidates if no model matched
-        for date_cell in DEFAULT_DATE_CANDIDATES:
-            status, date_found = self._extract_date_from_val(ws.Range(date_cell).Value)
-            if status == "VALID":
-                return date_found
-
-        return None
