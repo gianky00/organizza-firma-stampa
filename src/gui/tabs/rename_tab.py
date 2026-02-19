@@ -24,7 +24,6 @@ class RenameTab(ttk.Frame):
             excel_gateway_class=excel_gateway_class,
         )
 
-
     def _create_widgets(self):
         self.columnconfigure(0, weight=1)
 

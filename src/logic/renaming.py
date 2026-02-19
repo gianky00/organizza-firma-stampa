@@ -1,7 +1,6 @@
 import os
 import re
 import traceback
-from datetime import datetime
 from typing import TypedDict
 
 from src.utils.excel_gateway import ExcelGateway
@@ -75,7 +74,7 @@ class RenameProcessor:
                 return
             self.gui.after(0, self.update_progress, i + 1)
             self.logger(f"Analisi: {os.path.basename(file_path)}...")
-            
+
             try:
                 emission_date = self.excel_gateway.get_workbook_date(file_path, password=password)
 
@@ -87,7 +86,7 @@ class RenameProcessor:
                     # Rimuove spazi e normalizza
                     cleaned_base_name = cleaned_base_name.replace(" ", "")
                     new_filename = f"{cleaned_base_name} ({emission_date.strftime('%d-%m-%Y')}){ext}"
-                    
+
                     if new_filename.lower() != original_filename.lower():
                         new_filepath = os.path.join(original_dir, new_filename)
                         final_path = self._get_unique_filepath(new_filepath)

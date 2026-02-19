@@ -1,19 +1,22 @@
 from __future__ import annotations
+
 import os
 import re
 from datetime import datetime, timedelta
-from typing import Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from datetime import datetime
 
 from src.utils.excel_handler import ExcelHandler
 
+
 class ExcelGateway:
     """
     Astrae le operazioni complesse su Excel (COM) fornendo un'interfaccia pulita.
     Segue il Gateway Pattern per isolare la logica di business dalle dipendenze esterne instabili.
     """
+
     def __init__(self, logger, excel_handler_class=None):
         self.logger = logger
         self.excel_handler_class = excel_handler_class or ExcelHandler
@@ -55,7 +58,7 @@ class ExcelGateway:
             try:
                 wb = excel.Workbooks.Open(excel_path)
                 ws = wb.Worksheets(1)
-                
+
                 ws.Shapes.AddPicture(
                     image_path,
                     LinkToFile=False,
@@ -63,9 +66,9 @@ class ExcelGateway:
                     Left=config.get("left", 0),
                     Top=config.get("top", 0),
                     Width=config.get("width", -1),
-                    Height=config.get("height", -1)
+                    Height=config.get("height", -1),
                 )
-                
+
                 wb.ActiveSheet.ExportAsFixedFormat(0, pdf_path)
                 return True
             except Exception as e:
@@ -102,29 +105,22 @@ class ExcelGateway:
                 return None
             wb = None
             try:
-                try:
-                    wb = excel.Workbooks.Open(file_path, ReadOnly=True)
-                except Exception:
-                    if password:
-                        wb = excel.Workbooks.Open(file_path, ReadOnly=True, Password=password)
-                    else:
-                        raise
+                wb = self._open_workbook(excel, file_path, password)
+                if not wb:
+                    return None
 
                 ws = wb.Worksheets(1)
-                n1_val = self._normalize_model_string(ws.Range("N1").Value)
-                model_config = RENAME_MODELS.get(n1_val)
                 
-                if model_config and "date_cells" in model_config:
-                    for cell in model_config["date_cells"]:
-                        dt = self._extract_date_from_val(ws.Range(cell).Value)
-                        if dt:
-                            return dt
+                # Prova matching modelli specifici
+                dt = self._find_date_by_model(ws, RENAME_MODELS)
+                if dt:
+                    return dt
 
-                for cell in DEFAULT_DATE_CANDIDATES:
-                    dt = self._extract_date_from_val(ws.Range(cell).Value)
-                    if dt:
-                        return dt
-                
+                # Prova candidati di default
+                dt = self._find_date_in_cells(ws, DEFAULT_DATE_CANDIDATES)
+                if dt:
+                    return dt
+
                 return None
             except Exception as e:
                 self.logger(f"Errore estrazione data da {os.path.basename(file_path)}: {e}", "ERROR")
@@ -133,8 +129,32 @@ class ExcelGateway:
                 if wb:
                     wb.Close(SaveChanges=False)
 
+    def _open_workbook(self, excel, file_path, password):
+        try:
+            return excel.Workbooks.Open(file_path, ReadOnly=True)
+        except Exception:
+            if password:
+                return excel.Workbooks.Open(file_path, ReadOnly=True, Password=password)
+            raise
+
+    def _find_date_by_model(self, worksheet, models_config):
+        for cfg in models_config:
+            if cfg.id_cell:
+                val = self._normalize_model_string(worksheet.Range(cfg.id_cell).Value)
+                if val == cfg.match_value:
+                    return self._find_date_in_cells(worksheet, cfg.date_cells)
+        return None
+
+    def _find_date_in_cells(self, worksheet, cell_list):
+        for cell in cell_list:
+            dt = self._extract_date_from_val(worksheet.Range(cell).Value)
+            if dt:
+                return dt
+        return None
+
     def _normalize_model_string(self, s: Any) -> str:
-        if s is None: return ""
+        if s is None:
+            return ""
         s_str = str(s)
         cleaned = re.sub(r"\s+", " ", s_str).strip()
         return re.sub(r"[\W_]+", "", cleaned).lower()
@@ -147,15 +167,21 @@ class ExcelGateway:
         if isinstance(value, (int, float)):
             return datetime(1899, 12, 30) + timedelta(days=value)
         if isinstance(value, str):
-            for fmt in ["%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"]:
-                try:
-                    return datetime.strptime(value.strip(), fmt)
-                except ValueError:
-                    continue
-            match = re.search(r"(\d{2})[-/](\d{2})[-/](\d{4})", value)
-            if match:
-                try:
-                    return datetime.strptime(match.group(0).replace("/", "-"), "%d-%m-%Y")
-                except ValueError:
-                    pass
+            return self._parse_date_string(value)
+        return None
+
+    def _parse_date_string(self, value: str) -> Optional[datetime]:
+        # Formati diretti
+        for fmt in ["%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"]:
+            try:
+                return datetime.strptime(value.strip(), fmt)
+            except ValueError:
+                continue
+        # Estrazione regex
+        match = re.search(r"(\d{2})[-/](\d{2})[-/](\d{4})", value)
+        if match:
+            try:
+                return datetime.strptime(match.group(0).replace("/", "-"), "%d-%m-%Y")
+            except ValueError:
+                pass
         return None

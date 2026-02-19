@@ -35,11 +35,12 @@ def create_backup(folder_path: str) -> bool:
     """
     if not os.path.isdir(folder_path):
         return False
-    
+
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = f"{folder_path}_backup_{timestamp}"
-    
+
     try:
         shutil.copytree(folder_path, backup_path)
         return True

@@ -110,7 +110,7 @@ class SignatureTab(ttk.Frame):
         email_settings_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 10))
 
         ttk.Label(email_settings_frame, text="Template TCL:").pack(side=tk.LEFT, padx=(0, 5))
-        tcl_options = [""] + list(self.app_config.TCL_CONTACTS.keys())
+        tcl_options = ["", *list(self.app_config.TCL_CONTACTS.keys())]
         self.tcl_combo = ttk.Combobox(
             email_settings_frame, textvariable=self.app_config.email_tcl, values=tcl_options, state="readonly", width=20
         )

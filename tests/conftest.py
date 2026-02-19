@@ -1,11 +1,14 @@
-import pytest
-from unittest.mock import MagicMock
 import tkinter as tk
+from unittest.mock import MagicMock
+
+import pytest
+
 
 @pytest.fixture
 def mock_logger():
     """Fixture per catturare i log durante i test."""
     return MagicMock()
+
 
 @pytest.fixture
 def mock_gui():
@@ -19,6 +22,7 @@ def mock_gui():
     gui.log_firma = MagicMock()
     gui.log_canoni = MagicMock()
     return gui
+
 
 @pytest.fixture
 def app_config():

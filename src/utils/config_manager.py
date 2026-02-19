@@ -65,8 +65,7 @@ class ConfigManager:
                     self.settings = json.load(f)
             else:
                 self.settings = self.defaults
-        except (OSError, json.JSONDecodeError) as e:
-            print(f"Error loading {const.CONFIG_FILE_NAME}: {e}. Using default values.")
+        except (OSError, json.JSONDecodeError):
             self.settings = self.defaults
 
     def get(self, key):
@@ -85,6 +84,6 @@ class ConfigManager:
         try:
             with open(self.config_path, "w") as f:
                 json.dump(current_config, f, indent=4)
-        except OSError as e:
+        except OSError:
             # In a real app, this might log to a status bar or a log file
-            print(f"Error saving configuration: {e}")
+            pass

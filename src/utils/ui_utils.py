@@ -86,10 +86,9 @@ def open_folder_in_explorer(path_to_open):
     """
     if not os.path.isdir(path_to_open):
         # In a GUI app, a popup is better, but we'll log it for now.
-        print(f"Cannot open folder: Directory does not exist at '{path_to_open}'")
         return
     try:
         # os.startfile is Windows-specific, which is appropriate for this app
         os.startfile(path_to_open)
-    except Exception as e:
-        print(f"Failed to open folder: {e}")
+    except Exception:
+        pass

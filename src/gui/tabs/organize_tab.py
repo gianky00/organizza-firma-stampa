@@ -131,7 +131,7 @@ class OrganizeTab(ttk.Frame):
         self.active_process_type = process_type
         self.toggle_buttons(is_running=True)
 
-        thread_args = (self.cancel_event,) + args
+        thread_args = (self.cancel_event, *args)
         threading.Thread(target=target_func, args=thread_args, daemon=True).start()
 
     def start_organization_process(self):

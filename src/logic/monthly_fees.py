@@ -90,9 +90,7 @@ class MonthlyFeesProcessor:
             if cancel_event.is_set():
                 return
 
-            with self.excel_handler_class(self.logger) as excel_app, self.word_handler_class(
-                self.logger
-            ) as word_app:
+            with self.excel_handler_class(self.logger) as excel_app, self.word_handler_class(self.logger) as word_app:
                 if not excel_app or not word_app:
                     return
                 if cancel_event.is_set():
