@@ -17,6 +17,10 @@ ENV/
 .vscode/
 .idea/
 
+# Release
+dist/
+pyarmor_runtime_*/
+
 # Progetto - Cartelle di dati e output
 FILE EXCEL DA FIRMARE/*
 !FILE EXCEL DA FIRMARE/.gitkeep

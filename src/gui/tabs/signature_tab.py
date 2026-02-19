@@ -16,7 +16,7 @@ from src.utils.ui_utils import (
 
 
 class SignatureTab(ttk.Frame):
-    def __init__(self, parent, app_config, logger, processor_class=None, excel_handler_class=None):
+    def __init__(self, parent, app_config, logger, processor_class=None, excel_gateway_class=None):
         super().__init__(parent)
         self.app_config = app_config
         self.log_widget = logger
@@ -33,7 +33,7 @@ class SignatureTab(ttk.Frame):
             self.setup_progress,
             self.update_progress,
             self.hide_progress,
-            excel_handler_class=excel_handler_class,
+            excel_gateway_class=excel_gateway_class,
         )
 
     def _create_widgets(self):
