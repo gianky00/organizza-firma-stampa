@@ -1,6 +1,7 @@
 import os
 import re
 import traceback
+from pathlib import Path
 
 from src.utils import constants as const
 from src.utils.excel_handler import ExcelHandler
@@ -45,11 +46,11 @@ class MonthlyFeesProcessor:
         if not consuntivo_num.strip().isdigit():
             return "Inserire un numero valido"
         cons_dir = os.path.join(const.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
-        if not os.path.isdir(cons_dir):
+        if not Path(cons_dir).is_dir():
             return "ERRORE: Cartella non trovata"
         try:
             for filename in os.listdir(cons_dir):
-                if filename.startswith(f"{consuntivo_num}-") or filename.startswith(f"{consuntivo_num} "):
+                if filename.startswith((f"{consuntivo_num}-", f"{consuntivo_num} ")):
                     return os.path.join(cons_dir, filename)
             return f"File non trovato per il n° {consuntivo_num}"
         except Exception as e:
@@ -60,7 +61,7 @@ class MonthlyFeesProcessor:
         if not year or not month_name:
             return None, "Periodo non selezionato"
         cons_dir = os.path.join(const.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
-        if not os.path.isdir(cons_dir):
+        if not Path(cons_dir).is_dir():
             return None, f"Cartella non trovata: {cons_dir}"
         try:
             files_in_dir = os.listdir(cons_dir)
@@ -70,7 +71,7 @@ class MonthlyFeesProcessor:
                 if cancel_event.is_set():
                     return None, "Annullato"
                 filename_norm = filename.upper()
-                if all(keyword in filename_norm for keyword in ["CANONE", month_norm, tcl_norm]):
+                if all(keyword in filename_norm for keyword in ("CANONE", month_norm, tcl_norm)):
                     match = re.match(r"^(\d+)", filename)
                     if match:
                         number = match.group(1)
@@ -103,7 +104,6 @@ class MonthlyFeesProcessor:
                 consuntivi_data = paths_to_print["consuntivi"]
                 word_path = paths_to_print["word"]
 
-                # Filter only enabled consuntivi
                 enabled_consuntivi = [c for c in consuntivi_data if c["print"]]
                 if not enabled_consuntivi:
                     self.logger("Nessun canone selezionato per la stampa.", "WARNING")
@@ -148,19 +148,20 @@ class MonthlyFeesProcessor:
             self.gui.after(0, self.gui.on_process_finished)
 
     def _validate_paths(self, paths, printer, macro):
-        all_paths = {"File Giornaliera": paths["giornaliera"], "File Foglio Canone": paths["word"]}
-        # Only validate paths for enabled consuntivi
-        for c in paths["consuntivi"]:
-            if c["print"]:
-                all_paths[f"Canone {c['name']}"] = c["path"]
-        for name, path in all_paths.items():
-            if not path or not os.path.isfile(path):
-                self.logger(f"ERRORE: Percorso per '{name}' non valido o file non trovato: '{path}'", "ERROR")
-                return False
-        if not macro.strip():
-            self.logger("ERRORE: Nome della macro VBA non specificato.", "ERROR")
-            return False
         if not printer:
-            self.logger("ERRORE: Nessuna stampante selezionata.", "ERROR")
+            self.logger("ERRORE: Stampante non selezionata.", "ERROR")
             return False
+        if not macro:
+            self.logger("ERRORE: Nome macro VBA non specificato.", "ERROR")
+            return False
+        if not os.path.isfile(paths["giornaliera"]):
+            self.logger(f"ERRORE: File Giornaliera non trovato: {paths['giornaliera']}", "ERROR")
+            return False
+        if not os.path.isfile(paths["word"]):
+            self.logger(f"ERRORE: File Word non trovato: {paths['word']}", "ERROR")
+            return False
+        for c in paths["consuntivi"]:
+            if c["print"] and not os.path.isfile(c["path"]):
+                self.logger(f"ERRORE: File Consuntivo non trovato: {c['path']}", "ERROR")
+                return False
         return True

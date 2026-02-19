@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+from pathlib import Path
 from typing import TypedDict
 
 from src.utils.excel_gateway import ExcelGateway
@@ -50,7 +51,7 @@ class OrganizationProcessor:
 
     def run_organization_process(self, cancel_event):
         dest_dir = self.app_config.organizza_dest_dir.get()
-        if os.path.isdir(dest_dir) and any(os.scandir(dest_dir)):
+        if Path(dest_dir).is_dir() and any(os.scandir(dest_dir)):
             self.logger("Creazione backup cartella di destinazione...")
             if not create_backup(dest_dir):
                 self.logger("ERRORE: Impossibile creare il backup. Operazione annullata.", "ERROR")
@@ -64,12 +65,12 @@ class OrganizationProcessor:
 
     def run_printing_process(self, cancel_event):
         dest_dir = self.app_config.organizza_dest_dir.get()
-        if not os.path.isdir(dest_dir):
+        if not Path(dest_dir).is_dir():
             self.logger("ERRORE: Cartella organizzata non trovata.", "ERROR")
             return
 
         folder_list = [
-            os.path.join(dest_dir, d) for d in os.listdir(dest_dir) if os.path.isdir(os.path.join(dest_dir, d))
+            os.path.join(dest_dir, d) for d in os.listdir(dest_dir) if Path(os.path.join(dest_dir, d)).is_dir()
         ]
 
         if not folder_list:
@@ -111,7 +112,7 @@ class OrganizationProcessor:
         self._log_org_summary(summary, len(excel_files))
 
     def _get_excel_files(self, source_dir):
-        if not os.path.isdir(source_dir):
+        if not Path(source_dir).is_dir():
             self.logger("ERRORE: Cartella di origine non trovata.", "ERROR")
             return []
         try:
@@ -134,9 +135,9 @@ class OrganizationProcessor:
             dest_folder_name = (
                 re.sub(r'[\\/:*?"<>|]', "", odc_s) if odc_s and odc_s.upper() != "NA" else "Schede senza ODC"
             )
-            dest_folder_path = os.path.join(dest_dir, dest_folder_name)
-            os.makedirs(dest_folder_path, exist_ok=True)
-            shutil.copy2(file_path, dest_folder_path)
+            dest_folder_path = Path(dest_dir) / dest_folder_name
+            dest_folder_path.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(file_path, str(dest_folder_path))
             return True, None
         except Exception as e:
             return False, str(e)
@@ -200,7 +201,7 @@ class OrganizationProcessor:
             m_val = next(
                 (
                     str(ws.Cells(r, c).Value).strip()
-                    for r, c in [(2, 5), (2, 20), (5, 20)]
+                    for r, c in ((2, 5), (2, 20), (5, 20))
                     if ws.Cells(r, c).Value and str(ws.Cells(r, c).Value).strip()
                 ),
                 "",
@@ -224,7 +225,7 @@ class OrganizationProcessor:
         self.logger(f"Lettura del file Giornaliera per {month} {year}...", "INFO")
         giornaliera_path = self.fees_processor.get_giornaliera_path(year, month)
 
-        if not os.path.isfile(giornaliera_path):
+        if not Path(giornaliera_path).is_file():
             self.logger(f"File Giornaliera non trovato: {giornaliera_path}", "WARNING")
             return {}
 
@@ -251,7 +252,7 @@ class OrganizationProcessor:
 
     def _extract_mapping_from_riepilogo(self, worksheet):
         mapping = {}
-        cells_to_check = [("S16", "S17"), ("U16", "U17"), ("V16", "V17")]
+        cells_to_check = (("S16", "S17"), ("U16", "U17"), ("V16", "V17"))
         for header_cell, value_cell in cells_to_check:
             header = worksheet.Range(header_cell).Value
             value_raw = worksheet.Range(value_cell).Value

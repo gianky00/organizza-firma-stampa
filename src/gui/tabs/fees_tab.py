@@ -119,18 +119,21 @@ class FeesTab(ttk.Frame):
         paths_frame.grid(row=2, column=0, columnspan=2, sticky=tk.EW, pady=5)
         paths_frame.columnconfigure(1, weight=1)
         create_path_entry(
-            paths_frame, "File Giornaliera (Auto):", self.app_config.canoni_giornaliera_path, 0, readonly=True
+            paths_frame,
+            "File Giornaliera (Auto):",
+            self.app_config.canoni_giornaliera_path,
+            lambda: None,
+            0,
+            readonly=True,
         )
         word_ft = [("File Word", "*.docx *.doc"), ("Tutti i file", "*.*")]
         create_path_entry(
             paths_frame,
             "File Foglio Canone (Word):",
             self.app_config.canoni_word_path,
+            lambda: select_file_dialog(self.app_config.canoni_word_path, word_ft),
             1,
             readonly=False,
-            browse_command=lambda: select_file_dialog(
-                self.app_config.canoni_word_path, "Seleziona Foglio Canone Word", word_ft
-            ),
         )
 
         # --- Stampante e Macro ---
@@ -142,7 +145,14 @@ class FeesTab(ttk.Frame):
             printer_macro_frame, textvariable=self.app_config.selected_printer, state="readonly"
         )
         self.printer_combo.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
-        create_path_entry(printer_macro_frame, "Nome Macro VBA:", self.app_config.canoni_macro_name, 1, readonly=True)
+        create_path_entry(
+            printer_macro_frame,
+            "Nome Macro VBA:",
+            self.app_config.canoni_macro_name,
+            lambda: None,
+            1,
+            readonly=True,
+        )
 
         # --- Azioni ---
         self.actions_frame = ttk.LabelFrame(self, text="2. Azione", padding=15)

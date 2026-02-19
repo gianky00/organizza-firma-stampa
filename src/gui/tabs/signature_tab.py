@@ -7,7 +7,12 @@ from tkinter import ttk
 
 from src.logic.email_handler import EmailHandler
 from src.logic.signature import SignatureProcessor
-from src.utils.ui_utils import create_path_entry, open_folder_in_explorer, select_file_dialog
+from src.utils.ui_utils import (
+    create_path_entry,
+    open_folder_in_explorer,
+    select_file_dialog,
+    select_folder_dialog,
+)
 
 
 class SignatureTab(ttk.Frame):
@@ -58,7 +63,14 @@ class SignatureTab(ttk.Frame):
         self.email_frame.columnconfigure(1, weight=1)
 
         # --- Paths Frame Content ---
-        create_path_entry(paths_frame, "Cartella Excel:", self.app_config.firma_excel_dir, 0, readonly=True)
+        create_path_entry(
+            paths_frame,
+            "Cartella Excel:",
+            self.app_config.firma_excel_dir,
+            lambda: select_folder_dialog(self.app_config.firma_excel_dir),
+            0,
+            readonly=True,
+        )
         pdf_frame = ttk.Frame(paths_frame)
         pdf_frame.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=5)
         pdf_entry = ttk.Entry(pdf_frame, textvariable=self.app_config.firma_pdf_dir, state="readonly")
@@ -68,16 +80,21 @@ class SignatureTab(ttk.Frame):
         )
         open_button.pack(side=tk.LEFT, padx=(5, 0))
         ttk.Label(paths_frame, text="Cartella PDF di Output:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        create_path_entry(paths_frame, "Immagine Firma:", self.app_config.firma_image_path, 2, readonly=True)
+        create_path_entry(
+            paths_frame,
+            "Immagine Firma:",
+            self.app_config.firma_image_path,
+            lambda: select_file_dialog(self.app_config.firma_image_path, [("Immagini", "*.png;*.jpg;*.jpeg")]),
+            2,
+            readonly=True,
+        )
         create_path_entry(
             paths_frame,
             "Ghostscript:",
             self.app_config.firma_ghostscript_path,
+            lambda: select_file_dialog(self.app_config.firma_ghostscript_path, [("Eseguibile", "*.exe")]),
             3,
             readonly=False,
-            browse_command=lambda: select_file_dialog(
-                self.app_config.firma_ghostscript_path, "Seleziona eseguibile Ghostscript", [("Executable", "*.exe")]
-            ),
         )
 
         # --- Mode Frame Content ---
@@ -129,9 +146,11 @@ class SignatureTab(ttk.Frame):
         self.size_limit_entry = ttk.Entry(email_settings_frame, textvariable=self.app_config.email_size_limit, width=5)
         self.size_limit_entry.pack(side=tk.LEFT)
 
-        create_path_entry(self.email_frame, "Destinatario(i):", self.app_config.email_to, 1, readonly=False)
-        create_path_entry(self.email_frame, "CC:", self.app_config.email_cc, 2, readonly=False)
-        create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, 3, readonly=False)
+        create_path_entry(
+            self.email_frame, "Destinatario(i):", self.app_config.email_to, lambda: None, 1, readonly=False
+        )
+        create_path_entry(self.email_frame, "CC:", self.app_config.email_cc, lambda: None, 2, readonly=False)
+        create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, lambda: None, 3, readonly=False)
 
         ttk.Label(self.email_frame, text="Corpo del Messaggio:").grid(row=4, column=0, sticky=tk.NW, padx=5, pady=5)
         self.email_body_text = tk.Text(self.email_frame, height=8, font=("Segoe UI", 9), relief=tk.SOLID, borderwidth=1)

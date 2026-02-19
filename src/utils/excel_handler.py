@@ -1,82 +1,52 @@
-import traceback
+from contextlib import suppress
 from tkinter import messagebox
+
+import pythoncom
+import win32com.client
 
 
 class ExcelHandler:
     """
-    A context manager to safely handle a single instance of the Excel application.
-    Ensures that Excel is properly initialized and terminated.
+    Context manager for safely handling Excel COM instance.
+    Ensures the instance is closed and resources are released.
     """
 
-    def __init__(self, logger, visible=False, display_alerts=False):
+    def __init__(self, logger):
+        self.excel = None
         self.logger = logger
-        self.visible = visible
-        self.display_alerts = display_alerts
-        self.excel_app = None
 
     def __enter__(self):
-        """
-        Initializes COM and starts the Excel application.
-        Returns the Excel application object.
-        """
-        # Lazy import to speed up startup
         try:
-            import pythoncom
-            import win32com.client
+            pythoncom.CoInitialize()
+            self.excel = win32com.client.DispatchEx("Excel.Application")
+            self.excel.Visible = False
+            self.excel.DisplayAlerts = False
+            return self.excel
         except ImportError:
             self.logger(
                 "ERRORE FATALE: Le librerie necessarie (pywin32) per controllare Excel non sono installate.", "ERROR"
             )
             messagebox.showerror(
-                "Errore di Dipendenze",
-                "Le librerie 'pywin32' necessarie per comunicare con Excel non sono installate. "
-                "Si prega di installarle eseguendo 'pip install pywin32' da un terminale.",
+                "Errore di Sistema",
+                "Le librerie necessarie (pywin32) per controllare Excel non sono installate.\n"
+                "Eseguire 'pip install pywin32' dal terminale.",
             )
             return None
-
-        try:
-            pythoncom.CoInitialize()
-            # Use DispatchEx to ensure a new instance is created, which can help avoid errors.
-            self.excel_app = win32com.client.DispatchEx("Excel.Application")
-            # Only set Visible if it's explicitly required to be True.
-            # Avoids setting it to False, which can cause "can not be set" errors in some environments.
-            if self.visible:
-                self.excel_app.Visible = True
-            self.excel_app.DisplayAlerts = self.display_alerts
-            self.logger("Applicazione Excel avviata in background.", "INFO")
-            return self.excel_app
         except Exception as e:
-            error_message = (
-                f"Impossibile avviare l'applicazione Excel. Verificare che sia installata correttamente. Dettagli: {e}"
+            self.logger(f"ERRORE FATALE: Impossibile avviare l'applicazione Excel. Dettagli: {e}", "ERROR")
+            messagebox.showerror(
+                "Errore Excel",
+                f"Impossibile avviare Excel. Assicurarsi che sia installato.\n\nDettagli: {e}",
             )
-            self.logger(f"ERRORE FATALE: {error_message}", "ERROR")
-            self.logger(traceback.format_exc(), "ERROR")
-            messagebox.showerror("Errore Avvio Excel", error_message)
-            # Uninitialize if we failed to start
-            pythoncom.CoUninitialize()
             return None
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Quits the Excel application and uninitializes COM.
-        """
-        if self.excel_app:
+        if self.excel:
             try:
-                self.excel_app.Quit()
-                self.logger("Applicazione Excel chiusa correttamente.", "INFO")
+                self.excel.Quit()
             except Exception as e:
-                self.logger(
-                    f"ATTENZIONE: Si è verificato un errore durante la chiusura di Excel. Potrebbe rimanere un processo attivo. Dettagli: {e}",
-                    "WARNING",
-                )
-
-        # Always uninitialize COM
-        try:
-            import pythoncom
-
+                self.logger(f"Errore durante la chiusura di Excel: {e}", "WARNING")
+            finally:
+                self.excel = None
+        with suppress(ImportError):
             pythoncom.CoUninitialize()
-        except ImportError:
-            pass  # Should not happen if __enter__ succeeded
-
-        # Return False to propagate exceptions if they occurred inside the 'with' block
-        return False

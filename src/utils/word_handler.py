@@ -1,68 +1,39 @@
-import traceback
+from contextlib import suppress
+
+import pythoncom
+import win32com.client
 
 
 class WordHandler:
     """
-    A context manager to safely handle a single instance of the Word application.
+    Context manager for safely handling Word COM instance.
     """
 
-    def __init__(self, logger, visible=False):
+    def __init__(self, logger):
+        self.word = None
         self.logger = logger
-        self.visible = visible
-        self.word_app = None
 
     def __enter__(self):
-        """
-        Initializes COM and starts the Word application.
-        """
-        # Lazy import
         try:
-            import pythoncom
-            import win32com.client
-        except ImportError:
-            self.logger("ERRORE FATALE: pywin32 non installato.", "ERROR")
-            return None
-
-        try:
-            # No need to CoInitialize here as the parent thread should do it.
-            # But it's safe to call it multiple times.
             pythoncom.CoInitialize()
-            self.word_app = win32com.client.Dispatch("Word.Application")
-            self.word_app.Visible = self.visible
-            self.logger("Applicazione Word avviata in background.", "INFO")
-            return self.word_app
+            self.word = win32com.client.Dispatch("Word.Application")
+            self.word.Visible = False
+            self.word.DisplayAlerts = 0  # wdAlertsNone
+            return self.word
         except Exception as e:
-            self.logger(
-                f"ERRORE FATALE: Impossibile avviare l'applicazione Word. Verificare che sia installata correttamente. Dettagli: {e}",
-                "ERROR",
-            )
-            self.logger(traceback.format_exc(), "ERROR")
-            try:
-                import pythoncom
-
+            self.logger(f"ERRORE FATALE: Impossibile avviare Word. Dettagli: {e}", "ERROR")
+            with suppress(BaseException):
                 pythoncom.CoUninitialize()
-            except:
-                pass
             return None
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Quits the Word application and uninitializes COM.
-        """
-        if self.word_app:
+        if self.word:
             try:
-                self.word_app.Quit(SaveChanges=0)
-                self.logger("Applicazione Word chiusa correttamente.", "INFO")
+                self.word.Quit(SaveChanges=0)  # wdDoNotSaveChanges
             except Exception as e:
-                self.logger(
-                    f"ATTENZIONE: Si è verificato un errore durante la chiusura di Word. Potrebbe rimanere un processo attivo. Dettagli: {e}",
-                    "WARNING",
-                )
-
-        try:
-            import pythoncom
-
+                self.logger(f"Errore durante la chiusura di Word: {e}", "WARNING")
+            finally:
+                self.word = None
+        with suppress(BaseException):
             pythoncom.CoUninitialize()
-        except:
-            pass
         return False

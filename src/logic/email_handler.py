@@ -1,4 +1,5 @@
 import traceback
+from contextlib import suppress
 
 
 class EmailHandler:
@@ -11,17 +12,15 @@ class EmailHandler:
 
     def create_outlook_draft(self, draft_info):
         """
-        Creates and displays a single Outlook email draft from a draft info object.
-
-        Args:
-            draft_info (dict): A dictionary containing 'to', 'subject', 'intro_text',
-                               'file_list', and 'attachments'.
+        Creates a draft in Outlook with the provided information and attachments.
         """
         try:
             import pythoncom
             import win32com.client
         except ImportError:
-            self.logger("ERRORE FATALE: pywin32 non installato.", "ERROR")
+            self.logger(
+                "ERRORE FATALE: Le librerie necessarie (pywin32) per controllare Outlook non sono installate.", "ERROR"
+            )
             return
 
         pythoncom.CoInitialize()
@@ -35,11 +34,11 @@ class EmailHandler:
 
             outlook = win32com.client.Dispatch("Outlook.Application")
             mail = outlook.CreateItem(0)
-
             mail.To = to
             mail.CC = cc
             mail.Subject = subject
 
+            # Get user signature
             mail.Display()
             signature = mail.HTMLBody
 
@@ -49,12 +48,9 @@ class EmailHandler:
 
             mail.HTMLBody = f"<p style='font-family:calibri; font-size:11pt'>{body_with_br}</p>" + signature
 
-            self.logger(f"Aggiunta di {len(attachments)} allegati alla bozza '{subject}'...", "INFO")
-            for attachment_path in attachments:
-                try:
-                    mail.Attachments.Add(attachment_path)
-                except Exception as e:
-                    self.logger(f"Impossibile aggiungere l'allegato: {attachment_path}. Errore: {e}", "ERROR")
+            for file_path in attachments:
+                if file_path:
+                    mail.Attachments.Add(file_path)
 
             self.logger("Bozza email creata e mostrata con successo.", "SUCCESS")
 
@@ -65,9 +61,7 @@ class EmailHandler:
             )
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            try:
+            with suppress(BaseException):
                 import pythoncom
 
                 pythoncom.CoUninitialize()
-            except:
-                pass

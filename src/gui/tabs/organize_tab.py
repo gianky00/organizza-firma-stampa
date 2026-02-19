@@ -50,11 +50,9 @@ class OrganizeTab(ttk.Frame):
             self.org_frame,
             "Cartella di Origine:",
             self.app_config.organizza_source_dir,
+            lambda: select_folder_dialog(self.app_config.organizza_source_dir),
             0,
             readonly=False,
-            browse_command=lambda: select_folder_dialog(
-                self.app_config.organizza_source_dir, "Seleziona cartella schede da organizzare"
-            ),
         )
         self.organize_button = ttk.Button(
             self.org_frame,

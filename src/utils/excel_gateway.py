@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+from contextlib import suppress
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -137,7 +138,7 @@ class ExcelGateway:
                 return excel.Workbooks.Open(file_path, ReadOnly=True, Password=password)
             raise
 
-    def _find_date_by_model(self, worksheet, models_config):
+    def _find_date_by_model(self, worksheet, models_config) -> datetime | None:
         for cfg in models_config:
             if cfg.id_cell:
                 val = self._normalize_model_string(worksheet.Range(cfg.id_cell).Value)
@@ -145,7 +146,7 @@ class ExcelGateway:
                     return self._find_date_in_cells(worksheet, cfg.date_cells)
         return None
 
-    def _find_date_in_cells(self, worksheet, cell_list):
+    def _find_date_in_cells(self, worksheet, cell_list) -> datetime | None:
         for cell in cell_list:
             dt = self._extract_date_from_val(worksheet.Range(cell).Value)
             if dt:
@@ -172,16 +173,12 @@ class ExcelGateway:
 
     def _parse_date_string(self, value: str) -> datetime | None:
         # Formati diretti
-        for fmt in ["%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"]:
-            try:
+        for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"):
+            with suppress(ValueError):
                 return datetime.strptime(value.strip(), fmt)
-            except ValueError:
-                continue
         # Estrazione regex
         match = re.search(r"(\d{2})[-/](\d{2})[-/](\d{4})", value)
         if match:
-            try:
+            with suppress(ValueError):
                 return datetime.strptime(match.group(0).replace("/", "-"), "%d-%m-%Y")
-            except ValueError:
-                pass
         return None

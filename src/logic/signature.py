@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import traceback
+from pathlib import Path
 
 from src.utils import constants as const
 from src.utils.excel_handler import ExcelHandler
@@ -22,8 +23,8 @@ class SignatureProcessor:
         self.firma_processing_data = {
             "schedacontrolloSTRUMENTIANALOGICI": {"PrintArea": "A2:N55", "FirmaCella": "G54"},
             "schedacontrolloSTRUMENTIDIGITALI": {"PrintArea": "A2:N50", "FirmaCella": "G49"},
-            "SchedacontrolloREPORTMANUTENZIONECORRETTIVA": {"PrintArea": "A2:N55", "FirmaCella": "G55"},
-            "SCHEDAMANUTENZIONE": {"PrintArea": "A1:FV106", "FirmaCella": "BZ105"},
+            "SchedacontrolloREPORTMANUTENZIONECORRETTIVA": {"PrintArea": "A2:N55", "FirmaCella": "G54"},
+            "SCHEDAMANUTENZIONE": {"PrintArea": "A1:FV106", "FirmaCella": "FO104"},
         }
 
     def run_full_signature_process(self, cancel_event):
@@ -43,7 +44,7 @@ class SignatureProcessor:
                 if f.lower().endswith((".xlsx", ".xls", ".xlsm")) and not f.startswith("~")
             ]
             total_steps = len(excel_files) * 2
-            self.gui.after(0, self.setup_progress, total_steps)
+            self.gui.after(0, self.setup_progress, total_steps, "Processo di firma:")
 
             if cancel_event.is_set():
                 return
@@ -78,7 +79,7 @@ class SignatureProcessor:
             "Eseguibile Ghostscript": self.app_config.firma_ghostscript_path.get(),
         }
         for name, path in paths_to_check.items():
-            if not path or not os.path.isfile(path):
+            if not path or not Path(path).is_file():
                 self.logger(f"ERRORE: '{name}' non trovato: {path}", "ERROR")
                 return False
         return True
@@ -123,10 +124,10 @@ class SignatureProcessor:
     def _apply_signature_schede(self, workbook, file_name):
         try:
             ws = workbook.Worksheets(1)
-            valE2 = ws.Cells(2, 5).Text.strip()
-            valT2 = ws.Cells(2, 20).Text.strip()
-            valT5 = ws.Cells(5, 20).Text.strip()
-            model_value = valE2 or valT2 or valT5
+            val_e2 = ws.Cells(2, 5).Text.strip()
+            val_t2 = ws.Cells(2, 20).Text.strip()
+            val_t5 = ws.Cells(5, 20).Text.strip()
+            model_value = val_e2 or val_t2 or val_t5
             cleaned_model = "".join(filter(str.isalnum, model_value))
             if cleaned_model in self.firma_processing_data:
                 data = self.firma_processing_data[cleaned_model]
@@ -187,8 +188,8 @@ class SignatureProcessor:
             if cancel_event.is_set():
                 return
             self.gui.after(0, self.update_progress, progress_offset + i + 1)
-            input_pdf = os.path.join(pdf_path, pdf_file)
-            temp_output_pdf = os.path.join(pdf_path, f"temp_{pdf_file}")
+            input_pdf = Path(pdf_path) / pdf_file
+            temp_output_pdf = Path(pdf_path) / f"temp_{pdf_file}"
             self.logger(f"Compressione: {pdf_file}", "INFO")
             args = [
                 gs_exe,
@@ -199,28 +200,28 @@ class SignatureProcessor:
                 "-dBATCH",
                 "-dQUIET",
                 f"-sOutputFile={temp_output_pdf}",
-                input_pdf,
+                str(input_pdf),
             ]
             try:
                 subprocess.run(
                     args, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW
                 )
-                if os.path.exists(temp_output_pdf) and os.path.getsize(temp_output_pdf) > 100:
-                    os.remove(input_pdf)
-                    os.rename(temp_output_pdf, input_pdf)
+                if temp_output_pdf.exists() and temp_output_pdf.stat().st_size > 100:
+                    input_pdf.unlink()
+                    temp_output_pdf.rename(input_pdf)
                     self.logger("Compressione OK.", "SUCCESS")
                 else:
                     self.logger("ERRORE: File compresso non valido.", "ERROR")
-                    if os.path.exists(temp_output_pdf):
-                        os.remove(temp_output_pdf)
+                    if temp_output_pdf.exists():
+                        temp_output_pdf.unlink()
             except subprocess.CalledProcessError as e:
                 self.logger(f"ERRORE Ghostscript: {e.stderr}", "ERROR")
-                if os.path.exists(temp_output_pdf):
-                    os.remove(temp_output_pdf)
+                if temp_output_pdf.exists():
+                    temp_output_pdf.unlink()
             except Exception as e:
                 self.logger(f"ERRORE imprevisto compressione: {e}", "ERROR")
-                if os.path.exists(temp_output_pdf):
-                    os.remove(temp_output_pdf)
+                if temp_output_pdf.exists():
+                    temp_output_pdf.unlink()
 
     def _col_to_num(self, col_str):
         num = 0

@@ -1,5 +1,6 @@
 import os
 import shutil
+from pathlib import Path
 
 
 def clear_folder_content(folder_path, logger, folder_display_name=None):

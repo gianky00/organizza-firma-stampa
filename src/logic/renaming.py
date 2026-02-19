@@ -1,6 +1,7 @@
 import os
 import re
 import traceback
+from pathlib import Path
 from typing import TypedDict
 
 from src.utils.excel_gateway import ExcelGateway
@@ -34,7 +35,7 @@ class RenameProcessor:
     def run_rename_process(self, cancel_event):
         self.logger("Avvio del processo di ridenominazione...", "HEADER")
         root_path = self.app_config.rinomina_path.get()
-        if not os.path.isdir(root_path):
+        if not Path(root_path).is_dir():
             self.logger(f"ERRORE: La cartella specificata non è valida o non esiste: '{root_path}'", "ERROR")
             self.gui.after(0, self.gui.on_process_finished)
             return
@@ -64,7 +65,7 @@ class RenameProcessor:
         self.logger(f"Trovati {num_files} file Excel. Inizio analisi.", "INFO")
         self.gui.after(0, self.setup_progress, num_files, "Analisi e ridenominazione:")
 
-        DATE_IN_FILENAME_REGEX = re.compile(r"\s*\(\d{2}-\d{2}-\d{4}\)")
+        date_in_filename_regex = re.compile(r"\s*\(\d{2}-\d{2}-\d{4}\)")
         summary: RenameSummary = {"corrected": 0, "already_ok": 0, "no_date": 0, "errors": []}
 
         password = self.app_config.rinomina_password.get()
@@ -79,19 +80,22 @@ class RenameProcessor:
                 emission_date = self.excel_gateway.get_workbook_date(file_path, password=password)
 
                 if emission_date:
-                    original_dir, original_filename = os.path.split(file_path)
-                    base_name, ext = os.path.splitext(original_filename)
-                    cleaned_base_name = DATE_IN_FILENAME_REGEX.sub("", base_name).strip()
+                    original_path = Path(file_path)
+                    original_dir = original_path.parent
+                    original_filename = original_path.name
+                    base_name, ext = original_path.stem, original_path.suffix
+
+                    cleaned_base_name = date_in_filename_regex.sub("", base_name).strip()
                     cleaned_base_name = self._clean_windows_duplicate_marker(cleaned_base_name)
                     # Rimuove spazi e normalizza
                     cleaned_base_name = cleaned_base_name.replace(" ", "")
                     new_filename = f"{cleaned_base_name} ({emission_date.strftime('%d-%m-%Y')}){ext}"
 
                     if new_filename.lower() != original_filename.lower():
-                        new_filepath = os.path.join(original_dir, new_filename)
+                        new_filepath = original_dir / new_filename
                         final_path = self._get_unique_filepath(new_filepath)
-                        os.rename(file_path, final_path)
-                        self.logger(f"  -> RINOMINATO in: {os.path.basename(final_path)}", "SUCCESS")
+                        os.rename(file_path, str(final_path))
+                        self.logger(f"  -> RINOMINATO in: {final_path.name}", "SUCCESS")
                         summary["corrected"] += 1
                     else:
                         self.logger("  -> Già corretto.", "INFO")
@@ -126,14 +130,15 @@ class RenameProcessor:
                     files.append(os.path.join(r, f))
         return files
 
-    def _get_unique_filepath(self, filepath: str) -> str:
-        if not os.path.exists(filepath):
+    def _get_unique_filepath(self, filepath: Path) -> Path:
+        if not filepath.exists():
             return filepath
-        base, ext = os.path.splitext(filepath)
+        base, ext = filepath.stem, filepath.suffix
+        original_dir = filepath.parent
         counter = 1
         while True:
-            new_path = f"{base} ({counter}){ext}"
-            if not os.path.exists(new_path):
+            new_path = original_dir / f"{base} ({counter}){ext}"
+            if not new_path.exists():
                 return new_path
             counter += 1
 

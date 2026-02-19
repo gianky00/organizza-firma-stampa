@@ -41,13 +41,18 @@ class RenameTab(ttk.Frame):
             settings_frame,
             "Cartella da Analizzare:",
             self.app_config.rinomina_path,
+            lambda: select_folder_dialog(self.app_config.rinomina_path),
             0,
             readonly=False,
-            browse_command=lambda: select_folder_dialog(
-                self.app_config.rinomina_path, "Seleziona cartella con le schede da rinominare"
-            ),
         )
-        create_path_entry(settings_frame, "Password (opzionale):", self.app_config.rinomina_password, 1, readonly=False)
+        create_path_entry(
+            settings_frame,
+            "Password (opzionale):",
+            self.app_config.rinomina_password,
+            lambda: None,
+            1,
+            readonly=False,
+        )
 
         # --- Actions Frame ---
         self.actions_frame = ttk.LabelFrame(self, text="2. Azioni", padding=15)
