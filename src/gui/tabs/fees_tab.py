@@ -1,9 +1,11 @@
-import tkinter as tk
-from tkinter import ttk
-from datetime import datetime
 import threading
+import tkinter as tk
+from datetime import datetime
+from tkinter import ttk
+
 from src.logic.monthly_fees import MonthlyFeesProcessor
 from src.utils.ui_utils import create_path_entry, select_file_dialog
+
 
 class FeesTab(ttk.Frame):
     def __init__(self, parent, app_config, logger):
@@ -22,8 +24,14 @@ class FeesTab(ttk.Frame):
         self.columnconfigure(0, weight=1)
 
         # --- Description ---
-        desc_label = ttk.Label(self, text="Automatizza la stampa dei canoni mensili eseguendo macro VBA su file Excel e stampando documenti Word in sequenza.", wraplength=800, justify=tk.LEFT, style='info.TLabel')
-        desc_label.pack(fill=tk.X, pady=(0, 15), anchor='w')
+        desc_label = ttk.Label(
+            self,
+            text="Automatizza la stampa dei canoni mensili eseguendo macro VBA su file Excel e stampando documenti Word in sequenza.",
+            wraplength=800,
+            justify=tk.LEFT,
+            style="info.TLabel",
+        )
+        desc_label.pack(fill=tk.X, pady=(0, 15), anchor="w")
 
         # --- Settings Frame ---
         settings_frame = ttk.LabelFrame(self, text="1. Impostazioni di Stampa", padding=15)
@@ -34,11 +42,23 @@ class FeesTab(ttk.Frame):
         period_frame = ttk.Frame(settings_frame)
         period_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 10))
         ttk.Label(period_frame, text="Periodo:", font=self.app_config.font_bold).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Label(period_frame, text="Anno:").pack(side=tk.LEFT, padx=(5,5))
-        self.anno_combo = ttk.Combobox(period_frame, textvariable=self.app_config.canoni_selected_year, values=self.anni_giornaliera, state="readonly", width=10)
-        self.anno_combo.pack(side=tk.LEFT, padx=(0,15))
-        ttk.Label(period_frame, text="Mese:").pack(side=tk.LEFT, padx=(5,5))
-        self.mese_combo = ttk.Combobox(period_frame, textvariable=self.app_config.canoni_selected_month, values=self.app_config.nomi_mesi_italiani, state="readonly", width=15)
+        ttk.Label(period_frame, text="Anno:").pack(side=tk.LEFT, padx=(5, 5))
+        self.anno_combo = ttk.Combobox(
+            period_frame,
+            textvariable=self.app_config.canoni_selected_year,
+            values=self.anni_giornaliera,
+            state="readonly",
+            width=10,
+        )
+        self.anno_combo.pack(side=tk.LEFT, padx=(0, 15))
+        ttk.Label(period_frame, text="Mese:").pack(side=tk.LEFT, padx=(5, 5))
+        self.mese_combo = ttk.Combobox(
+            period_frame,
+            textvariable=self.app_config.canoni_selected_month,
+            values=self.app_config.nomi_mesi_italiani,
+            state="readonly",
+            width=15,
+        )
         self.mese_combo.pack(side=tk.LEFT, padx=(0, 5))
 
         # --- Numeri Consuntivo ---
@@ -47,42 +67,75 @@ class FeesTab(ttk.Frame):
         consuntivi_frame.columnconfigure(1, weight=1)
 
         # Messina
-        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_messina_print).grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_messina_print).grid(
+            row=0, column=0, sticky=tk.W, padx=(0, 5)
+        )
         ttk.Label(consuntivi_frame, text="N° Canone Messina:").grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
-        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_messina_num, width=10).grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
+        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_messina_num, width=10).grid(
+            row=0, column=2, sticky=tk.W, padx=5, pady=5
+        )
 
         # Naselli
-        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_naselli_print).grid(row=1, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_naselli_print).grid(
+            row=1, column=0, sticky=tk.W, padx=(0, 5)
+        )
         ttk.Label(consuntivi_frame, text="N° Canone Naselli:").grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
-        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_naselli_num, width=10).grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
+        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_naselli_num, width=10).grid(
+            row=1, column=2, sticky=tk.W, padx=5, pady=5
+        )
 
         # Caldarella
-        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_caldarella_print).grid(row=2, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_caldarella_print).grid(
+            row=2, column=0, sticky=tk.W, padx=(0, 5)
+        )
         ttk.Label(consuntivi_frame, text="N° Canone Caldarella:").grid(row=2, column=1, sticky=tk.W, padx=5, pady=5)
-        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_caldarella_num, width=10).grid(row=2, column=2, sticky=tk.W, padx=5, pady=5)
+        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_caldarella_num, width=10).grid(
+            row=2, column=2, sticky=tk.W, padx=5, pady=5
+        )
 
         # Caldarella2 (manuale)
-        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_caldarella2_print).grid(row=3, column=0, sticky=tk.W, padx=(0, 5))
-        ttk.Label(consuntivi_frame, text="N° Canone Caldarella2 (manuale):").grid(row=3, column=1, sticky=tk.W, padx=5, pady=5)
-        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_caldarella2_num, width=10).grid(row=3, column=2, sticky=tk.W, padx=5, pady=5)
+        ttk.Checkbutton(consuntivi_frame, variable=self.app_config.canoni_caldarella2_print).grid(
+            row=3, column=0, sticky=tk.W, padx=(0, 5)
+        )
+        ttk.Label(consuntivi_frame, text="N° Canone Caldarella2 (manuale):").grid(
+            row=3, column=1, sticky=tk.W, padx=5, pady=5
+        )
+        ttk.Entry(consuntivi_frame, textvariable=self.app_config.canoni_caldarella2_num, width=10).grid(
+            row=3, column=2, sticky=tk.W, padx=5, pady=5
+        )
 
-        self.find_numbers_button = ttk.Button(consuntivi_frame, text="Trova Numeri Automaticamente", command=self.find_numbers_and_populate)
+        self.find_numbers_button = ttk.Button(
+            consuntivi_frame, text="Trova Numeri Automaticamente", command=self.find_numbers_and_populate
+        )
         self.find_numbers_button.grid(row=4, column=0, columnspan=3, sticky="we", pady=(10, 0))
 
         # --- Altri Percorsi ---
         paths_frame = ttk.LabelFrame(settings_frame, text="Percorsi File", padding=10)
         paths_frame.grid(row=2, column=0, columnspan=2, sticky=tk.EW, pady=5)
         paths_frame.columnconfigure(1, weight=1)
-        create_path_entry(paths_frame, "File Giornaliera (Auto):", self.app_config.canoni_giornaliera_path, 0, readonly=True)
+        create_path_entry(
+            paths_frame, "File Giornaliera (Auto):", self.app_config.canoni_giornaliera_path, 0, readonly=True
+        )
         word_ft = [("File Word", "*.docx *.doc"), ("Tutti i file", "*.*")]
-        create_path_entry(paths_frame, "File Foglio Canone (Word):", self.app_config.canoni_word_path, 1, readonly=False, browse_command=lambda: select_file_dialog(self.app_config.canoni_word_path, "Seleziona Foglio Canone Word", word_ft))
+        create_path_entry(
+            paths_frame,
+            "File Foglio Canone (Word):",
+            self.app_config.canoni_word_path,
+            1,
+            readonly=False,
+            browse_command=lambda: select_file_dialog(
+                self.app_config.canoni_word_path, "Seleziona Foglio Canone Word", word_ft
+            ),
+        )
 
         # --- Stampante e Macro ---
         printer_macro_frame = ttk.LabelFrame(settings_frame, text="Dispositivo e Macro", padding=10)
         printer_macro_frame.grid(row=3, column=0, columnspan=2, sticky=tk.EW, pady=5)
         printer_macro_frame.columnconfigure(1, weight=1)
         ttk.Label(printer_macro_frame, text="Stampante:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        self.printer_combo = ttk.Combobox(printer_macro_frame, textvariable=self.app_config.selected_printer, state="readonly")
+        self.printer_combo = ttk.Combobox(
+            printer_macro_frame, textvariable=self.app_config.selected_printer, state="readonly"
+        )
         self.printer_combo.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
         create_path_entry(printer_macro_frame, "Nome Macro VBA:", self.app_config.canoni_macro_name, 1, readonly=True)
 
@@ -90,7 +143,12 @@ class FeesTab(ttk.Frame):
         self.actions_frame = ttk.LabelFrame(self, text="2. Azione", padding=15)
         self.actions_frame.pack(fill=tk.X, pady=5)
         self.actions_frame.columnconfigure(0, weight=1)
-        self.run_button = ttk.Button(self.actions_frame, text="▶ AVVIA PROCESSO STAMPA CANONI", style='primary.TButton', command=self.start_printing_process)
+        self.run_button = ttk.Button(
+            self.actions_frame,
+            text="▶ AVVIA PROCESSO STAMPA CANONI",
+            style="primary.TButton",
+            command=self.start_printing_process,
+        )
         self.run_button.pack(fill=tk.X, ipady=8)
         self.cancel_button = ttk.Button(self.actions_frame, text="Annulla Processo", command=self.cancel_process)
         # self.cancel_button is packed dynamically
@@ -99,7 +157,7 @@ class FeesTab(ttk.Frame):
         self.progress_frame = ttk.Frame(self)
         self.progress_label = ttk.Label(self.progress_frame, text="Elaborazione in corso...")
         self.progress_label.pack(side=tk.LEFT, padx=(0, 5))
-        self.progressbar = ttk.Progressbar(self.progress_frame, orient='horizontal', mode='indeterminate')
+        self.progressbar = ttk.Progressbar(self.progress_frame, orient="horizontal", mode="indeterminate")
         self.progressbar.pack(fill=tk.X, expand=True)
 
         self.anno_combo.bind("<<ComboboxSelected>>", self._update_paths_from_ui)
@@ -113,11 +171,14 @@ class FeesTab(ttk.Frame):
 
     def populate_printers(self):
         printers, default_printer = self.processor.get_printers()
-        self.printer_combo['values'] = printers
+        self.printer_combo["values"] = printers
         saved_printer = self.app_config.selected_printer.get()
-        if saved_printer and saved_printer in printers: self.printer_combo.set(saved_printer)
-        elif default_printer in printers: self.printer_combo.set(default_printer)
-        elif printers: self.printer_combo.set(printers[0])
+        if saved_printer and saved_printer in printers:
+            self.printer_combo.set(saved_printer)
+        elif default_printer in printers:
+            self.printer_combo.set(default_printer)
+        elif printers:
+            self.printer_combo.set(printers[0])
 
     def _update_paths_from_ui(self, *args):
         year = self.app_config.canoni_selected_year.get()
@@ -139,19 +200,39 @@ class FeesTab(ttk.Frame):
         self.show_progress()
         # Build list of consuntivi with their print flags
         consuntivi_data = [
-            {"path": self.app_config.canoni_cons1_path.get(), "print": self.app_config.canoni_messina_print.get(), "name": "Messina"},
-            {"path": self.app_config.canoni_cons2_path.get(), "print": self.app_config.canoni_naselli_print.get(), "name": "Naselli"},
-            {"path": self.app_config.canoni_cons3_path.get(), "print": self.app_config.canoni_caldarella_print.get(), "name": "Caldarella"},
-            {"path": self.app_config.canoni_cons4_path.get(), "print": self.app_config.canoni_caldarella2_print.get(), "name": "Caldarella2"},
+            {
+                "path": self.app_config.canoni_cons1_path.get(),
+                "print": self.app_config.canoni_messina_print.get(),
+                "name": "Messina",
+            },
+            {
+                "path": self.app_config.canoni_cons2_path.get(),
+                "print": self.app_config.canoni_naselli_print.get(),
+                "name": "Naselli",
+            },
+            {
+                "path": self.app_config.canoni_cons3_path.get(),
+                "print": self.app_config.canoni_caldarella_print.get(),
+                "name": "Caldarella",
+            },
+            {
+                "path": self.app_config.canoni_cons4_path.get(),
+                "print": self.app_config.canoni_caldarella2_print.get(),
+                "name": "Caldarella2",
+            },
         ]
         paths_to_print = {
             "giornaliera": self.app_config.canoni_giornaliera_path.get(),
             "consuntivi": consuntivi_data,
-            "word": self.app_config.canoni_word_path.get()
+            "word": self.app_config.canoni_word_path.get(),
         }
         printer = self.app_config.selected_printer.get()
         macro = self.app_config.canoni_macro_name.get()
-        threading.Thread(target=self.processor.run_printing_process, args=(self.cancel_event, paths_to_print, printer, macro), daemon=True).start()
+        threading.Thread(
+            target=self.processor.run_printing_process,
+            args=(self.cancel_event, paths_to_print, printer, macro),
+            daemon=True,
+        ).start()
 
     def find_numbers_and_populate(self):
         self.cancel_event.clear()
@@ -163,7 +244,11 @@ class FeesTab(ttk.Frame):
         try:
             year = self.app_config.canoni_selected_year.get()
             month = self.app_config.canoni_selected_month.get()
-            tcls_to_find = {"MESSINA": self.app_config.canoni_messina_num, "NASELLI": self.app_config.canoni_naselli_num, "CALDARELLA": self.app_config.canoni_caldarella_num}
+            tcls_to_find = {
+                "MESSINA": self.app_config.canoni_messina_num,
+                "NASELLI": self.app_config.canoni_naselli_num,
+                "CALDARELLA": self.app_config.canoni_caldarella_num,
+            }
             for tcl, var in tcls_to_find.items():
                 if cancel_event.is_set():
                     self.log_canoni("Ricerca annullata.", "WARNING")
@@ -177,20 +262,20 @@ class FeesTab(ttk.Frame):
     def cancel_process(self):
         self.log_canoni("Annullamento richiesto...", "WARNING")
         self.cancel_event.set()
-        self.cancel_button.config(state='disabled')
+        self.cancel_button.config(state="disabled")
 
     def on_process_finished(self):
         self.toggle_buttons(is_running=False)
         self.hide_progress()
 
     def toggle_buttons(self, is_running):
-        state = 'disabled' if is_running else 'normal'
+        state = "disabled" if is_running else "normal"
         self.run_button.config(state=state)
         self.find_numbers_button.config(state=state)
         if is_running:
             self.run_button.pack_forget()
             self.cancel_button.pack(fill=tk.X, ipady=8, pady=5)
-            self.cancel_button.config(state='normal')
+            self.cancel_button.config(state="normal")
         else:
             self.cancel_button.pack_forget()
             self.run_button.pack(fill=tk.X, ipady=8, pady=5)
@@ -203,5 +288,5 @@ class FeesTab(ttk.Frame):
         self.progressbar.stop()
         self.progress_frame.pack_forget()
 
-    def log_canoni(self, message, level='INFO'):
+    def log_canoni(self, message, level="INFO"):
         self.master.after(0, self.log_widget, message, level)

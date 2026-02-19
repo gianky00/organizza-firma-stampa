@@ -1,9 +1,10 @@
 import os
+import sys
 
 # --- PATHS ---
 # Determine the base path for the application, works for both script and frozen exe
-if getattr(os.sys, 'frozen', False):
-    APPLICATION_PATH = os.path.dirname(os.sys.executable)
+if getattr(sys, "frozen", False):
+    APPLICATION_PATH = os.path.dirname(sys.executable)
 else:
     # Go up two levels from this file's location (src/utils/constants.py) to get to the project root.
     APPLICATION_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -31,9 +32,18 @@ DEFAULT_GHOSTSCRIPT_PATH = r"C:\Program Files\gs\gs10.05.0\bin\gswin64c.exe"
 
 # --- APPLICATION DATA ---
 MESI_GIORNALIERA_MAP = {
-    "Gennaio": "01", "Febbraio": "02", "Marzo": "03", "Aprile": "04",
-    "Maggio": "05", "Giugno": "06", "Luglio": "07", "Agosto": "08",
-    "Settembre": "09", "Ottobre": "10", "Novembre": "11", "Dicembre": "12"
+    "Gennaio": "01",
+    "Febbraio": "02",
+    "Marzo": "03",
+    "Aprile": "04",
+    "Maggio": "05",
+    "Giugno": "06",
+    "Luglio": "07",
+    "Agosto": "08",
+    "Settembre": "09",
+    "Ottobre": "10",
+    "Novembre": "11",
+    "Dicembre": "12",
 }
 NOMI_MESI_ITALIANI = list(MESI_GIORNALIERA_MAP.keys())
 
@@ -46,20 +56,24 @@ TCL_CONTACTS = {
     "Ferdinando Caldarella": "fcaldarella@isab.com",
     "Manuel Prezzavento": "mprezzavento@isab.com",
     "Ivan Messina": "imessina@isab.com",
-    "Schede": "schede"
+    "Schede": "schede",
 }
 
 
 EMAIL_TCL_SCHEDE = {
-    'to': 'ASpicuglia@isab.com',
-    'cc': 'fnaselli@isab.com; fcaldarella@isab.com; mprezzavento@isab.com; imessina@isab.com; dpassanisi@isab.com; francesco.millo@coemi.it; concetto.siringo@coemi.it; ciro.scaravelli@coemi.it',
-    'subject': 'COEMI - Schede controlli strumentali dal {data_inizio} al {data_fine}.',
-    'body': 'Gentilissimi Signori,\nCon la presente sottopongo alla Vostra attenzione le schede dei controlli eseguiti dal {data_inizio} al {data_fine}.\n\n{file_list}\n\nSaluti,'
+    "to": "ASpicuglia@isab.com",
+    "cc": "fnaselli@isab.com; fcaldarella@isab.com; mprezzavento@isab.com; imessina@isab.com; dpassanisi@isab.com; francesco.millo@coemi.it; concetto.siringo@coemi.it; ciro.scaravelli@coemi.it",
+    "subject": "COEMI - Schede controlli strumentali dal {data_inizio} al {data_fine}.",
+    "body": "Gentilissimi Signori,\nCon la presente sottopongo alla Vostra attenzione le schede dei controlli eseguiti dal {data_inizio} al {data_fine}.\n\n{file_list}\n\nSaluti,",
 }
 
 # Placeholders: {name} for the first name, {file_list} for the list of files.
 EMAIL_BODY_INFORMAL = "Ciao {name},\n\ndi seguito elenco delle schede in allegato firmate:\n\n{file_list}\n\nSaluti,"
-EMAIL_BODY_FORMAL = "Buongiorno {name},\n\nin allegato la documentazione richiesta.\n\nElenco file:\n{file_list}\n\nCordiali Saluti,"
+EMAIL_BODY_FORMAL = (
+    "Buongiorno {name},\n\nin allegato la documentazione richiesta.\n\nElenco file:\n{file_list}\n\nCordiali Saluti,"
+)
 
 EMAIL_BODY_GENERIC_INFORMAL = "Ciao,\n\ndi seguito elenco delle schede in allegato firmate:\n\n{file_list}\n\nSaluti,"
-EMAIL_BODY_GENERIC_FORMAL = "Buongiorno,\n\nin allegato la documentazione richiesta.\n\nElenco file:\n{file_list}\n\nCordiali Saluti,"
+EMAIL_BODY_GENERIC_FORMAL = (
+    "Buongiorno,\n\nin allegato la documentazione richiesta.\n\nElenco file:\n{file_list}\n\nCordiali Saluti,"
+)

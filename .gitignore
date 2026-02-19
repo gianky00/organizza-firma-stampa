@@ -4,6 +4,7 @@ __pycache__/
 
 # Database
 *.db
+.coverage
 
 # Environment
 .env

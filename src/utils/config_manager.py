@@ -1,12 +1,15 @@
 import json
 import os
 from datetime import datetime, timedelta
-from . import constants as const
+
+from src.utils import constants as const
+
 
 class ConfigManager:
     """
     Manages loading and saving the application's configuration file.
     """
+
     def __init__(self):
         self.config_path = os.path.join(const.APPLICATION_PATH, const.CONFIG_FILE_NAME)
         self.settings = {}
@@ -20,13 +23,17 @@ class ConfigManager:
         # Go back ~20 days to ensure we are in the previous month.
         prev_month_date = today - timedelta(days=20)
 
-        organize_default_folder = f"{prev_month_date.month:02d} - {const.NOMI_MESI_ITALIANI[prev_month_date.month - 1].upper()}"
-        organize_default_path = os.path.join(const.ORGANIZZA_BASE_DIR, str(prev_month_date.year), organize_default_folder)
+        organize_default_folder = (
+            f"{prev_month_date.month:02d} - {const.NOMI_MESI_ITALIANI[prev_month_date.month - 1].upper()}"
+        )
+        organize_default_path = os.path.join(
+            const.ORGANIZZA_BASE_DIR, str(prev_month_date.year), organize_default_folder
+        )
 
         self.defaults = {
             "firma_ghostscript_path": const.DEFAULT_GHOSTSCRIPT_PATH,
             "rinomina_path": os.path.join(const.APPLICATION_PATH, const.RINOMINA_DEFAULT_DIR),
-            "rinomina_password": "coemi", # Default password
+            "rinomina_password": "coemi",  # Default password
             "organizza_source_dir": organize_default_path,
             "canoni_selected_year": str(prev_month_date.year),
             "canoni_selected_month": const.NOMI_MESI_ITALIANI[prev_month_date.month - 1],
@@ -44,7 +51,7 @@ class ConfigManager:
             "email_subject": "Documenti Firmati",
             "email_tcl": "",
             "email_is_formal": False,
-            "email_size_limit": "6"
+            "email_size_limit": "6",
         }
 
     def load(self):
@@ -54,11 +61,11 @@ class ConfigManager:
         """
         try:
             if os.path.exists(self.config_path):
-                with open(self.config_path, 'r') as f:
+                with open(self.config_path) as f:
                     self.settings = json.load(f)
             else:
                 self.settings = self.defaults
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             print(f"Error loading {const.CONFIG_FILE_NAME}: {e}. Using default values.")
             self.settings = self.defaults
 
@@ -76,8 +83,8 @@ class ConfigManager:
             current_config (dict): A dictionary with the latest values from the GUI.
         """
         try:
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, "w") as f:
                 json.dump(current_config, f, indent=4)
-        except IOError as e:
+        except OSError as e:
             # In a real app, this might log to a status bar or a log file
             print(f"Error saving configuration: {e}")

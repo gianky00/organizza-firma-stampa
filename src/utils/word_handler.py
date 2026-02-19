@@ -1,9 +1,11 @@
 import traceback
 
+
 class WordHandler:
     """
     A context manager to safely handle a single instance of the Word application.
     """
+
     def __init__(self, logger, visible=False):
         self.logger = logger
         self.visible = visible
@@ -30,12 +32,17 @@ class WordHandler:
             self.logger("Applicazione Word avviata in background.", "INFO")
             return self.word_app
         except Exception as e:
-            self.logger(f"ERRORE FATALE: Impossibile avviare l'applicazione Word. Verificare che sia installata correttamente. Dettagli: {e}", "ERROR")
+            self.logger(
+                f"ERRORE FATALE: Impossibile avviare l'applicazione Word. Verificare che sia installata correttamente. Dettagli: {e}",
+                "ERROR",
+            )
             self.logger(traceback.format_exc(), "ERROR")
             try:
                 import pythoncom
+
                 pythoncom.CoUninitialize()
-            except: pass
+            except:
+                pass
             return None
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -47,10 +54,15 @@ class WordHandler:
                 self.word_app.Quit(SaveChanges=0)
                 self.logger("Applicazione Word chiusa correttamente.", "INFO")
             except Exception as e:
-                self.logger(f"ATTENZIONE: Si è verificato un errore durante la chiusura di Word. Potrebbe rimanere un processo attivo. Dettagli: {e}", "WARNING")
+                self.logger(
+                    f"ATTENZIONE: Si è verificato un errore durante la chiusura di Word. Potrebbe rimanere un processo attivo. Dettagli: {e}",
+                    "WARNING",
+                )
 
         try:
             import pythoncom
+
             pythoncom.CoUninitialize()
-        except: pass
+        except:
+            pass
         return False

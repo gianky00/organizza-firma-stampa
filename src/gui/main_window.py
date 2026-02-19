@@ -1,24 +1,23 @@
-import tkinter as tk
-from tkinter import ttk
 import os
+import tkinter as tk
 from datetime import datetime, timedelta
+from tkinter import ttk
 
+from src.gui.tabs.fees_tab import FeesTab
+from src.gui.tabs.organize_tab import OrganizeTab
+from src.gui.tabs.rename_tab import RenameTab
+from src.gui.tabs.signature_tab import SignatureTab
 from src.utils import constants as const
 from src.utils.config_manager import ConfigManager
-from src.utils.ui_utils import create_log_widget, log_message, clear_log
+from src.utils.ui_utils import create_log_widget, log_message
 
-from src.gui.tabs.signature_tab import SignatureTab
-from src.gui.tabs.rename_tab import RenameTab
-from src.gui.tabs.organize_tab import OrganizeTab
-from src.gui.tabs.fees_tab import FeesTab
-from src.logic.monthly_fees import MonthlyFeesProcessor
 
 class MainApplication(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Gestione Documenti Ufficio (Refactored)")
         try:
-            self.state('zoomed')
+            self.state("zoomed")
         except tk.TclError:
             self.geometry("1200x900")
             self.center_window(1200, 900)
@@ -39,7 +38,7 @@ class MainApplication(tk.Tk):
         screen_height = self.winfo_screenheight()
         x = (screen_width // 2) - (width // 2)
         y = (screen_height // 2) - (height // 2)
-        self.geometry(f'{width}x{height}+{x}+{y}')
+        self.geometry(f"{width}x{height}+{x}+{y}")
 
     def _setup_style(self):
         self.font_main = ("Segoe UI", 10)
@@ -47,29 +46,31 @@ class MainApplication(tk.Tk):
         self.background_color = "#f0f0f0"
 
         style = ttk.Style(self)
-        style.theme_use('clam')
+        style.theme_use("clam")
 
-        style.configure('.', font=self.font_main, background=self.background_color)
-        style.configure('TLabel', font=self.font_main, background=self.background_color)
-        style.configure('TLabelframe', background=self.background_color, bordercolor="#cccccc")
-        style.configure('TLabelframe.Label', font=self.font_bold, background=self.background_color)
-        style.configure('info.TLabel', foreground='#333333', background=self.background_color)
+        style.configure(".", font=self.font_main, background=self.background_color)
+        style.configure("TLabel", font=self.font_main, background=self.background_color)
+        style.configure("TLabelframe", background=self.background_color, bordercolor="#cccccc")
+        style.configure("TLabelframe.Label", font=self.font_bold, background=self.background_color)
+        style.configure("info.TLabel", foreground="#333333", background=self.background_color)
 
-        style.configure('TButton', padding=6, font=self.font_main)
-        style.map('TButton',
-                  background=[('active', '#e0e0e0')],
-                  foreground=[('disabled', '#a0a0a0')])
+        style.configure("TButton", padding=6, font=self.font_main)
+        style.map("TButton", background=[("active", "#e0e0e0")], foreground=[("disabled", "#a0a0a0")])
 
-        style.configure('primary.TButton', background='#0078D4', foreground='white', font=self.font_bold)
-        style.map('primary.TButton',
-                  background=[('active', '#005a9e'), ('disabled', '#a0a0a0')],
-                  foreground=[('disabled', '#ffffff')])
+        style.configure("primary.TButton", background="#0078D4", foreground="white", font=self.font_bold)
+        style.map(
+            "primary.TButton",
+            background=[("active", "#005a9e"), ("disabled", "#a0a0a0")],
+            foreground=[("disabled", "#ffffff")],
+        )
 
-        style.configure('TNotebook', background=self.background_color, borderwidth=0)
-        style.configure('TNotebook.Tab', padding=[12, 6], font=self.font_main)
-        style.map('TNotebook.Tab',
-                  background=[('selected', self.background_color), ('!selected', '#d0d0d0')],
-                  expand=[("selected", [0, 2, 0, 0])])
+        style.configure("TNotebook", background=self.background_color, borderwidth=0)
+        style.configure("TNotebook.Tab", padding=[12, 6], font=self.font_main)
+        style.map(
+            "TNotebook.Tab",
+            background=[("selected", self.background_color), ("!selected", "#d0d0d0")],
+            expand=[("selected", [0, 2, 0, 0])],
+        )
 
     def _initialize_stringvars(self):
         # ... (this method is unchanged)
@@ -86,7 +87,9 @@ class MainApplication(tk.Tk):
         self.EMAIL_BODY_GENERIC_INFORMAL = const.EMAIL_BODY_GENERIC_INFORMAL
         self.EMAIL_BODY_GENERIC_FORMAL = const.EMAIL_BODY_GENERIC_FORMAL
         self.firma_excel_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.FIRMA_EXCEL_INPUT_DIR))
-        self.firma_image_path = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, 'src', 'assets', const.FIRMA_IMAGE_NAME))
+        self.firma_image_path = tk.StringVar(
+            value=os.path.join(const.APPLICATION_PATH, "src", "assets", const.FIRMA_IMAGE_NAME)
+        )
         self.firma_pdf_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.FIRMA_PDF_OUTPUT_DIR))
         self.firma_ghostscript_path = tk.StringVar()
         self.firma_processing_mode = tk.StringVar(value="schede")
@@ -157,7 +160,7 @@ class MainApplication(tk.Tk):
 
         # --- Notebook for Tabs ---
         notebook = ttk.Notebook(main_container)
-        notebook.pack(expand=True, fill='both')
+        notebook.pack(expand=True, fill="both")
 
         # --- Create Tab Containers ---
         self.firma_container = ttk.Frame(notebook, padding="15")
@@ -170,35 +173,48 @@ class MainApplication(tk.Tk):
         self.organizza_container.columnconfigure(0, weight=1)
         self.canoni_container.columnconfigure(0, weight=1)
 
-        notebook.add(self.firma_container, text=' Apponi Firma ')
-        notebook.add(self.rinomina_container, text=' Aggiungi Data Schede ')
-        notebook.add(self.organizza_container, text=' Organizza e Stampa Schede ')
-        notebook.add(self.canoni_container, text=' Stampa Canoni Mensili ')
+        notebook.add(self.firma_container, text=" Apponi Firma ")
+        notebook.add(self.rinomina_container, text=" Aggiungi Data Schede ")
+        notebook.add(self.organizza_container, text=" Organizza e Stampa Schede ")
+        notebook.add(self.canoni_container, text=" Stampa Canoni Mensili ")
 
         # --- Create Log Widgets ---
         self.log_widget_firma = self._create_log_frame(self.firma_container, "Log Esecuzione (Firma)")
         self.log_widget_rinomina = self._create_log_frame(self.rinomina_container, "Log Esecuzione (Aggiungi Data)")
-        self.log_widget_organizza = self._create_log_frame(self.organizza_container, "Log Esecuzione (Organizza/Stampa)")
+        self.log_widget_organizza = self._create_log_frame(
+            self.organizza_container, "Log Esecuzione (Organizza/Stampa)"
+        )
         self.log_widget_canoni = self._create_log_frame(self.canoni_container, "Log Esecuzione (Stampa Canoni)")
 
         # --- Dependency Injection and Tab Creation ---
-        self.signature_tab = SignatureTab(self.firma_container, self, lambda msg, level='INFO': log_message(self.log_widget_firma, msg, level))
-        self.signature_tab.pack(fill='both', expand=True)
-        self.log_widget_firma.master.pack_forget() # Hide log frame initially
+        self.signature_tab = SignatureTab(
+            self.firma_container, self, lambda msg, level="INFO": log_message(self.log_widget_firma, msg, level)
+        )
+        self.signature_tab.pack(fill="both", expand=True)
+        self.log_widget_firma.master.pack_forget()  # Hide log frame initially
         self.log_widget_firma.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
-        self.rename_tab = RenameTab(self.rinomina_container, self, lambda msg, level='INFO': log_message(self.log_widget_rinomina, msg, level))
-        self.rename_tab.pack(fill='both', expand=True)
+        self.rename_tab = RenameTab(
+            self.rinomina_container, self, lambda msg, level="INFO": log_message(self.log_widget_rinomina, msg, level)
+        )
+        self.rename_tab.pack(fill="both", expand=True)
         self.log_widget_rinomina.master.pack_forget()
         self.log_widget_rinomina.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
-        self.fees_tab = FeesTab(self.canoni_container, self, lambda msg, level='INFO': log_message(self.log_widget_canoni, msg, level))
-        self.fees_tab.pack(fill='both', expand=True)
+        self.fees_tab = FeesTab(
+            self.canoni_container, self, lambda msg, level="INFO": log_message(self.log_widget_canoni, msg, level)
+        )
+        self.fees_tab.pack(fill="both", expand=True)
         self.log_widget_canoni.master.pack_forget()
         self.log_widget_canoni.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
-        self.organize_tab = OrganizeTab(self.organizza_container, self, lambda msg, level='INFO': log_message(self.log_widget_organizza, msg, level), self.fees_tab.processor)
-        self.organize_tab.pack(fill='both', expand=True)
+        self.organize_tab = OrganizeTab(
+            self.organizza_container,
+            self,
+            lambda msg, level="INFO": log_message(self.log_widget_organizza, msg, level),
+            self.fees_tab.processor,
+        )
+        self.organize_tab.pack(fill="both", expand=True)
         self.log_widget_organizza.master.pack_forget()
         self.log_widget_organizza.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
@@ -229,7 +245,7 @@ class MainApplication(tk.Tk):
             "email_subject": self.email_subject.get(),
             "email_tcl": self.email_tcl.get(),
             "email_is_formal": self.email_is_formal.get(),
-            "email_size_limit": self.email_size_limit.get()
+            "email_size_limit": self.email_size_limit.get(),
         }
         self.config_manager.save(current_config)
         self.destroy()

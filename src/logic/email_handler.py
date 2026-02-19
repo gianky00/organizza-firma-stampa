@@ -1,9 +1,11 @@
 import traceback
 
+
 class EmailHandler:
     """
     Handles the creation of email drafts in Microsoft Outlook.
     """
+
     def __init__(self, logger):
         self.logger = logger
 
@@ -24,12 +26,12 @@ class EmailHandler:
 
         pythoncom.CoInitialize()
         try:
-            to = draft_info['to']
-            cc = draft_info.get('cc', '')
-            subject = draft_info['subject']
-            intro_text = draft_info['intro_text']
-            file_list = draft_info['file_list']
-            attachments = draft_info['attachments']
+            to = draft_info["to"]
+            cc = draft_info.get("cc", "")
+            subject = draft_info["subject"]
+            intro_text = draft_info["intro_text"]
+            file_list = draft_info["file_list"]
+            attachments = draft_info["attachments"]
 
             outlook = win32com.client.Dispatch("Outlook.Application")
             mail = outlook.CreateItem(0)
@@ -43,7 +45,7 @@ class EmailHandler:
 
             files_html = "<br>".join(file_list)
             body_with_files = intro_text.replace("{file_list}", files_html)
-            body_with_br = body_with_files.replace('\n', '<br>')
+            body_with_br = body_with_files.replace("\n", "<br>")
 
             mail.HTMLBody = f"<p style='font-family:calibri; font-size:11pt'>{body_with_br}</p>" + signature
 
@@ -57,10 +59,15 @@ class EmailHandler:
             self.logger("Bozza email creata e mostrata con successo.", "SUCCESS")
 
         except Exception as e:
-            self.logger(f"ERRORE FATALE: Impossibile creare la bozza dell'email. Verificare che Outlook sia installato e configurato. Dettagli: {e}", "ERROR")
+            self.logger(
+                f"ERRORE FATALE: Impossibile creare la bozza dell'email. Verificare che Outlook sia installato e configurato. Dettagli: {e}",
+                "ERROR",
+            )
             self.logger(traceback.format_exc(), "ERROR")
         finally:
             try:
                 import pythoncom
+
                 pythoncom.CoUninitialize()
-            except: pass
+            except:
+                pass

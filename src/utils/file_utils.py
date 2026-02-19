@@ -1,6 +1,7 @@
 import os
 import shutil
 
+
 def clear_folder_content(folder_path, logger, folder_display_name=None):
     """
     Utility to clear all contents (files and subdirectories) of a given folder.
@@ -14,7 +15,7 @@ def clear_folder_content(folder_path, logger, folder_display_name=None):
     if folder_display_name is None:
         folder_display_name = os.path.basename(folder_path)
 
-    logger(f"--- Pulizia della cartella '{folder_display_name}' in corso... ---", 'HEADER')
+    logger(f"--- Pulizia della cartella '{folder_display_name}' in corso... ---", "HEADER")
     if os.path.isdir(folder_path):
         for item_name in os.listdir(folder_path):
             item_path = os.path.join(folder_path, item_name)
@@ -24,5 +25,5 @@ def clear_folder_content(folder_path, logger, folder_display_name=None):
                 else:
                     os.remove(item_path)
             except Exception as e:
-                logger(f"Impossibile eliminare '{item_name}': {e}", 'ERROR')
-    logger(f"--- Pulizia di '{folder_display_name}' completata. ---", 'SUCCESS')
+                logger(f"Impossibile eliminare '{item_name}': {e}", "ERROR")
+    logger(f"--- Pulizia di '{folder_display_name}' completata. ---", "SUCCESS")
