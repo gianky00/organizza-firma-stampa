@@ -2,19 +2,26 @@ import os
 import re
 import traceback
 from pathlib import Path
+from typing import Optional
 
 from src.utils import constants as const
-from src.utils.excel_handler import ExcelHandler
-from src.utils.word_handler import WordHandler
+from src.utils.excel_gateway import ExcelGateway
+from src.utils.word_gateway import WordGateway
 
 
 class MonthlyFeesProcessor:
-    def __init__(self, gui, app_config, excel_handler_class=None, word_handler_class=None):
+    def __init__(
+        self,
+        gui,
+        app_config,
+        excel_gateway_class=None,
+        word_gateway_class=None,
+    ):
         self.gui = gui
         self.app_config = app_config
         self.logger = gui.log_canoni
-        self.excel_handler_class = excel_handler_class or ExcelHandler
-        self.word_handler_class = word_handler_class or WordHandler
+        self.excel_gateway = (excel_gateway_class or ExcelGateway)(self.logger)
+        self.word_gateway = (word_gateway_class or WordGateway)(self.logger)
 
     def get_printers(self):
         try:
@@ -89,7 +96,14 @@ class MonthlyFeesProcessor:
             if not self._validate_paths(paths_to_print, printer_name, macro_name) or cancel_event.is_set():
                 return
 
-            with self.excel_handler_class(self.logger) as excel_app, self.word_handler_class(self.logger) as word_app:
+            # Batch execution using raw handlers via Gateways for optimization
+            from src.utils.excel_handler import ExcelHandler
+            from src.utils.word_handler import WordHandler
+            
+            excel_h_class = getattr(self.excel_gateway, 'excel_handler_class', ExcelHandler)
+            word_h_class = getattr(self.word_gateway, 'word_handler_class', WordHandler)
+
+            with excel_h_class(self.logger) as excel_app, word_h_class(self.logger) as word_app:
                 if not excel_app or not word_app or cancel_event.is_set():
                     return
 
@@ -110,23 +124,25 @@ class MonthlyFeesProcessor:
             self.logger(f"ERRORE CRITICO: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            if cancel_event.is_set(): self.logger("Processo annullato.", "WARNING")
+            if cancel_event.is_set():
+                self.logger("Processo annullato.", "WARNING")
             self.gui.after(0, self.gui.on_process_finished)
 
     def _execute_batch_print(self, excel, word, paths, consuntivi, macro, cancel_event):
         wb_giornaliera = excel.Workbooks.Open(paths["giornaliera"])
         doc_word = word.Documents.Open(paths["word"])
-        
+
         try:
             for i, cons_info in enumerate(consuntivi):
-                if cancel_event.is_set(): break
-                
+                if cancel_event.is_set():
+                    break
+
                 wb_cons = excel.Workbooks.Open(cons_info["path"])
                 try:
                     leaf_name = wb_cons.Name
                     self.logger(f"Esecuzione macro '{macro}' su {leaf_name} ({cons_info['name']})...", "INFO")
                     excel.Run(f"'{leaf_name}'!{macro}")
-                    
+
                     if i < len(consuntivi) - 1 and not cancel_event.is_set():
                         self.logger(f"Stampa file Word: {doc_word.Name}...", "INFO")
                         doc_word.PrintOut()
