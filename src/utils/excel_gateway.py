@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -21,7 +21,7 @@ class ExcelGateway:
         self.logger = logger
         self.excel_handler_class = excel_handler_class or ExcelHandler
 
-    def get_odc_value(self, file_path: str) -> Optional[str]:
+    def get_odc_value(self, file_path: str) -> str | None:
         """Estrae il codice ODC da un file Excel provando diverse celle note."""
         with self.excel_handler_class(self.logger) as excel:
             if not excel:
@@ -96,7 +96,7 @@ class ExcelGateway:
                 if wb:
                     wb.Close(SaveChanges=False)
 
-    def get_workbook_date(self, file_path: str, password: str = "") -> Optional[datetime]:
+    def get_workbook_date(self, file_path: str, password: str = "") -> datetime | None:
         """Apre un workbook (anche protetto) e tenta di estrarne la data di emissione."""
         from src.domain.models import DEFAULT_DATE_CANDIDATES, RENAME_MODELS
 
@@ -110,7 +110,7 @@ class ExcelGateway:
                     return None
 
                 ws = wb.Worksheets(1)
-                
+
                 # Prova matching modelli specifici
                 dt = self._find_date_by_model(ws, RENAME_MODELS)
                 if dt:
@@ -159,7 +159,7 @@ class ExcelGateway:
         cleaned = re.sub(r"\s+", " ", s_str).strip()
         return re.sub(r"[\W_]+", "", cleaned).lower()
 
-    def _extract_date_from_val(self, value: Any) -> Optional[datetime]:
+    def _extract_date_from_val(self, value: Any) -> datetime | None:
         if value is None or (isinstance(value, str) and not value.strip()):
             return None
         if isinstance(value, datetime):
@@ -170,7 +170,7 @@ class ExcelGateway:
             return self._parse_date_string(value)
         return None
 
-    def _parse_date_string(self, value: str) -> Optional[datetime]:
+    def _parse_date_string(self, value: str) -> datetime | None:
         # Formati diretti
         for fmt in ["%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d"]:
             try:

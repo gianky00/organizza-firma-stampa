@@ -69,9 +69,7 @@ class OrganizationProcessor:
             return
 
         folder_list = [
-            os.path.join(dest_dir, d)
-            for d in os.listdir(dest_dir)
-            if os.path.isdir(os.path.join(dest_dir, d))
+            os.path.join(dest_dir, d) for d in os.listdir(dest_dir) if os.path.isdir(os.path.join(dest_dir, d))
         ]
 
         if not folder_list:
@@ -90,7 +88,7 @@ class OrganizationProcessor:
     def _organize_files(self, cancel_event):
         source_dir = self.app_config.organizza_source_dir.get()
         dest_dir = self.app_config.organizza_dest_dir.get()
-        
+
         excel_files = self._get_excel_files(source_dir)
         if not excel_files:
             return
@@ -103,7 +101,7 @@ class OrganizationProcessor:
                 break
             self.gui.after(0, self.update_progress, i + 1)
             self.logger(f"Processando: {os.path.basename(fp)}...")
-            
+
             success, error = self._process_single_file(fp, dest_dir)
             if success:
                 summary["processed"] += 1
@@ -153,6 +151,7 @@ class OrganizationProcessor:
     def _print_files_in_folders(self, cancel_event, folder_list):
         self.gui.after(0, self.setup_progress, len(folder_list), "Stampa in corso:")
         from src.utils.excel_handler import ExcelHandler
+
         excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
 
         with excel_h_class(self.logger) as excel:
@@ -164,7 +163,7 @@ class OrganizationProcessor:
                     break
                 self.gui.after(0, self.update_progress, i + 1)
                 self.logger(f"Stampa cartella: {os.path.basename(folder_p)}")
-                
+
                 folder_errors = self._print_folder_content(excel, folder_p, cancel_event)
                 errors.extend(folder_errors)
 
@@ -182,7 +181,7 @@ class OrganizationProcessor:
             if not excel_fs:
                 self.logger("  -> Nessun file Excel trovato.", "WARNING")
                 return []
-            
+
             for fp in excel_fs:
                 if cancel_event.is_set():
                     break
@@ -230,6 +229,7 @@ class OrganizationProcessor:
             return {}
 
         from src.utils.excel_handler import ExcelHandler
+
         excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
 
         mapping = {}
