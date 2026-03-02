@@ -109,6 +109,7 @@ class MainApplication(tk.Tk):
 
         # Le variabili dinamiche dei TCL verranno popolate in _load_config_into_vars
         self.canoni_tcl_vars = []
+        self.rename_models_vars = []
 
         self.canoni_word_path = tk.StringVar()
         self.selected_printer = tk.StringVar()
@@ -147,6 +148,19 @@ class MainApplication(tk.Tk):
                     "num": tk.StringVar(value=ref.get("num", "")),
                     "print": tk.BooleanVar(value=ref.get("print", False)),
                     "path": tk.StringVar(value=""),
+                }
+            )
+
+        models_data = self.config_manager.get("rename_models_config")
+        self.rename_models_vars = []
+        for mod in models_data:
+            self.rename_models_vars.append(
+                {
+                    "name": tk.StringVar(value=mod.get("name", "")),
+                    "id_cell": tk.StringVar(value=mod.get("id_cell", "")),
+                    "match_value": tk.StringVar(value=mod.get("match_value", "")),
+                    "tcl_cell": tk.StringVar(value=mod.get("tcl_cell", "")),
+                    "date_cells": tk.StringVar(value=", ".join(mod.get("date_cells", []))),
                 }
             )
 
@@ -272,11 +286,23 @@ class MainApplication(tk.Tk):
             for ref in self.canoni_tcl_vars
         ]
 
+        models_to_save = [
+            {
+                "name": mod["name"].get(),
+                "id_cell": mod["id_cell"].get(),
+                "match_value": mod["match_value"].get(),
+                "tcl_cell": mod["tcl_cell"].get(),
+                "date_cells": [d.strip() for d in mod["date_cells"].get().split(",") if d.strip()],
+            }
+            for mod in self.rename_models_vars
+        ]
+
         current_config = {
             "firma_ghostscript_path": self.firma_ghostscript_path.get(),
             "rinomina_path": self.rinomina_path.get(),
             "rinomina_password": self.rinomina_password.get(),
             "canoni_tcl_list": tcl_to_save,
+            "rename_models_config": models_to_save,
             "canoni_word_path": self.canoni_word_path.get(),
             "selected_printer": self.selected_printer.get(),
             "email_to": self.email_to.get(),

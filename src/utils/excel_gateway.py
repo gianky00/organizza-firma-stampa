@@ -119,10 +119,13 @@ class ExcelGateway:
 
     def extract_date_from_worksheet(self, ws: Any) -> datetime | None:
         """Logica core per estrarre la data da un foglio di lavoro usando modelli e candidati."""
-        from src.domain.models import DEFAULT_DATE_CANDIDATES, RENAME_MODELS
+        from src.domain.models import DEFAULT_DATE_CANDIDATES
+        
+        # Carica configurazione dinamica dei modelli
+        models_config = self._get_dynamic_models_config()
 
         # Prova matching modelli specifici
-        dt = self._find_date_by_model(ws, RENAME_MODELS)
+        dt = self._find_date_by_model(ws, models_config)
         if dt:
             return dt
 
@@ -132,6 +135,30 @@ class ExcelGateway:
             return dt
 
         return None
+
+    def extract_tcl_from_worksheet(self, ws: Any) -> str | None:
+        """Estrae il nome del TCL (referente) basandosi sul modello riconosciuto."""
+        models_config = self._get_dynamic_models_config()
+        
+        for cfg in models_config:
+            if cfg.get("id_cell"):
+                try:
+                    val = self._normalize_model_string(ws.Range(cfg["id_cell"]).Value)
+                    if val == cfg.get("match_value"):
+                        tcl_cell = cfg.get("tcl_cell")
+                        if tcl_cell:
+                            tcl_val = ws.Range(tcl_cell).Value
+                            if tcl_val:
+                                return str(tcl_val).strip()
+                except Exception:
+                    continue
+        return None
+
+    def _get_dynamic_models_config(self) -> list[dict]:
+        """Recupera i modelli dalla configurazione dell'app."""
+        from src.utils.config_manager import ConfigManager
+        config = ConfigManager()
+        return config.get("rename_models_config")
 
     def _open_workbook(self, excel, file_path, password):
         try:
@@ -143,10 +170,15 @@ class ExcelGateway:
 
     def _find_date_by_model(self, worksheet, models_config) -> datetime | None:
         for cfg in models_config:
-            if cfg.id_cell:
-                val = self._normalize_model_string(worksheet.Range(cfg.id_cell).Value)
-                if val == cfg.match_value:
-                    return self._find_date_in_cells(worksheet, cfg.date_cells)
+            # Gestisce sia oggetti (RENAME_MODELS) che dizionari (da JSON config)
+            id_cell = getattr(cfg, "id_cell", cfg.get("id_cell") if isinstance(cfg, dict) else None)
+            match_value = getattr(cfg, "match_value", cfg.get("match_value") if isinstance(cfg, dict) else None)
+            date_cells = getattr(cfg, "date_cells", cfg.get("date_cells") if isinstance(cfg, dict) else [])
+
+            if id_cell:
+                val = self._normalize_model_string(worksheet.Range(id_cell).Value)
+                if val == match_value:
+                    return self._find_date_in_cells(worksheet, date_cells)
         return None
 
     def _find_date_in_cells(self, worksheet, cell_list) -> datetime | None:

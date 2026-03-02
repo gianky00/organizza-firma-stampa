@@ -245,68 +245,100 @@ class SignatureTab(ttk.Frame):
             self.run_button.config(state="normal")
 
     def prepare_email_drafts(self):
-        # ... (rest of the file is unchanged)
         self.log_firma("Preparazione delle bozze email...", "HEADER")
         try:
-            limit_mb_str = self.app_config.email_size_limit.get()
-            limit_mb = float(limit_mb_str)
-            if limit_mb <= 0:
-                raise ValueError("Limite <= 0")
-            limit_bytes = limit_mb * 1024 * 1024
-        except (ValueError, TypeError):
-            self.log_firma(
-                f"ERRORE: Limite di dimensione non valido: '{limit_mb_str}'. Inserire un numero > 0.", "ERROR"
-            )
-            return
-        pdf_dir = self.app_config.firma_pdf_dir.get()
-        if not os.path.isdir(pdf_dir):
-            self.log_firma(f"ERRORE: La cartella PDF non esiste: {pdf_dir}", "ERROR")
-            return
-        all_attachments = [
-            (p, os.path.getsize(p))
-            for p in [os.path.join(pdf_dir, f) for f in os.listdir(pdf_dir) if f.lower().endswith(".pdf")]
-        ]
-        if not all_attachments:
-            self.log_firma("Nessun file PDF trovato da allegare.", "WARNING")
-            return
-        chunks: list[list[str]] = []
-        current_chunk: list[str] = []
-        current_chunk_size = 0
-        for path, size in all_attachments:
-            if current_chunk and current_chunk_size + size > limit_bytes:
+            # 1. Validazione Limite Dimensione
+            try:
+                limit_mb_str = self.app_config.email_size_limit.get()
+                limit_mb = float(limit_mb_str)
+                if limit_mb <= 0:
+                    raise ValueError("Limite <= 0")
+                limit_bytes = limit_mb * 1024 * 1024
+            except (ValueError, TypeError):
+                self.log_firma(f"ERRORE: Limite di dimensione non valido: '{self.app_config.email_size_limit.get()}'.", "ERROR")
+                return
+
+            # 2. Controllo Cartella PDF
+            pdf_dir = self.app_config.firma_pdf_dir.get()
+            if not os.path.isdir(pdf_dir):
+                self.log_firma(f"ERRORE: La cartella PDF non esiste: {pdf_dir}", "ERROR")
+                return
+
+            # 3. Recupero Metadati TCL (Normalizzando i percorsi per il mapping)
+            files_metadata = {}
+            if hasattr(self.processor, "prepared_files_data"):
+                for item in self.processor.prepared_files_data:
+                    norm_p = os.path.normpath(item["path"]).lower()
+                    files_metadata[norm_p] = item["tcl"]
+
+            # 4. Raccolta Allegati
+            all_attachments = []
+            pdf_files = [f for f in os.listdir(pdf_dir) if f.lower().endswith(".pdf")]
+            
+            if not pdf_files:
+                self.log_firma("Nessun file PDF trovato nella cartella di output.", "WARNING")
+                return
+
+            for f in pdf_files:
+                full_p = os.path.join(pdf_dir, f)
+                norm_full_p = os.path.normpath(full_p).lower()
+                all_attachments.append({
+                    "path": full_p,
+                    "size": os.path.getsize(full_p),
+                    "tcl": files_metadata.get(norm_full_p, "N/D")
+                })
+
+            # 5. Suddivisione in Chunk (Limite MB)
+            chunks: list[list[dict]] = []
+            current_chunk: list[dict] = []
+            current_chunk_size = 0
+            
+            for item in all_attachments:
+                if current_chunk and current_chunk_size + item["size"] > limit_bytes:
+                    chunks.append(current_chunk)
+                    current_chunk = []
+                    current_chunk_size = 0
+                current_chunk.append(item)
+                current_chunk_size += item["size"]
+            if current_chunk:
                 chunks.append(current_chunk)
-                current_chunk = []
-                current_chunk_size = 0
-            current_chunk.append(path)
-            current_chunk_size += size
-        if current_chunk:
-            chunks.append(current_chunk)
-        self.prepared_drafts = []
-        num_drafts = len(chunks)
-        raw_subject = self.app_config.email_subject.get()
-        base_subject = re.sub(r"^\[\d+/\d+\]\s*", "", raw_subject)
-        self.app_config.email_subject.set(base_subject)
-        for i, chunk in enumerate(chunks):
-            if self.cancel_event.is_set():
-                break
-            draft = {}
-            draft["to"] = self.app_config.email_to.get()
-            draft["cc"] = self.app_config.email_cc.get()
-            draft["subject"] = f"[{i + 1}/{num_drafts}] {base_subject}" if num_drafts > 1 else base_subject
-            draft["attachments"] = chunk
-            draft["file_list"] = [os.path.splitext(os.path.basename(p))[0] for p in chunk]
+
+            # 6. Creazione Bozze Interne
+            self.prepared_drafts = []
+            num_drafts = len(chunks)
+            raw_subject = self.app_config.email_subject.get()
+            base_subject = re.sub(r"^\[\d+/\d+\]\s*", "", raw_subject)
+            
             base_template = self.email_body_text.get("1.0", tk.END).strip()
-            if i == 0:
-                draft["intro_text"] = base_template
-            else:
-                draft["intro_text"] = "Seguito della mail precedente.\n\nElenco file:\n{file_list}"
-            with self.drafts_lock:
-                self.prepared_drafts.append(draft)
-        self.log_firma(f"Preparate {len(self.prepared_drafts)} bozze di email.", "SUCCESS")
-        self.current_draft_index = 0
-        self._display_draft_preview()
-        self.preview_frame.pack(side=tk.LEFT, padx=(20, 0))
-        self.prepare_button.config(state="normal")
+
+            for i, chunk in enumerate(chunks):
+                if self.cancel_event.is_set(): break
+                
+                draft = {
+                    "to": self.app_config.email_to.get(),
+                    "cc": self.app_config.email_cc.get(),
+                    "subject": f"[{i + 1}/{num_drafts}] {base_subject}" if num_drafts > 1 else base_subject,
+                    "attachments": [item["path"] for item in chunk],
+                    "file_list": [
+                        {"name": os.path.splitext(os.path.basename(item["path"]))[0], "tcl": item["tcl"]}
+                        for item in chunk
+                    ],
+                    "intro_text": base_template if i == 0 else "Seguito della mail precedente."
+                }
+                with self.drafts_lock:
+                    self.prepared_drafts.append(draft)
+
+            # 7. Finalizzazione
+            self.log_firma(f"Preparate {len(self.prepared_drafts)} bozze di email.", "SUCCESS")
+            self.current_draft_index = 0
+            self._display_draft_preview()
+            self.preview_frame.pack(side=tk.LEFT, padx=(20, 0))
+            self.email_button.config(state="normal")
+
+        except Exception as e:
+            self.log_firma(f"ERRORE IMPREVISTO durante la preparazione bozze: {e}", "ERROR")
+            import traceback
+            self.log_firma(traceback.format_exc(), "DEBUG")
         self.email_button.config(state="normal")
 
     def _display_draft_preview(self):

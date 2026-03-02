@@ -35,6 +35,7 @@ class SignatureProcessor:
 
     def run_full_signature_process(self, cancel_event):
         self.logger("Avvio del processo di firma...", "HEADER")
+        self.prepared_files_data = [] # Lista di dict {pdf_path, tcl}
         try:
             # 0. Mostra barra di caricamento immediata
             self.gui.after(0, self.gui.show_indeterminate, "Inizializzazione ambiente...")
@@ -164,8 +165,10 @@ class SignatureProcessor:
 
                 try:
                     # Passiamo l'istanza excel già aperta per massima velocità
-                    success, err = self._sign_and_export_with_instance(excel, fp, output_pdf, image_path, mode)
-                    if not success:
+                    success, err, tcl_name = self._sign_and_export_with_instance(excel, fp, output_pdf, image_path, mode)
+                    if success:
+                        self.prepared_files_data.append({"path": output_pdf, "tcl": tcl_name or "N/D"})
+                    else:
                         errors.append((file_name, err))
                 except Exception as e:
                     errors.append((file_name, str(e)))
@@ -174,22 +177,25 @@ class SignatureProcessor:
             self._log_errors(errors)
         return not errors
 
-    def _sign_and_export_with_instance(self, excel, excel_path, pdf_path, image_path, mode) -> tuple[bool, str | None]:
+    def _sign_and_export_with_instance(self, excel, excel_path, pdf_path, image_path, mode) -> tuple[bool, str | None, str | None]:
         try:
             # Apertura veloce: sola lettura, senza aggiornare link
             workbook = excel.Workbooks.Open(excel_path, 0, True)
             if workbook is None:
-                return False, "Apertura fallita."
+                return False, "Apertura fallita.", None
             try:
+                # ESTRAZIONE TCL
+                tcl_name = self.excel_gateway.extract_tcl_from_worksheet(workbook.Worksheets(1))
+                
                 if mode == "schede":
                     self._apply_signature_schede(workbook, pdf_path, image_path)
                 else:
                     self._apply_signature_preventivi(workbook, pdf_path, image_path)
-                return True, None
+                return True, None, tcl_name
             finally:
                 workbook.Close(SaveChanges=False)
         except Exception as e:
-            return False, str(e)
+            return False, str(e), None
 
     def _apply_signature_schede(self, workbook, pdf_path, image_path):
         ws = workbook.Worksheets(1)
