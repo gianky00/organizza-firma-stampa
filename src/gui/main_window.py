@@ -6,6 +6,7 @@ from tkinter import ttk
 from src.gui.tabs.fees_tab import FeesTab
 from src.gui.tabs.organize_tab import OrganizeTab
 from src.gui.tabs.rename_tab import RenameTab
+from src.gui.tabs.settings_tab import SettingsTab
 from src.gui.tabs.signature_tab import SignatureTab
 from src.utils import constants as const
 from src.utils.config_manager import ConfigManager
@@ -27,9 +28,9 @@ class MainApplication(tk.Tk):
         self.config_manager.load()
 
         self._initialize_stringvars()
+        self._load_config_into_vars()  # Carica i dati PRIMA di creare i widget
         self._setup_style()
         self._create_widgets()
-        self._load_config_into_vars()
 
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
@@ -105,14 +106,10 @@ class MainApplication(tk.Tk):
         self.organizza_dest_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_DEST_DIR))
         self.canoni_selected_year = tk.StringVar()
         self.canoni_selected_month = tk.StringVar()
-        self.canoni_messina_num = tk.StringVar()
-        self.canoni_naselli_num = tk.StringVar()
-        self.canoni_caldarella_num = tk.StringVar()
-        self.canoni_caldarella2_num = tk.StringVar()
-        self.canoni_messina_print = tk.BooleanVar(value=True)
-        self.canoni_naselli_print = tk.BooleanVar(value=True)
-        self.canoni_caldarella_print = tk.BooleanVar(value=True)
-        self.canoni_caldarella2_print = tk.BooleanVar(value=False)
+        
+        # Le variabili dinamiche dei TCL verranno popolate in _load_config_into_vars
+        self.canoni_tcl_vars = []
+        
         self.canoni_word_path = tk.StringVar()
         self.selected_printer = tk.StringVar()
         self.canoni_macro_name = tk.StringVar(value=const.DEFAULT_MACRO_NAME)
@@ -121,6 +118,11 @@ class MainApplication(tk.Tk):
         self.canoni_cons2_path = tk.StringVar()
         self.canoni_cons3_path = tk.StringVar()
         self.canoni_cons4_path = tk.StringVar()
+        
+        # New dynamic settings
+        self.canoni_giornaliera_base_dir = tk.StringVar()
+        self.canoni_consuntivi_base_dir = tk.StringVar()
+        self.organizza_base_dir = tk.StringVar()
 
     def _load_config_into_vars(self):
         # ... (this method is unchanged)
@@ -134,24 +136,32 @@ class MainApplication(tk.Tk):
         self.canoni_selected_year.set(prev_month_year_str)
         self.canoni_selected_month.set(fees_tab_month_name)
         organize_folder_month_str = f"{prev_month_date.month:02d} - {fees_tab_month_name.upper()}"
-        organize_default_path = os.path.join(const.ORGANIZZA_BASE_DIR, prev_month_year_str, organize_folder_month_str)
-        self.organizza_source_dir.set(organize_default_path)
-        self.canoni_messina_num.set(self.config_manager.get("canoni_messina_num"))
-        self.canoni_naselli_num.set(self.config_manager.get("canoni_naselli_num"))
-        self.canoni_caldarella_num.set(self.config_manager.get("canoni_caldarella_num"))
-        self.canoni_caldarella2_num.set(self.config_manager.get("canoni_caldarella2_num"))
-        self.canoni_messina_print.set(self.config_manager.get("canoni_messina_print"))
-        self.canoni_naselli_print.set(self.config_manager.get("canoni_naselli_print"))
-        self.canoni_caldarella_print.set(self.config_manager.get("canoni_caldarella_print"))
-        self.canoni_caldarella2_print.set(self.config_manager.get("canoni_caldarella2_print"))
+        
+        tcl_data = self.config_manager.get("canoni_tcl_list")
+        self.canoni_tcl_vars = []
+        for ref in tcl_data:
+            self.canoni_tcl_vars.append({
+                "name": tk.StringVar(value=ref.get("name", "")),
+                "tcl": tk.StringVar(value=ref.get("tcl", "")),
+                "num": tk.StringVar(value=ref.get("num", "")),
+                "print": tk.BooleanVar(value=ref.get("print", False)),
+                "path": tk.StringVar(value="")
+            })
+            
         self.canoni_word_path.set(self.config_manager.get("canoni_word_path"))
         self.selected_printer.set(self.config_manager.get("selected_printer"))
         self.email_to.set(self.config_manager.get("email_to"))
         self.email_cc.set(self.config_manager.get("email_cc"))
         self.email_subject.set(self.config_manager.get("email_subject"))
         self.email_tcl.set(self.config_manager.get("email_tcl"))
-        self.email_is_formal.set(self.config_manager.get("email_is_formal"))
+        self.email_is_formal.set(bool(self.config_manager.get("email_is_formal")))
         self.email_size_limit.set(self.config_manager.get("email_size_limit"))
+        self.canoni_giornaliera_base_dir.set(self.config_manager.get("canoni_giornaliera_base_dir"))
+        self.canoni_consuntivi_base_dir.set(self.config_manager.get("canoni_consuntivi_base_dir"))
+        self.organizza_base_dir.set(self.config_manager.get("organizza_base_dir"))
+        
+        organize_default_path = os.path.join(self.organizza_base_dir.get(), prev_month_year_str, organize_folder_month_str)
+        self.organizza_source_dir.set(organize_default_path)
 
     def _create_widgets(self):
         self.configure(background=self.background_color)
@@ -167,16 +177,19 @@ class MainApplication(tk.Tk):
         self.rinomina_container = ttk.Frame(notebook, padding="15")
         self.organizza_container = ttk.Frame(notebook, padding="15")
         self.canoni_container = ttk.Frame(notebook, padding="15")
+        self.impostazioni_container = ttk.Frame(notebook, padding="15")
 
         self.firma_container.columnconfigure(0, weight=1)
         self.rinomina_container.columnconfigure(0, weight=1)
         self.organizza_container.columnconfigure(0, weight=1)
         self.canoni_container.columnconfigure(0, weight=1)
+        self.impostazioni_container.columnconfigure(0, weight=1)
 
         notebook.add(self.firma_container, text=" Apponi Firma ")
         notebook.add(self.rinomina_container, text=" Aggiungi Data Schede ")
         notebook.add(self.organizza_container, text=" Organizza e Stampa Schede ")
         notebook.add(self.canoni_container, text=" Stampa Canoni Mensili ")
+        notebook.add(self.impostazioni_container, text=" Impostazioni Avanzate ")
 
         # --- Create Log Widgets ---
         self.log_widget_firma = self._create_log_frame(self.firma_container, "Log Esecuzione (Firma)")
@@ -218,6 +231,9 @@ class MainApplication(tk.Tk):
         self.log_widget_organizza.master.pack_forget()
         self.log_widget_organizza.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
+        self.settings_tab = SettingsTab(self.impostazioni_container, self)
+        self.settings_tab.pack(fill="both", expand=True)
+
     def _create_log_frame(self, parent, title):
         log_frame = ttk.LabelFrame(parent, text=title, padding="10")
         # The frame is packed by the caller
@@ -225,19 +241,21 @@ class MainApplication(tk.Tk):
         return log_widget
 
     def _on_closing(self):
-        # ... (this method is unchanged)
+        # --- On Closing ---
+        tcl_to_save = []
+        for ref in self.canoni_tcl_vars:
+            tcl_to_save.append({
+                "name": ref["name"].get(),
+                "tcl": ref["tcl"].get(),
+                "num": ref["num"].get(),
+                "print": ref["print"].get()
+            })
+
         current_config = {
             "firma_ghostscript_path": self.firma_ghostscript_path.get(),
             "rinomina_path": self.rinomina_path.get(),
             "rinomina_password": self.rinomina_password.get(),
-            "canoni_messina_num": self.canoni_messina_num.get(),
-            "canoni_naselli_num": self.canoni_naselli_num.get(),
-            "canoni_caldarella_num": self.canoni_caldarella_num.get(),
-            "canoni_caldarella2_num": self.canoni_caldarella2_num.get(),
-            "canoni_messina_print": self.canoni_messina_print.get(),
-            "canoni_naselli_print": self.canoni_naselli_print.get(),
-            "canoni_caldarella_print": self.canoni_caldarella_print.get(),
-            "canoni_caldarella2_print": self.canoni_caldarella2_print.get(),
+            "canoni_tcl_list": tcl_to_save,
             "canoni_word_path": self.canoni_word_path.get(),
             "selected_printer": self.selected_printer.get(),
             "email_to": self.email_to.get(),
@@ -246,6 +264,9 @@ class MainApplication(tk.Tk):
             "email_tcl": self.email_tcl.get(),
             "email_is_formal": self.email_is_formal.get(),
             "email_size_limit": self.email_size_limit.get(),
+            "canoni_giornaliera_base_dir": self.canoni_giornaliera_base_dir.get(),
+            "canoni_consuntivi_base_dir": self.canoni_consuntivi_base_dir.get(),
+            "organizza_base_dir": self.organizza_base_dir.get(),
         }
         self.config_manager.save(current_config)
         self.destroy()

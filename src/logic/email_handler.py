@@ -24,6 +24,8 @@ class EmailHandler:
             return
 
         pythoncom.CoInitialize()
+        outlook = None
+        mail = None
         try:
             to = draft_info["to"]
             cc = draft_info.get("cc", "")
@@ -61,7 +63,11 @@ class EmailHandler:
             )
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            with suppress(BaseException):
+            if mail:
+                del mail
+            if outlook:
+                del outlook
+            with suppress(Exception):
                 import pythoncom
 
                 pythoncom.CoUninitialize()

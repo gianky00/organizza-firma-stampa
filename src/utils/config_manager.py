@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from contextlib import suppress
@@ -39,14 +40,12 @@ class ConfigManager:
             "organizza_source_dir": os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_SOURCE_DIR),
             "canoni_selected_year": str(prev_month_date.year),
             "canoni_selected_month": const.NOMI_MESI_ITALIANI[prev_month_date.month - 1],
-            "canoni_messina_num": "",
-            "canoni_naselli_num": "",
-            "canoni_caldarella_num": "",
-            "canoni_caldarella2_num": "",
-            "canoni_messina_print": True,
-            "canoni_naselli_print": True,
-            "canoni_caldarella_print": True,
-            "canoni_caldarella2_print": False,
+            "canoni_tcl_list": [
+                {"name": "Messina", "tcl": "MESSINA", "num": "036", "print": False},
+                {"name": "Agusta", "tcl": "AGUSTA", "num": "007", "print": False},
+                {"name": "Caldarella", "tcl": "CALDARELLA", "num": "034", "print": False},
+                {"name": "Caldarella2 (manuale)", "tcl": "CALDARELLA", "num": "011", "print": False}
+            ],
             "canoni_word_path": const.CANONI_WORD_DEFAULT_PATH,
             "canoni_macro_name": const.DEFAULT_MACRO_NAME,
             "selected_printer": "",
@@ -56,6 +55,9 @@ class ConfigManager:
             "email_tcl": "",
             "email_is_formal": False,
             "email_size_limit": "6",
+            "canoni_giornaliera_base_dir": const.CANONI_GIORNALIERA_BASE_DIR,
+            "canoni_consuntivi_base_dir": const.CANONI_CONSUNTIVI_BASE_DIR,
+            "organizza_base_dir": const.ORGANIZZA_BASE_DIR,
         }
 
     def load(self):
@@ -67,8 +69,21 @@ class ConfigManager:
             if Path(self.config_file_path).exists():
                 with open(self.config_file_path, encoding="utf-8") as f:
                     loaded_settings = json.load(f)
+                    
+                    # Migrazione automatica da 'canoni_referenti' a 'canoni_tcl_list'
+                    if "canoni_referenti" in loaded_settings and "canoni_tcl_list" not in loaded_settings:
+                        loaded_settings["canoni_tcl_list"] = loaded_settings.pop("canoni_referenti")
+                    
                     # Merge loaded settings with defaults to ensure all keys exist
                     self.settings = {**self.defaults, **loaded_settings}
+                    
+                    if "rinomina_password" in self.settings and self.settings["rinomina_password"]:
+                        pw = self.settings["rinomina_password"]
+                        if pw.startswith("b64:"):
+                            try:
+                                self.settings["rinomina_password"] = base64.b64decode(pw[4:].encode()).decode()
+                            except Exception:
+                                self.settings["rinomina_password"] = ""
             else:
                 self.settings = self.defaults
         except (OSError, json.JSONDecodeError):
@@ -81,9 +96,13 @@ class ConfigManager:
         if settings_to_save:
             self.settings.update(settings_to_save)
 
+        settings_copy = self.settings.copy()
+        if "rinomina_password" in settings_copy and settings_copy["rinomina_password"]:
+            settings_copy["rinomina_password"] = "b64:" + base64.b64encode(settings_copy["rinomina_password"].encode()).decode()
+
         try:
             with open(self.config_file_path, "w", encoding="utf-8") as f:
-                json.dump(self.settings, f, indent=4)
+                json.dump(settings_copy, f, indent=4)
         except OSError:
             # In a real app, this might log to a status bar or a log file
             with suppress(OSError):

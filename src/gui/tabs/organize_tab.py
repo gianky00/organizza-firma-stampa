@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from src.logic.organization import OrganizationProcessor
-from src.utils.ui_utils import create_path_entry, open_folder_in_explorer, select_folder_dialog
+from src.utils.ui_utils import ProgressWithETA, create_path_entry, open_folder_in_explorer, select_folder_dialog
 
 
 class OrganizeTab(ttk.Frame):
@@ -45,7 +45,7 @@ class OrganizeTab(ttk.Frame):
         # --- Organization Frame ---
         self.org_frame = ttk.LabelFrame(self, text="1. Organizza File per ODC", padding=15)
         self.org_frame.pack(fill=tk.X, pady=5)
-        self.org_frame.columnconfigure(1, weight=1)
+        self.org_frame.columnconfigure(0, weight=1)
         create_path_entry(
             self.org_frame,
             "Cartella di Origine:",
@@ -60,7 +60,7 @@ class OrganizeTab(ttk.Frame):
             style="primary.TButton",
             command=self.start_organization_process,
         )
-        self.organize_button.grid(row=1, column=0, columnspan=2, sticky="we", pady=(10, 0))
+        self.organize_button.grid(row=1, column=0, sticky="we", pady=(10, 0))
         self.cancel_org_button = ttk.Button(self.org_frame, text="Annulla Organizzazione", command=self.cancel_process)
         # self.cancel_org_button is managed dynamically by toggle_buttons
 
@@ -114,13 +114,7 @@ class OrganizeTab(ttk.Frame):
         canvas.bind("<Configure>", lambda e: canvas.itemconfig(self.canvas_window, width=e.width))
 
         # --- Progress Bar ---
-        self.progress_frame = ttk.Frame(self)
-        self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
-        self.progress_label.pack(side=tk.LEFT, padx=(0, 5))
-        self.progressbar = ttk.Progressbar(self.progress_frame, orient="horizontal", mode="determinate")
-        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.percent_label = ttk.Label(self.progress_frame, text="0%", width=5)
-        self.percent_label.pack(side=tk.LEFT, padx=(5, 0))
+        self.progress_frame = ProgressWithETA(self)
 
         self.on_process_finished()
 
@@ -158,7 +152,7 @@ class OrganizeTab(ttk.Frame):
         if is_running:
             if self.active_process_type == "organize":
                 self.organize_button.grid_forget()
-                self.cancel_org_button.grid(row=1, column=0, columnspan=3, sticky="we", pady=(10, 5))
+                self.cancel_org_button.grid(row=1, column=0, sticky="we", pady=(10, 5))
                 self.cancel_org_button.config(state="normal")
             elif self.active_process_type == "print":
                 self.print_button.pack_forget()
@@ -167,25 +161,18 @@ class OrganizeTab(ttk.Frame):
         else:
             self.cancel_org_button.grid_forget()
             self.cancel_print_button.pack_forget()
-            self.organize_button.grid(row=1, column=0, columnspan=3, sticky="we", pady=(10, 5))
+            self.organize_button.grid(row=1, column=0, sticky="we", pady=(10, 5))
             self.print_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
 
     def log_organizza(self, message, level="INFO"):
         self.master.after(0, self.log_widget, message, level)
 
     def setup_progress(self, max_value, label_text="Progresso:"):
-        self.progress_label["text"] = label_text
         self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.print_frame)
-        self.progressbar["maximum"] = max_value
-        self.progressbar["value"] = 0
-        self.percent_label["text"] = "0%"
+        self.progress_frame.setup(max_value, label_text)
 
     def update_progress(self, value):
-        self.progressbar["value"] = value
-        max_val = self.progressbar["maximum"]
-        if max_val > 0:
-            percent = (value / max_val) * 100
-            self.percent_label["text"] = f"{percent:.0f}%"
+        self.progress_frame.update_progress(value)
 
     def hide_progress(self):
         self.progress_frame.pack_forget()

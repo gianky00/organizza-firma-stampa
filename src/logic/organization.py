@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 from typing import TypedDict
 
+from src.utils import constants as const
 from src.utils.excel_gateway import ExcelGateway
 from src.utils.file_utils import create_backup
 
@@ -50,18 +51,23 @@ class OrganizationProcessor:
         }
 
     def run_organization_process(self, cancel_event):
-        dest_dir = self.app_config.organizza_dest_dir.get()
-        if Path(dest_dir).is_dir() and any(os.scandir(dest_dir)):
-            self.logger("Creazione backup cartella di destinazione...")
-            if not create_backup(dest_dir):
-                self.logger("ERRORE: Impossibile creare il backup. Operazione annullata.", "ERROR")
-                return
+        try:
+            dest_dir = self.app_config.organizza_dest_dir.get()
+            if Path(dest_dir).is_dir() and any(os.scandir(dest_dir)):
+                self.logger("Creazione backup cartella di destinazione...")
+                backup_parent = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR)
+                if not create_backup(dest_dir, backup_parent_dir=backup_parent):
+                    self.logger("ERRORE: Impossibile creare il backup. Operazione annullata.", "ERROR")
+                    return
 
-        self._organize_files(cancel_event)
-        if cancel_event.is_set():
-            self.logger("Operazione annullata dall'utente.", "WARNING")
-        else:
-            self.logger("Organizzazione completata!", "SUCCESS")
+            self._organize_files(cancel_event)
+            if cancel_event.is_set():
+                self.logger("Operazione annullata dall'utente.", "WARNING")
+            else:
+                self.logger("Organizzazione completata!", "SUCCESS")
+        finally:
+            self.gui.after(0, self.hide_progress)
+            self.gui.after(0, self.gui.on_process_finished)
 
     def run_printing_process(self, cancel_event):
         dest_dir = self.app_config.organizza_dest_dir.get()
@@ -92,6 +98,7 @@ class OrganizationProcessor:
 
         excel_files = self._get_excel_files(source_dir)
         if not excel_files:
+            self.logger("Nessun file Excel trovato da organizzare.", "WARNING")
             return
 
         self.gui.after(0, self.setup_progress, len(excel_files), "Organizzazione in corso:")
@@ -135,7 +142,14 @@ class OrganizationProcessor:
             dest_folder_name = (
                 re.sub(r'[\\/:*?"<>|]', "", odc_s) if odc_s and odc_s.upper() != "NA" else "Schede senza ODC"
             )
+            # Prevenzione Path Traversal: puliamo ulteriormente il nome
+            dest_folder_name = os.path.basename(dest_folder_name)
             dest_folder_path = Path(dest_dir) / dest_folder_name
+            
+            # Validazione che il path sia effettivamente interno alla directory di destinazione
+            if str(Path(dest_dir).resolve()) not in str(dest_folder_path.resolve()):
+                 return False, "Tentativo di path traversal bloccato."
+                 
             dest_folder_path.mkdir(parents=True, exist_ok=True)
             shutil.copy2(file_path, str(dest_folder_path))
             return True, None
@@ -157,6 +171,7 @@ class OrganizationProcessor:
 
         with excel_h_class(self.logger) as excel:
             if not excel:
+                self.logger("Impossibile avviare il gestore Excel.", "ERROR")
                 return
             errors = []
             for i, folder_p in enumerate(folder_list):
@@ -197,6 +212,8 @@ class OrganizationProcessor:
         wb = None
         try:
             wb = excel.Workbooks.Open(file_path)
+            if wb is None:
+                return False, "Impossibile aprire il file Excel (Workbook è None)."
             ws = wb.Worksheets(1)
             m_val = next(
                 (
@@ -240,7 +257,14 @@ class OrganizationProcessor:
             wb = None
             try:
                 wb = excel.Workbooks.Open(giornaliera_path, ReadOnly=True)
-                ws = wb.Worksheets("RIEPILOGO")
+                if wb is None:
+                     self.logger("Apertura file Giornaliera fallita: Workbook è None.", "ERROR")
+                     return {}
+                try:
+                    ws = wb.Worksheets("RIEPILOGO")
+                except Exception:
+                    self.logger("Foglio 'RIEPILOGO' non trovato nel file Giornaliera.", "WARNING")
+                    return {}
                 mapping = self._extract_mapping_from_riepilogo(ws)
             except Exception as e:
                 self.logger(f"Errore lettura Giornaliera: {e}", "ERROR")

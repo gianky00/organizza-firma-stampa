@@ -39,35 +39,38 @@ class MonthlyFeesProcessor:
 
     def get_giornaliera_path(self, year, month_name):
         if not year or not month_name:
-            return "Seleziona Anno e Mese"
+            return ""
         month_number = self.app_config.mesi_giornaliera_map.get(month_name)
         if not month_number:
-            return "Mese non valido"
+            return ""
         year_folder_name = f"Giornaliere {year}"
         file_name = f"Giornaliera {month_number}-{year}.xlsm"
-        return os.path.join(const.CANONI_GIORNALIERA_BASE_DIR, year_folder_name, file_name)
+        base_dir = self.app_config.canoni_giornaliera_base_dir.get()
+        return os.path.join(base_dir, year_folder_name, file_name)
 
     def get_consuntivo_path(self, year, consuntivo_num):
         if not year:
-            return "Anno non selezionato"
+            return ""
         if not consuntivo_num.strip().isdigit():
-            return "Inserire un numero valido"
-        cons_dir = os.path.join(const.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
+            return ""
+        base_dir = self.app_config.canoni_consuntivi_base_dir.get()
+        cons_dir = os.path.join(base_dir, year, "CONSUNTIVI", year)
         if not Path(cons_dir).is_dir():
-            return "ERRORE: Cartella non trovata"
+            return ""
         try:
             for filename in os.listdir(cons_dir):
                 if filename.startswith((f"{consuntivo_num}-", f"{consuntivo_num} ")):
                     return os.path.join(cons_dir, filename)
-            return f"File non trovato per il n° {consuntivo_num}"
+            return ""
         except Exception as e:
             self.logger(f"Errore ricerca consuntivo n°{consuntivo_num}: {e}", "ERROR")
-            return "Errore ricerca file"
+            return ""
 
     def find_consuntivo_for_tcl(self, year, month_name, tcl_name, cancel_event):
         if not year or not month_name:
             return None, "Periodo non selezionato"
-        cons_dir = os.path.join(const.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
+        base_dir = self.app_config.canoni_consuntivi_base_dir.get()
+        cons_dir = os.path.join(base_dir, year, "CONSUNTIVI", year)
         if not Path(cons_dir).is_dir():
             return None, f"Cartella non trovata: {cons_dir}"
         try:
@@ -93,6 +96,11 @@ class MonthlyFeesProcessor:
     def run_printing_process(self, cancel_event, paths_to_print, printer_name, macro_name):
         self.logger("Avvio del processo di stampa canoni...", "HEADER")
         try:
+            printers, _ = self.get_printers()
+            if printer_name not in printers:
+                self.logger(f"ERRORE: Stampante '{printer_name}' non trovata nel sistema.", "ERROR")
+                return
+
             if not self._validate_paths(paths_to_print, printer_name, macro_name) or cancel_event.is_set():
                 return
 
@@ -130,7 +138,15 @@ class MonthlyFeesProcessor:
 
     def _execute_batch_print(self, excel, word, paths, consuntivi, macro, cancel_event):
         wb_giornaliera = excel.Workbooks.Open(paths["giornaliera"])
+        if wb_giornaliera is None:
+            self.logger("Impossibile aprire il file Giornaliera.", "ERROR")
+            return
+            
         doc_word = word.Documents.Open(paths["word"])
+        if doc_word is None:
+            self.logger("Impossibile aprire il file Word.", "ERROR")
+            wb_giornaliera.Close(SaveChanges=False)
+            return
 
         try:
             for i, cons_info in enumerate(consuntivi):
@@ -138,6 +154,9 @@ class MonthlyFeesProcessor:
                     break
 
                 wb_cons = excel.Workbooks.Open(cons_info["path"])
+                if wb_cons is None:
+                    self.logger(f"Impossibile aprire il consuntivo: {cons_info['name']}", "ERROR")
+                    continue
                 try:
                     leaf_name = wb_cons.Name
                     self.logger(f"Esecuzione macro '{macro}' su {leaf_name} ({cons_info['name']})...", "INFO")
@@ -149,7 +168,10 @@ class MonthlyFeesProcessor:
                 finally:
                     wb_cons.Close(SaveChanges=False)
         finally:
-            doc_word.Close(SaveChanges=0)
+            try:
+                doc_word.Close(SaveChanges=0)
+            except Exception as e:
+                self.logger(f"Errore chiusura documento Word: {e}", "WARNING")
             wb_giornaliera.Close(SaveChanges=False)
 
     def _validate_paths(self, paths, printer, macro):

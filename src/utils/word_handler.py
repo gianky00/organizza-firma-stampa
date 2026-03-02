@@ -14,8 +14,10 @@ class WordHandler:
         self.logger = logger
 
     def __enter__(self):
+        self.co_initialized = False
         try:
             pythoncom.CoInitialize()
+            self.co_initialized = True
             self.word = win32com.client.Dispatch("Word.Application")
             self.word.Visible = False
             self.word.DisplayAlerts = 0  # wdAlertsNone
@@ -34,6 +36,7 @@ class WordHandler:
                 self.logger(f"Errore durante la chiusura di Word: {e}", "WARNING")
             finally:
                 self.word = None
-        with suppress(BaseException):
-            pythoncom.CoUninitialize()
+        if getattr(self, "co_initialized", False):
+            with suppress(Exception):
+                pythoncom.CoUninitialize()
         return False

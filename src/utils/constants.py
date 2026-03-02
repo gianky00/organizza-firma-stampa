@@ -10,15 +10,17 @@ else:
     APPLICATION_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # --- DEFAULT FOLDER AND FILE NAMES ---
-FIRMA_EXCEL_INPUT_DIR = "FILE EXCEL DA FIRMARE"
-FIRMA_PDF_OUTPUT_DIR = "PDF"
+WORKSPACE_DIR = "Workspace"
+BACKUP_DIR = os.path.join(WORKSPACE_DIR, "Backups")
+FIRMA_EXCEL_INPUT_DIR = os.path.join(WORKSPACE_DIR, "FILE EXCEL DA FIRMARE")
+FIRMA_PDF_OUTPUT_DIR = os.path.join(WORKSPACE_DIR, "PDF")
 FIRMA_IMAGE_NAME = "TIMBRO.png"
 APP_ICON_NAME = "app_icon.ico"
 
-ORGANIZZA_SOURCE_DIR = "SCHEDE DA ORGANIZZARE"
-ORGANIZZA_DEST_DIR = "SCHEDE ORGANIZZATE"
+ORGANIZZA_SOURCE_DIR = os.path.join(WORKSPACE_DIR, "SCHEDE DA ORGANIZZARE")
+ORGANIZZA_DEST_DIR = os.path.join(WORKSPACE_DIR, "SCHEDE ORGANIZZATE")
 
-RINOMINA_DEFAULT_DIR = "SCHEDE SENZA DATA"
+RINOMINA_DEFAULT_DIR = os.path.join(WORKSPACE_DIR, "SCHEDE SENZA DATA")
 
 CONFIG_FILE_NAME = "config_programma.json"
 
@@ -52,7 +54,7 @@ DEFAULT_MACRO_NAME = "Modulo42.StampaFogli"
 # --- Email Feature Constants ---
 TCL_CONTACTS = {
     "Domenico Passanisi": "dpassanisi@isab.com",
-    "Francesco Naselli": "fnaselli@isab.com",
+    "Domenico Agusta": "dagusta@isab.com",
     "Ferdinando Caldarella": "fcaldarella@isab.com",
     "Manuel Prezzavento": "mprezzavento@isab.com",
     "Ivan Messina": "imessina@isab.com",
@@ -62,7 +64,7 @@ TCL_CONTACTS = {
 
 EMAIL_TCL_SCHEDE = {
     "to": "ASpicuglia@isab.com",
-    "cc": "fnaselli@isab.com; fcaldarella@isab.com; mprezzavento@isab.com; imessina@isab.com; dpassanisi@isab.com; francesco.millo@coemi.it; concetto.siringo@coemi.it; ciro.scaravelli@coemi.it",
+    "cc": "dagusta@isab.com; fcaldarella@isab.com; mprezzavento@isab.com; imessina@isab.com; dpassanisi@isab.com; francesco.millo@coemi.it; concetto.siringo@coemi.it; ciro.scaravelli@coemi.it",
     "subject": "COEMI - Schede controlli strumentali dal {data_inizio} al {data_fine}.",
     "body": "Gentilissimi Signori,\nCon la presente sottopongo alla Vostra attenzione le schede dei controlli eseguiti dal {data_inizio} al {data_fine}.\n\n{file_list}\n\nSaluti,",
 }

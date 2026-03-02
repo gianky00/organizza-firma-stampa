@@ -35,12 +35,15 @@ def test_monthly_fees_run_process_simple(fs, mock_gui, app_config):
     mock_doc_gateway_inst = MagicMock()
     mock_doc_gateway_inst.word_handler_class = mock_doc_h
     mock_doc_gateway_class = MagicMock(return_value=mock_doc_gateway_inst)
-    
+
     processor = MonthlyFeesProcessor(
-        mock_gui, app_config, 
-        excel_gateway_class=mock_xls_gateway_class, 
+        mock_gui, app_config,
+        excel_gateway_class=mock_xls_gateway_class,
         word_gateway_class=mock_doc_gateway_class
     )
+    
+    # Mocca il sistema delle stampanti in modo che riconosca "Printer"
+    processor.get_printers = MagicMock(return_value=(["Printer"], "Printer"))
     
     cancel_event = MagicMock(); cancel_event.is_set.return_value = False
     processor.run_printing_process(cancel_event, paths, "Printer", "Macro")

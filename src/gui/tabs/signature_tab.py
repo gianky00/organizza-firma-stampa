@@ -8,6 +8,7 @@ from tkinter import ttk
 from src.logic.email_handler import EmailHandler
 from src.logic.signature import SignatureProcessor
 from src.utils.ui_utils import (
+    ProgressWithETA,
     create_path_entry,
     open_folder_in_explorer,
     select_file_dialog,
@@ -21,6 +22,7 @@ class SignatureTab(ttk.Frame):
         self.app_config = app_config
         self.log_widget = logger
         self.prepared_drafts = []
+        self.drafts_lock = threading.Lock()
         self.current_draft_index = 0
         self.cancel_event = threading.Event()
 
@@ -49,7 +51,7 @@ class SignatureTab(ttk.Frame):
         # --- Frame Setup ---
         paths_frame = ttk.LabelFrame(self, text="1. Percorsi e Impostazioni", padding=15)
         paths_frame.pack(fill=tk.X, pady=5)
-        paths_frame.columnconfigure(1, weight=1)
+        paths_frame.columnconfigure(0, weight=1)
 
         mode_frame = ttk.LabelFrame(self, text="2. Tipo di Documento", padding=15)
         mode_frame.pack(fill=tk.X, pady=5)
@@ -60,7 +62,7 @@ class SignatureTab(ttk.Frame):
 
         self.email_frame = ttk.LabelFrame(self, text="4. Crea Bozza Email con PDF Firmati", padding=15)
         self.email_frame.pack(fill=tk.X, pady=5)
-        self.email_frame.columnconfigure(1, weight=1)
+        self.email_frame.columnconfigure(0, weight=1)
 
         # --- Paths Frame Content ---
         create_path_entry(
@@ -71,15 +73,15 @@ class SignatureTab(ttk.Frame):
             0,
             readonly=True,
         )
-        pdf_frame = ttk.Frame(paths_frame)
-        pdf_frame.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=5)
-        pdf_entry = ttk.Entry(pdf_frame, textvariable=self.app_config.firma_pdf_dir, state="readonly")
-        pdf_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        open_button = ttk.Button(
-            pdf_frame, text="Apri", command=lambda: open_folder_in_explorer(self.app_config.firma_pdf_dir.get())
+        create_path_entry(
+            paths_frame,
+            "Cartella PDF di Output:",
+            self.app_config.firma_pdf_dir,
+            lambda: open_folder_in_explorer(self.app_config.firma_pdf_dir.get()),
+            1,
+            readonly=True,
+            button_text="Apri",
         )
-        open_button.pack(side=tk.LEFT, padx=(5, 0))
-        ttk.Label(paths_frame, text="Cartella PDF di Output:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
         create_path_entry(
             paths_frame,
             "Immagine Firma:",
@@ -124,14 +126,14 @@ class SignatureTab(ttk.Frame):
 
         # --- Email Frame Content ---
         email_settings_frame = ttk.Frame(self.email_frame)
-        email_settings_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 10))
+        email_settings_frame.grid(row=0, column=0, sticky=tk.EW, pady=(0, 10))
 
-        ttk.Label(email_settings_frame, text="Template TCL:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(email_settings_frame, text="Template TCL:", width=25).grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
         tcl_options = ["", *list(self.app_config.TCL_CONTACTS.keys())]
         self.tcl_combo = ttk.Combobox(
-            email_settings_frame, textvariable=self.app_config.email_tcl, values=tcl_options, state="readonly", width=20
+            email_settings_frame, textvariable=self.app_config.email_tcl, values=tcl_options, state="readonly", width=30
         )
-        self.tcl_combo.pack(side=tk.LEFT, padx=(0, 10))
+        self.tcl_combo.grid(row=0, column=1, sticky=tk.W, padx=(0, 10))
 
         self.style_check = ttk.Checkbutton(
             email_settings_frame,
@@ -140,24 +142,27 @@ class SignatureTab(ttk.Frame):
             onvalue=True,
             offvalue=False,
         )
-        self.style_check.pack(side=tk.LEFT, padx=(0, 10))
+        self.style_check.grid(row=0, column=2, sticky=tk.W, padx=(0, 10))
 
-        ttk.Label(email_settings_frame, text="Limite MB/Email:").pack(side=tk.LEFT, padx=(0, 5))
-        self.size_limit_entry = ttk.Entry(email_settings_frame, textvariable=self.app_config.email_size_limit, width=5)
-        self.size_limit_entry.pack(side=tk.LEFT)
+        ttk.Label(email_settings_frame, text="Limite MB/Email:", width=15).grid(row=0, column=3, sticky=tk.E, padx=(10, 5))
+        self.size_limit_entry = ttk.Entry(email_settings_frame, textvariable=self.app_config.email_size_limit, width=8)
+        self.size_limit_entry.grid(row=0, column=4, sticky=tk.E)
 
         create_path_entry(
-            self.email_frame, "Destinatario(i):", self.app_config.email_to, lambda: None, 1, readonly=False
+            self.email_frame, "Destinatario(i):", self.app_config.email_to, None, 1, readonly=False
         )
-        create_path_entry(self.email_frame, "CC:", self.app_config.email_cc, lambda: None, 2, readonly=False)
-        create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, lambda: None, 3, readonly=False)
+        create_path_entry(self.email_frame, "CC:", self.app_config.email_cc, None, 2, readonly=False)
+        create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, None, 3, readonly=False)
 
-        ttk.Label(self.email_frame, text="Corpo del Messaggio:").grid(row=4, column=0, sticky=tk.NW, padx=5, pady=5)
-        self.email_body_text = tk.Text(self.email_frame, height=8, font=("Segoe UI", 9), relief=tk.SOLID, borderwidth=1)
-        self.email_body_text.grid(row=4, column=1, sticky=tk.EW, padx=5, pady=2)
+        body_frame = ttk.Frame(self.email_frame)
+        body_frame.grid(row=4, column=0, sticky="ew", pady=5)
+        body_frame.columnconfigure(1, weight=1)
+        ttk.Label(body_frame, text="Corpo del Messaggio:", width=25).grid(row=0, column=0, sticky="nw", padx=(0, 5))
+        self.email_body_text = tk.Text(body_frame, height=8, font=("Segoe UI", 9), relief=tk.SOLID, borderwidth=1)
+        self.email_body_text.grid(row=0, column=1, sticky="ew", padx=5)
 
         action_preview_frame = ttk.Frame(self.email_frame)
-        action_preview_frame.grid(row=5, column=1, sticky=tk.EW, pady=(10, 0))
+        action_preview_frame.grid(row=5, column=0, sticky=tk.EW, pady=(10, 0))
         self.prepare_button = ttk.Button(action_preview_frame, text="Prepara Bozze", command=self.prepare_email_drafts)
         self.prepare_button.pack(side=tk.LEFT)
 
@@ -176,13 +181,7 @@ class SignatureTab(ttk.Frame):
         self.email_button.pack(side=tk.RIGHT)
 
         # --- Progress Bar ---
-        self.progress_frame = ttk.Frame(self)
-        self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
-        self.progress_label.pack(side=tk.LEFT, padx=(0, 5))
-        self.progressbar = ttk.Progressbar(self.progress_frame, orient="horizontal", mode="determinate")
-        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.percent_label = ttk.Label(self.progress_frame, text="0%", width=5)
-        self.percent_label.pack(side=tk.LEFT, padx=(5, 0))
+        self.progress_frame = ProgressWithETA(self)
 
         self.tcl_combo.bind("<<ComboboxSelected>>", self._update_email_preview)
         self.style_check.config(command=self._update_email_preview)
@@ -228,9 +227,11 @@ class SignatureTab(ttk.Frame):
         try:
             limit_mb_str = self.app_config.email_size_limit.get()
             limit_mb = float(limit_mb_str)
+            if limit_mb <= 0:
+                raise ValueError("Limite <= 0")
             limit_bytes = limit_mb * 1024 * 1024
         except (ValueError, TypeError):
-            self.log_firma(f"ERRORE: Limite di dimensione non valido: '{limit_mb_str}'. Inserire un numero.", "ERROR")
+            self.log_firma(f"ERRORE: Limite di dimensione non valido: '{limit_mb_str}'. Inserire un numero > 0.", "ERROR")
             return
         pdf_dir = self.app_config.firma_pdf_dir.get()
         if not os.path.isdir(pdf_dir):
@@ -261,6 +262,8 @@ class SignatureTab(ttk.Frame):
         base_subject = re.sub(r"^\[\d+/\d+\]\s*", "", raw_subject)
         self.app_config.email_subject.set(base_subject)
         for i, chunk in enumerate(chunks):
+            if self.cancel_event.is_set():
+                break
             draft = {}
             draft["to"] = self.app_config.email_to.get()
             draft["cc"] = self.app_config.email_cc.get()
@@ -272,7 +275,8 @@ class SignatureTab(ttk.Frame):
                 draft["intro_text"] = base_template
             else:
                 draft["intro_text"] = "Seguito della mail precedente.\n\nElenco file:\n{file_list}"
-            self.prepared_drafts.append(draft)
+            with self.drafts_lock:
+                self.prepared_drafts.append(draft)
         self.log_firma(f"Preparate {len(self.prepared_drafts)} bozze di email.", "SUCCESS")
         self.current_draft_index = 0
         self._display_draft_preview()
@@ -298,14 +302,16 @@ class SignatureTab(ttk.Frame):
         )
 
     def show_prev_draft(self):
-        if self.current_draft_index > 0:
-            self.current_draft_index -= 1
-            self._display_draft_preview()
+        with self.drafts_lock:
+            if self.current_draft_index > 0:
+                self.current_draft_index -= 1
+                self._display_draft_preview()
 
     def show_next_draft(self):
-        if self.current_draft_index < len(self.prepared_drafts) - 1:
-            self.current_draft_index += 1
-            self._display_draft_preview()
+        with self.drafts_lock:
+            if self.current_draft_index < len(self.prepared_drafts) - 1:
+                self.current_draft_index += 1
+                self._display_draft_preview()
 
     def start_email_creation_process(self):
         self.toggle_buttons(is_running=True)
@@ -313,15 +319,22 @@ class SignatureTab(ttk.Frame):
 
     def create_email_drafts_in_outlook(self):
         try:
-            if not self.prepared_drafts:
+            with self.drafts_lock:
+                drafts_copy = list(self.prepared_drafts)
+                
+            if not drafts_copy:
                 self.log_firma("Nessuna bozza da creare.", "WARNING")
                 return
-            self.log_firma(f"Avvio creazione di {len(self.prepared_drafts)} bozze in Outlook...", "HEADER")
+            self.log_firma(f"Avvio creazione di {len(drafts_copy)} bozze in Outlook...", "HEADER")
             email_handler = EmailHandler(self.log_firma)
-            for draft_info in self.prepared_drafts:
+            for draft_info in drafts_copy:
+                if self.cancel_event.is_set():
+                    self.log_firma("Creazione bozze annullata.", "WARNING")
+                    break
                 email_handler.create_outlook_draft(draft_info)
             self.log_firma("Creazione bozze in Outlook completata.", "SUCCESS")
-            self.prepared_drafts = []
+            with self.drafts_lock:
+                self.prepared_drafts = []
             self.master.after(0, self.preview_frame.pack_forget)
         finally:
             self.master.after(0, self.on_process_finished)
@@ -329,18 +342,12 @@ class SignatureTab(ttk.Frame):
     def log_firma(self, message, level="INFO"):
         self.master.after(0, self.log_widget, message, level)
 
-    def setup_progress(self, max_value):
+    def setup_progress(self, max_value, label_text="Progresso:"):
         self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.email_frame)
-        self.progressbar["maximum"] = max_value
-        self.progressbar["value"] = 0
-        self.percent_label["text"] = "0%"
+        self.progress_frame.setup(max_value, label_text)
 
     def update_progress(self, value):
-        self.progressbar["value"] = value
-        max_val = self.progressbar["maximum"]
-        if max_val > 0:
-            percent = (value / max_val) * 100
-            self.percent_label["text"] = f"{percent:.0f}%"
+        self.progress_frame.update_progress(value)
 
     def hide_progress(self):
         self.progress_frame.pack_forget()

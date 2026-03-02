@@ -30,9 +30,10 @@ def clear_folder_content(folder_path, logger, folder_display_name=None):
     logger(f"--- Pulizia di '{folder_display_name}' completata. ---", "SUCCESS")
 
 
-def create_backup(folder_path: str) -> bool:
+def create_backup(folder_path: str, backup_parent_dir: str = None) -> bool:
     """
     Crea un backup della cartella specificata aggiungendo un timestamp.
+    Se backup_parent_dir è fornito, il backup verrà creato lì dentro.
     """
     if not os.path.isdir(folder_path):
         return False
@@ -40,7 +41,13 @@ def create_backup(folder_path: str) -> bool:
     from datetime import datetime
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = f"{folder_path}_backup_{timestamp}"
+    folder_name = os.path.basename(folder_path)
+    
+    if backup_parent_dir:
+        os.makedirs(backup_parent_dir, exist_ok=True)
+        backup_path = os.path.join(backup_parent_dir, f"{folder_name}_backup_{timestamp}")
+    else:
+        backup_path = f"{folder_path}_backup_{timestamp}"
 
     try:
         shutil.copytree(folder_path, backup_path)

@@ -139,12 +139,16 @@ class SignatureProcessor:
                 return False, "Impossibile avvia r Excel"
             try:
                 workbook = excel.Workbooks.Open(excel_path, 0, True)
-                if mode == "schede":
-                    self._apply_signature_schede(workbook, pdf_path, image_path)
-                else:
-                    self._apply_signature_preventivi(workbook, pdf_path, image_path)
-                workbook.Close(SaveChanges=False)
-                return True, None
+                if workbook is None:
+                    return False, "Apertura fallita: Workbook restituito come None."
+                try:
+                    if mode == "schede":
+                        self._apply_signature_schede(workbook, pdf_path, image_path)
+                    else:
+                        self._apply_signature_preventivi(workbook, pdf_path, image_path)
+                    return True, None
+                finally:
+                    workbook.Close(SaveChanges=False)
             except Exception as e:
                 return False, str(e)
 
@@ -159,6 +163,9 @@ class SignatureProcessor:
         if cleaned_model in self.firma_processing_data:
             data = self.firma_processing_data[cleaned_model]
             ws.PageSetup.PrintArea = data["PrintArea"]
+            
+            # Dimensioni fisse immagine firma: specifiche richieste per il modello SCHEDAMANUTENZIONE
+            # rispetto ad altri modelli generici
             img_width, img_height = (105, 35) if cleaned_model == "SCHEDAMANUTENZIONE" else (150, 50)
             
             cell_address = data["FirmaCella"]
@@ -166,7 +173,9 @@ class SignatureProcessor:
             row_str = "".join(re.findall(r"\d+", cell_address))
             target_cell = ws.Cells(int(row_str), self._col_to_num(col_str))
             
+            # 28.35 punti per centimetro in Excel
             points_per_cm = 28.35
+            # Offset manuale per far combaciare l'immagine esattamente con l'area pre-stampata del modello
             offset_cm = 0.3 if cleaned_model == "SCHEDAMANUTENZIONE" else 1.0
             top_pos = max(0, target_cell.Top - (offset_cm * points_per_cm))
             left_pos = max(0, target_cell.Left - (1.0 * points_per_cm))
@@ -223,7 +232,9 @@ class SignatureProcessor:
             else:
                 if temp_pdf.exists(): temp_pdf.unlink()
         except Exception as e:
-            self.logger(f"Errore compressione {file_name}: {e}", "ERROR")
+            self.logger(f"Errore compressione {file_name}: {e}\nComando: {' '.join(args)}", "ERROR")
+            if isinstance(e, subprocess.CalledProcessError):
+                self.logger(f"Dettagli errore Ghostscript: {e.stderr}", "ERROR")
             if temp_pdf.exists(): temp_pdf.unlink()
 
     def _log_errors(self, errors):

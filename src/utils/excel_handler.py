@@ -16,8 +16,10 @@ class ExcelHandler:
         self.logger = logger
 
     def __enter__(self):
+        self.co_initialized = False
         try:
             pythoncom.CoInitialize()
+            self.co_initialized = True
             self.excel = win32com.client.DispatchEx("Excel.Application")
             self.excel.Visible = False
             self.excel.DisplayAlerts = False
@@ -48,5 +50,6 @@ class ExcelHandler:
                 self.logger(f"Errore durante la chiusura di Excel: {e}", "WARNING")
             finally:
                 self.excel = None
-        with suppress(ImportError):
-            pythoncom.CoUninitialize()
+        if getattr(self, "co_initialized", False):
+            with suppress(Exception):
+                pythoncom.CoUninitialize()

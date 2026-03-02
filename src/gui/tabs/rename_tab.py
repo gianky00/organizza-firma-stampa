@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from src.logic.renaming import RenameProcessor
-from src.utils.ui_utils import create_path_entry, select_folder_dialog
+from src.utils.ui_utils import ProgressWithETA, create_path_entry, select_folder_dialog
 
 
 class RenameTab(ttk.Frame):
@@ -35,7 +35,7 @@ class RenameTab(ttk.Frame):
         # --- Settings Frame ---
         settings_frame = ttk.LabelFrame(self, text="1. Impostazioni", padding=15)
         settings_frame.pack(fill=tk.X, pady=5)
-        settings_frame.columnconfigure(1, weight=1)
+        settings_frame.columnconfigure(0, weight=1)
 
         create_path_entry(
             settings_frame,
@@ -49,7 +49,7 @@ class RenameTab(ttk.Frame):
             settings_frame,
             "Password (opzionale):",
             self.app_config.rinomina_password,
-            lambda: None,
+            None,
             1,
             readonly=False,
         )
@@ -70,13 +70,7 @@ class RenameTab(ttk.Frame):
         # self.cancel_button is packed dynamically
 
         # --- Progress Bar ---
-        self.progress_frame = ttk.Frame(self)
-        self.progress_label = ttk.Label(self.progress_frame, text="Progresso:")
-        self.progress_label.pack(side=tk.LEFT, padx=(0, 5))
-        self.progressbar = ttk.Progressbar(self.progress_frame, orient="horizontal", mode="determinate")
-        self.progressbar.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.percent_label = ttk.Label(self.progress_frame, text="0%", width=5)
-        self.percent_label.pack(side=tk.LEFT, padx=(5, 0))
+        self.progress_frame = ProgressWithETA(self)
 
         self.on_process_finished()
 
@@ -108,16 +102,10 @@ class RenameTab(ttk.Frame):
 
     def setup_progress(self, max_value):
         self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.actions_frame)
-        self.progressbar["maximum"] = max_value
-        self.progressbar["value"] = 0
-        self.percent_label["text"] = "0%"
+        self.progress_frame.setup(max_value)
 
     def update_progress(self, value):
-        self.progressbar["value"] = value
-        max_val = self.progressbar["maximum"]
-        if max_val > 0:
-            percent = (value / max_val) * 100
-            self.percent_label["text"] = f"{percent:.0f}%"
+        self.progress_frame.update_progress(value)
 
     def hide_progress(self):
         self.progress_frame.pack_forget()
