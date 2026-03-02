@@ -35,7 +35,7 @@ class SignatureProcessor:
 
     def run_full_signature_process(self, cancel_event):
         self.logger("Avvio del processo di firma...", "HEADER")
-        self.prepared_files_data = [] # Lista di dict {pdf_path, tcl}
+        self.prepared_files_data = []  # Lista di dict {pdf_path, tcl}
         try:
             # 0. Mostra barra di caricamento immediata
             self.gui.after(0, self.gui.show_indeterminate, "Inizializzazione ambiente...")
@@ -165,7 +165,9 @@ class SignatureProcessor:
 
                 try:
                     # Passiamo l'istanza excel già aperta per massima velocità
-                    success, err, tcl_name = self._sign_and_export_with_instance(excel, fp, output_pdf, image_path, mode)
+                    success, err, tcl_name = self._sign_and_export_with_instance(
+                        excel, fp, output_pdf, image_path, mode
+                    )
                     if success:
                         self.prepared_files_data.append({"path": output_pdf, "tcl": tcl_name or "N/D"})
                     else:
@@ -177,7 +179,9 @@ class SignatureProcessor:
             self._log_errors(errors)
         return not errors
 
-    def _sign_and_export_with_instance(self, excel, excel_path, pdf_path, image_path, mode) -> tuple[bool, str | None, str | None]:
+    def _sign_and_export_with_instance(
+        self, excel, excel_path, pdf_path, image_path, mode
+    ) -> tuple[bool, str | None, str | None]:
         try:
             # Apertura veloce: sola lettura, senza aggiornare link
             workbook = excel.Workbooks.Open(excel_path, 0, True)
@@ -186,7 +190,7 @@ class SignatureProcessor:
             try:
                 # ESTRAZIONE TCL
                 tcl_name = self.excel_gateway.extract_tcl_from_worksheet(workbook.Worksheets(1))
-                
+
                 if mode == "schede":
                     self._apply_signature_schede(workbook, pdf_path, image_path)
                 else:
@@ -263,7 +267,7 @@ class SignatureProcessor:
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = []
-            for i, pdf_file in enumerate(pdf_files):
+            for _i, pdf_file in enumerate(pdf_files):
                 if cancel_event.is_set():
                     break
                 futures.append(executor.submit(self._compress_single_pdf, pdf_path, pdf_file, gs_exe))

@@ -61,8 +61,10 @@ class ConfigManager:
 
     def _get_default_models_config(self):
         """Restituisce la configurazione predefinita dei modelli caricandola dal dominio."""
-        from src.domain.models import RENAME_MODELS
         from dataclasses import asdict
+
+        from src.domain.models import RENAME_MODELS
+
         return [asdict(m) for m in RENAME_MODELS]
 
     def load(self):

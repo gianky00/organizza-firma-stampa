@@ -43,12 +43,7 @@ class SignatureTab(ttk.Frame):
         self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas)
 
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(
-                scrollregion=self.canvas.bbox("all")
-            )
-        )
+        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
 
         self.scroll_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
@@ -61,6 +56,7 @@ class SignatureTab(ttk.Frame):
         # Bind mousewheel to scrolling
         def _on_mousewheel(event):
             self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
         self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
         self.scrollable_frame.columnconfigure(0, weight=1)
@@ -255,7 +251,9 @@ class SignatureTab(ttk.Frame):
                     raise ValueError("Limite <= 0")
                 limit_bytes = limit_mb * 1024 * 1024
             except (ValueError, TypeError):
-                self.log_firma(f"ERRORE: Limite di dimensione non valido: '{self.app_config.email_size_limit.get()}'.", "ERROR")
+                self.log_firma(
+                    f"ERRORE: Limite di dimensione non valido: '{self.app_config.email_size_limit.get()}'.", "ERROR"
+                )
                 return
 
             # 2. Controllo Cartella PDF
@@ -274,7 +272,7 @@ class SignatureTab(ttk.Frame):
             # 4. Raccolta Allegati
             all_attachments = []
             pdf_files = [f for f in os.listdir(pdf_dir) if f.lower().endswith(".pdf")]
-            
+
             if not pdf_files:
                 self.log_firma("Nessun file PDF trovato nella cartella di output.", "WARNING")
                 return
@@ -282,17 +280,15 @@ class SignatureTab(ttk.Frame):
             for f in pdf_files:
                 full_p = os.path.join(pdf_dir, f)
                 norm_full_p = os.path.normpath(full_p).lower()
-                all_attachments.append({
-                    "path": full_p,
-                    "size": os.path.getsize(full_p),
-                    "tcl": files_metadata.get(norm_full_p, "N/D")
-                })
+                all_attachments.append(
+                    {"path": full_p, "size": os.path.getsize(full_p), "tcl": files_metadata.get(norm_full_p, "N/D")}
+                )
 
             # 5. Suddivisione in Chunk (Limite MB)
             chunks: list[list[dict]] = []
             current_chunk: list[dict] = []
             current_chunk_size = 0
-            
+
             for item in all_attachments:
                 if current_chunk and current_chunk_size + item["size"] > limit_bytes:
                     chunks.append(current_chunk)
@@ -308,12 +304,13 @@ class SignatureTab(ttk.Frame):
             num_drafts = len(chunks)
             raw_subject = self.app_config.email_subject.get()
             base_subject = re.sub(r"^\[\d+/\d+\]\s*", "", raw_subject)
-            
+
             base_template = self.email_body_text.get("1.0", tk.END).strip()
 
             for i, chunk in enumerate(chunks):
-                if self.cancel_event.is_set(): break
-                
+                if self.cancel_event.is_set():
+                    break
+
                 draft = {
                     "to": self.app_config.email_to.get(),
                     "cc": self.app_config.email_cc.get(),
@@ -323,7 +320,7 @@ class SignatureTab(ttk.Frame):
                         {"name": os.path.splitext(os.path.basename(item["path"]))[0], "tcl": item["tcl"]}
                         for item in chunk
                     ],
-                    "intro_text": base_template if i == 0 else "Seguito della mail precedente."
+                    "intro_text": base_template if i == 0 else "Seguito della mail precedente.",
                 }
                 with self.drafts_lock:
                     self.prepared_drafts.append(draft)
@@ -338,6 +335,7 @@ class SignatureTab(ttk.Frame):
         except Exception as e:
             self.log_firma(f"ERRORE IMPREVISTO durante la preparazione bozze: {e}", "ERROR")
             import traceback
+
             self.log_firma(traceback.format_exc(), "DEBUG")
         self.email_button.config(state="normal")
 

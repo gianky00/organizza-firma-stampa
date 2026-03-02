@@ -120,7 +120,7 @@ class ExcelGateway:
     def extract_date_from_worksheet(self, ws: Any) -> datetime | None:
         """Logica core per estrarre la data da un foglio di lavoro usando modelli e candidati."""
         from src.domain.models import DEFAULT_DATE_CANDIDATES
-        
+
         # Carica configurazione dinamica dei modelli
         models_config = self._get_dynamic_models_config()
 
@@ -139,7 +139,7 @@ class ExcelGateway:
     def extract_tcl_from_worksheet(self, ws: Any) -> str | None:
         """Estrae il nome del TCL (referente) basandosi sul modello riconosciuto."""
         models_config = self._get_dynamic_models_config()
-        
+
         for cfg in models_config:
             if cfg.get("id_cell"):
                 try:
@@ -157,8 +157,10 @@ class ExcelGateway:
     def _get_dynamic_models_config(self) -> list[dict]:
         """Recupera i modelli dalla configurazione dell'app."""
         from src.utils.config_manager import ConfigManager
+
         config = ConfigManager()
-        return config.get("rename_models_config")
+        models = config.get("rename_models_config")
+        return list(models) if isinstance(models, list) else []
 
     def _open_workbook(self, excel, file_path, password):
         try:

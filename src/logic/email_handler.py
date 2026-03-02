@@ -14,10 +14,9 @@ class EmailHandler:
         """Genera il contenuto HTML raggruppando i file per TCL in tabelle separate."""
         # Pulizia testo introduzione
         intro_html = intro_text.replace("{file_list}", "").replace("Elenco file:", "").strip().replace("\n", "<br>")
-        
+
         # Raggruppamento file per TCL
-        from collections import defaultdict
-        grouped_files = {}
+        grouped_files: dict[str, list[str]] = {}
         for file_data in file_list:
             tcl = file_data.get("tcl", "N/D")
             if tcl not in grouped_files:
@@ -112,7 +111,7 @@ class EmailHandler:
             # Get user signature and prepending content
             mail.Display()
             signature = mail.HTMLBody
-            
+
             # Uniamo il nostro contenuto HTML con la firma esistente di Outlook
             mail.HTMLBody = html_content + signature
 

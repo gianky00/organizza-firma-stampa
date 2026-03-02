@@ -64,8 +64,12 @@ class SettingsTab(ttk.Frame):
         # Header TCL
         header_f = ttk.Frame(ref_frame)
         header_f.pack(fill="x")
-        ttk.Label(header_f, text="Nome Visualizzato", width=30, font=self.app_config.font_bold).pack(side=tk.LEFT, padx=5)
-        ttk.Label(header_f, text="Chiave TCL (Ricerca)", width=20, font=self.app_config.font_bold).pack(side=tk.LEFT, padx=5)
+        ttk.Label(header_f, text="Nome Visualizzato", width=30, font=self.app_config.font_bold).pack(
+            side=tk.LEFT, padx=5
+        )
+        ttk.Label(header_f, text="Chiave TCL (Ricerca)", width=20, font=self.app_config.font_bold).pack(
+            side=tk.LEFT, padx=5
+        )
 
         self.ref_list_container = ttk.Frame(ref_frame)
         self.ref_list_container.pack(fill="x")
@@ -74,21 +78,21 @@ class SettingsTab(ttk.Frame):
 
         btn_f = ttk.Frame(ref_frame)
         btn_f.pack(fill="x", pady=(10, 0))
-        ttk.Button(btn_f, text="➕ Aggiungi TCL", command=self._add_tcl_settings).pack(side=tk.LEFT)
+        ttk.Button(btn_f, text="➕ Aggiungi TCL", command=self._add_tcl_settings).pack(side=tk.LEFT)  # noqa: RUF001
         ttk.Button(btn_f, text="🔄 Aggiorna Vista", command=self._apply_to_fees_tab).pack(side=tk.LEFT, padx=10)
 
         # --- Models Management Frame ---
         models_frame = ttk.LabelFrame(self, text="3. Configurazione Modelli Schede (Ridenominazione e TCL)", padding=15)
         models_frame.pack(fill=tk.BOTH, expand=True, pady=10)
-        
+
         # Area scorrevole per i modelli
         m_canvas = tk.Canvas(models_frame, borderwidth=0, highlightthickness=0, height=300)
         m_scrollbar = ttk.Scrollbar(models_frame, orient="vertical", command=m_canvas.yview)
         self.models_container = ttk.Frame(m_canvas)
-        
+
         self.models_window = m_canvas.create_window((0, 0), window=self.models_container, anchor="nw")
         m_canvas.configure(yscrollcommand=m_scrollbar.set)
-        
+
         self.models_container.bind("<Configure>", lambda e: m_canvas.configure(scrollregion=m_canvas.bbox("all")))
         m_canvas.bind("<Configure>", lambda e: m_canvas.itemconfig(self.models_window, width=e.width))
 
@@ -99,7 +103,7 @@ class SettingsTab(ttk.Frame):
 
         m_btn_f = ttk.Frame(models_frame)
         m_btn_f.pack(fill=tk.X, side=tk.BOTTOM, pady=(5, 0))
-        ttk.Button(m_btn_f, text="➕ Aggiungi Nuovo Modello", command=self._add_model_settings).pack(side=tk.LEFT)
+        ttk.Button(m_btn_f, text="➕ Aggiungi Nuovo Modello", command=self._add_model_settings).pack(side=tk.LEFT)  # noqa: RUF001
 
     def _refresh_models_list_settings(self):
         for widget in self.models_container.winfo_children():
@@ -108,7 +112,13 @@ class SettingsTab(ttk.Frame):
         # Headers
         h_f = ttk.Frame(self.models_container)
         h_f.pack(fill="x", pady=(0, 5))
-        headers = [("Nome Modello", 25), ("Cella ID", 8), ("Match ID", 20), ("Cella TCL", 10), ("Celle Data (sep. virgola)", 25)]
+        headers = [
+            ("Nome Modello", 25),
+            ("Cella ID", 8),
+            ("Match ID", 20),
+            ("Cella TCL", 10),
+            ("Celle Data (sep. virgola)", 25),
+        ]
         for text, w in headers:
             ttk.Label(h_f, text=text, width=w, font=self.app_config.font_bold).pack(side=tk.LEFT, padx=5)
 
@@ -122,7 +132,9 @@ class SettingsTab(ttk.Frame):
             ttk.Entry(row_f, textvariable=mod["tcl_cell"], width=10).pack(side=tk.LEFT, padx=5)
             ttk.Entry(row_f, textvariable=mod["date_cells"], width=25).pack(side=tk.LEFT, padx=5)
 
-            ttk.Button(row_f, text="❌", width=3, command=partial(self._remove_model_settings, i)).pack(side=tk.LEFT, padx=5)
+            ttk.Button(row_f, text="❌", width=3, command=partial(self._remove_model_settings, i)).pack(
+                side=tk.LEFT, padx=5
+            )
 
     def _add_model_settings(self):
         new_mod = {
@@ -136,7 +148,8 @@ class SettingsTab(ttk.Frame):
         self._refresh_models_list_settings()
 
     def _remove_model_settings(self, index):
-        if len(self.app_config.rename_models_vars) <= 1: return
+        if len(self.app_config.rename_models_vars) <= 1:
+            return
         self.app_config.rename_models_vars.pop(index)
         self._refresh_models_list_settings()
 
