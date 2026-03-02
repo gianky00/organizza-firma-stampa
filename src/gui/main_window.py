@@ -213,34 +213,41 @@ class MainApplication(tk.Tk):
         notebook.add(self.impostazioni_container, text=" Impostazioni Avanzate ")
 
         # --- Create Log Widgets ---
-        self.log_widget_firma = self._create_log_frame(self.firma_container, "Log Esecuzione (Firma)")
-        self.log_widget_rinomina = self._create_log_frame(self.rinomina_container, "Log Esecuzione (Aggiungi Data)")
-        self.log_widget_organizza = self._create_log_frame(
+        self.log_widget_firma, self.log_frame_firma = self._create_log_frame(
+            self.firma_container, "Log Esecuzione (Firma)"
+        )
+        self.log_widget_rinomina, self.log_frame_rinomina = self._create_log_frame(
+            self.rinomina_container, "Log Esecuzione (Aggiungi Data)"
+        )
+        self.log_widget_organizza, self.log_frame_organizza = self._create_log_frame(
             self.organizza_container, "Log Esecuzione (Organizza/Stampa)"
         )
-        self.log_widget_canoni = self._create_log_frame(self.canoni_container, "Log Esecuzione (Stampa Canoni)")
+        self.log_widget_canoni, self.log_frame_canoni = self._create_log_frame(
+            self.canoni_container, "Log Esecuzione (Stampa Canoni)"
+        )
 
         # --- Dependency Injection and Tab Creation ---
+        # PACK LOGS FIRST AT BOTTOM (Ensure they are visible)
+        self.log_frame_firma.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
+        self.log_frame_rinomina.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
+        self.log_frame_canoni.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
+        self.log_frame_organizza.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
+
+        # THEN PACK TABS (they will expand to fill the rest)
         self.signature_tab = SignatureTab(
             self.firma_container, self, lambda msg, level="INFO": log_message(self.log_widget_firma, msg, level)
         )
         self.signature_tab.pack(fill="both", expand=True)
-        self.log_widget_firma.master.pack_forget()  # Hide log frame initially
-        self.log_widget_firma.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
         self.rename_tab = RenameTab(
             self.rinomina_container, self, lambda msg, level="INFO": log_message(self.log_widget_rinomina, msg, level)
         )
         self.rename_tab.pack(fill="both", expand=True)
-        self.log_widget_rinomina.master.pack_forget()
-        self.log_widget_rinomina.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
         self.fees_tab = FeesTab(
             self.canoni_container, self, lambda msg, level="INFO": log_message(self.log_widget_canoni, msg, level)
         )
         self.fees_tab.pack(fill="both", expand=True)
-        self.log_widget_canoni.master.pack_forget()
-        self.log_widget_canoni.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
         self.organize_tab = OrganizeTab(
             self.organizza_container,
@@ -249,17 +256,14 @@ class MainApplication(tk.Tk):
             self.fees_tab.processor,
         )
         self.organize_tab.pack(fill="both", expand=True)
-        self.log_widget_organizza.master.pack_forget()
-        self.log_widget_organizza.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
 
         self.settings_tab = SettingsTab(self.impostazioni_container, self)
         self.settings_tab.pack(fill="both", expand=True)
 
     def _create_log_frame(self, parent, title):
         log_frame = ttk.LabelFrame(parent, text=title, padding="10")
-        # The frame is packed by the caller
         log_widget = create_log_widget(log_frame)
-        return log_widget
+        return log_widget, log_frame
 
     def _on_closing(self):
         # --- On Closing ---

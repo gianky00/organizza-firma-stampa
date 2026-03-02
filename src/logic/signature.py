@@ -49,6 +49,7 @@ class SignatureProcessor:
                 self.logger(f"Importazione file da sorgente: {source_path}", "INFO")
                 # Pulizia locale preventiva
                 from src.utils.file_utils import clear_folder_content
+
                 clear_folder_content(local_work_path, self.logger, folder_display_name="Area di Lavoro Locale")
 
                 files_to_import = self._get_input_files(source_path)
@@ -56,6 +57,7 @@ class SignatureProcessor:
                     return
 
                 import shutil
+
                 for f in files_to_import:
                     shutil.copy2(os.path.join(source_path, f), local_work_path)
 
@@ -88,8 +90,9 @@ class SignatureProcessor:
             if not cancel_event.is_set():
                 self.logger("--- PULIZIA: Spostamento originali in backup... ---", "INFO")
                 backup_parent = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR, "Originali_Firmati")
+                from src.utils.file_utils import clear_folder_content, create_backup
+
                 if create_backup(active_excel_path, backup_parent_dir=backup_parent):
-                    from src.utils.file_utils import clear_folder_content
                     clear_folder_content(active_excel_path, self.logger, folder_display_name="Excel da Firmare")
 
                 self.logger("--- PROCESSO DI FIRMA COMPLETATO ---", "SUCCESS")
@@ -141,52 +144,52 @@ class SignatureProcessor:
         image_path = self.app_config.firma_image_path.get()
         mode = self.app_config.firma_processing_mode.get()
 
+        from src.utils.excel_handler import ExcelHandler
+
         errors = []
-        for i, file_name in enumerate(excel_files):
-            if cancel_event.is_set():
+        # TURBO: Apriamo Excel UNA SOLA VOLTA per l'intero lotto di file
+        with ExcelHandler(self.logger) as excel:
+            if not excel:
                 return False
-            self.gui.after(0, self.update_progress, i + 1)
-            self.logger("-" * 50)
-            self.logger(f"Elaborazione: {file_name}", "INFO")
 
-            fp = os.path.join(excel_path, file_name)
-            output_pdf = os.path.join(pdf_path, f"{Path(file_name).stem}.pdf")
+            for i, file_name in enumerate(excel_files):
+                if cancel_event.is_set():
+                    return False
+                self.gui.after(0, self.update_progress, i + 1)
+                self.logger("-" * 50)
+                self.logger(f"Elaborazione: {file_name}", "INFO")
 
-            success, err = self._sign_and_export(fp, output_pdf, image_path, mode)
-            if not success:
-                errors.append((file_name, err))
+                fp = os.path.join(excel_path, file_name)
+                output_pdf = os.path.join(pdf_path, f"{Path(file_name).stem}.pdf")
+
+                try:
+                    # Passiamo l'istanza excel già aperta per massima velocità
+                    success, err = self._sign_and_export_with_instance(excel, fp, output_pdf, image_path, mode)
+                    if not success:
+                        errors.append((file_name, err))
+                except Exception as e:
+                    errors.append((file_name, str(e)))
 
         if errors:
             self._log_errors(errors)
         return not errors
 
-    def _sign_and_export(self, excel_path, pdf_path, image_path, mode) -> tuple[bool, str | None]:
-        # Qui usiamo il gateway per l'operazione atomica
-        # Nota: SignatureProcessor ha logiche di posizionamento custom che il Gateway attuale non ha del tutto.
-        # Estendiamo il Gateway o manteniamo qui la logica ma usando l'handler iniettato.
-        # Per ora deleghiamo al gateway le operazioni base.
-
-        from src.utils.excel_handler import ExcelHandler
-
-        excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
-
-        with excel_h_class(self.logger) as excel:
-            if not excel:
-                return False, "Impossibile avvia r Excel"
+    def _sign_and_export_with_instance(self, excel, excel_path, pdf_path, image_path, mode) -> tuple[bool, str | None]:
+        try:
+            # Apertura veloce: sola lettura, senza aggiornare link
+            workbook = excel.Workbooks.Open(excel_path, 0, True)
+            if workbook is None:
+                return False, "Apertura fallita."
             try:
-                workbook = excel.Workbooks.Open(excel_path, 0, True)
-                if workbook is None:
-                    return False, "Apertura fallita: Workbook restituito come None."
-                try:
-                    if mode == "schede":
-                        self._apply_signature_schede(workbook, pdf_path, image_path)
-                    else:
-                        self._apply_signature_preventivi(workbook, pdf_path, image_path)
-                    return True, None
-                finally:
-                    workbook.Close(SaveChanges=False)
-            except Exception as e:
-                return False, str(e)
+                if mode == "schede":
+                    self._apply_signature_schede(workbook, pdf_path, image_path)
+                else:
+                    self._apply_signature_preventivi(workbook, pdf_path, image_path)
+                return True, None
+            finally:
+                workbook.Close(SaveChanges=False)
+        except Exception as e:
+            return False, str(e)
 
     def _apply_signature_schede(self, workbook, pdf_path, image_path):
         ws = workbook.Worksheets(1)
@@ -244,11 +247,27 @@ class SignatureProcessor:
             return
 
         gs_exe = self.app_config.firma_ghostscript_path.get()
-        for i, pdf_file in enumerate(pdf_files):
-            if cancel_event.is_set():
-                break
-            self.gui.after(0, self.update_progress, progress_offset + i + 1)
-            self._compress_single_pdf(pdf_path, pdf_file, gs_exe)
+
+        # TURBO: Compressione parallela usando ThreadPoolExecutor
+        import multiprocessing
+        from concurrent.futures import ThreadPoolExecutor
+
+        # Utilizziamo un numero di thread pari al numero di core (max 4 per non saturare IO)
+        max_workers = min(multiprocessing.cpu_count(), 4)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for i, pdf_file in enumerate(pdf_files):
+                if cancel_event.is_set():
+                    break
+                futures.append(executor.submit(self._compress_single_pdf, pdf_path, pdf_file, gs_exe))
+
+            # Monitoraggio progresso
+            for i, future in enumerate(futures):
+                if cancel_event.is_set():
+                    break
+                future.result()  # Attende completamento
+                self.gui.after(0, self.update_progress, progress_offset + i + 1)
 
     def _compress_single_pdf(self, pdf_path, file_name, gs_exe):
         input_pdf = Path(pdf_path) / file_name

@@ -8,7 +8,6 @@ from tkinter import ttk
 from src.logic.email_handler import EmailHandler
 from src.logic.signature import SignatureProcessor
 from src.utils.ui_utils import (
-    ProgressWithETA,
     create_path_entry,
     open_folder_in_explorer,
     select_file_dialog,
@@ -39,28 +38,55 @@ class SignatureTab(ttk.Frame):
         )
 
     def _create_widgets(self):
-        self.columnconfigure(0, weight=1)
+        # Create a canvas and scrollbar for scrolling
+        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
 
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.scroll_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.scroll_window, width=e.width))
+
+        self.scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        # Bind mousewheel to scrolling
+        def _on_mousewheel(event):
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        self.scrollable_frame.columnconfigure(0, weight=1)
+        container = self.scrollable_frame
+
+        # Update all .pack calls to use 'container' or its children
         # --- Description ---
         desc_text = (
             "Automatizza il processo di firma: apre file Excel, applica una firma, li converte in PDF e li comprime."
         )
-        desc_label = ttk.Label(self, text=desc_text, wraplength=800, justify=tk.LEFT, style="info.TLabel")
+        desc_label = ttk.Label(container, text=desc_text, wraplength=800, justify=tk.LEFT, style="info.TLabel")
         desc_label.pack(fill=tk.X, pady=(0, 15), anchor="w")
 
         # --- Frame Setup ---
-        paths_frame = ttk.LabelFrame(self, text="1. Percorsi e Impostazioni", padding=15)
+        paths_frame = ttk.LabelFrame(container, text="1. Percorsi e Impostazioni", padding=15)
         paths_frame.pack(fill=tk.X, pady=5)
         paths_frame.columnconfigure(0, weight=1)
 
-        mode_frame = ttk.LabelFrame(self, text="2. Tipo di Documento", padding=15)
+        mode_frame = ttk.LabelFrame(container, text="2. Tipo di Documento", padding=15)
         mode_frame.pack(fill=tk.X, pady=5)
 
-        self.actions_frame = ttk.LabelFrame(self, text="3. Azioni", padding=15)
+        self.actions_frame = ttk.LabelFrame(container, text="3. Azioni", padding=15)
         self.actions_frame.pack(fill=tk.X, pady=5)
         self.actions_frame.columnconfigure(0, weight=1)
 
-        self.email_frame = ttk.LabelFrame(self, text="4. Crea Bozza Email con PDF Firmati", padding=15)
+        self.email_frame = ttk.LabelFrame(container, text="4. Crea Bozza Email con PDF Firmati", padding=15)
         self.email_frame.pack(fill=tk.X, pady=5)
         self.email_frame.columnconfigure(0, weight=1)
 

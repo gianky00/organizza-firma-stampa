@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from src.logic.organization import OrganizationProcessor
-from src.utils.ui_utils import ProgressWithETA, create_path_entry, open_folder_in_explorer, select_folder_dialog
+from src.utils.ui_utils import create_path_entry, open_folder_in_explorer, select_folder_dialog
 
 
 class OrganizeTab(ttk.Frame):

@@ -1,13 +1,41 @@
 import os
 import sys
 import tkinter as tk
+import traceback
 from tkinter import messagebox
 
 # Add the 'src' directory to the Python path
-# This allows us to import modules from the src directory
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
 
 from pathlib import Path
+
+
+def log_critical_error(exc_type, exc_value, exc_traceback):
+    """
+    Scrive l'errore in un file fisico per debug se la GUI crasha.
+    """
+    error_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    try:
+        with open("CRASH_REPORT.txt", "w", encoding="utf-8") as f:
+            f.write("--- CRASH REPORT - " + os.name + " ---\n")
+            f.write(error_msg)
+    except Exception:
+        pass
+
+    # Mostra anche un messaggio popup se possibile
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(
+            "ERRORE CRITICO",
+            f"L'applicazione ha riscontrato un errore fatale e verrà chiusa.\nConsulta CRASH_REPORT.txt per i dettagli.\n\nErrore: {exc_value}",
+        )
+    except Exception:
+        pass
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+
+sys.excepthook = log_critical_error
 
 
 def main():

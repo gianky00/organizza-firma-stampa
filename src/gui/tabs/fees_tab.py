@@ -4,7 +4,7 @@ from datetime import datetime
 from tkinter import ttk
 
 from src.logic.monthly_fees import MonthlyFeesProcessor
-from src.utils.ui_utils import ProgressWithETA, create_path_entry, select_file_dialog
+from src.utils.ui_utils import create_path_entry, select_file_dialog
 
 
 class FeesTab(ttk.Frame):
@@ -29,11 +29,37 @@ class FeesTab(ttk.Frame):
         self.after(150, self._update_paths_from_ui)
 
     def _create_widgets(self):
-        self.columnconfigure(0, weight=1)
+        # Create a canvas and scrollbar for scrolling
+        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.scroll_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.scroll_window, width=e.width))
+
+        self.scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        # Bind mousewheel to scrolling
+        def _on_mousewheel(event):
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        self.scrollable_frame.columnconfigure(0, weight=1)
+        container = self.scrollable_frame
 
         # --- Description ---
         desc_label = ttk.Label(
-            self,
+            container,
             text="Automatizza la stampa dei canoni mensili eseguendo macro VBA su file Excel e stampando documenti Word in sequenza.",
             wraplength=800,
             justify=tk.LEFT,
@@ -42,7 +68,7 @@ class FeesTab(ttk.Frame):
         desc_label.pack(fill=tk.X, pady=(0, 15), anchor="w")
 
         # --- Settings Frame ---
-        settings_frame = ttk.LabelFrame(self, text="1. Impostazioni di Stampa", padding=15)
+        settings_frame = ttk.LabelFrame(container, text="1. Impostazioni di Stampa", padding=15)
         settings_frame.pack(fill=tk.X, pady=5)
         settings_frame.columnconfigure(0, weight=1)
 
@@ -133,7 +159,7 @@ class FeesTab(ttk.Frame):
         )
 
         # --- Azioni ---
-        self.actions_frame = ttk.LabelFrame(self, text="2. Azione", padding=15)
+        self.actions_frame = ttk.LabelFrame(container, text="2. Azione", padding=15)
         self.actions_frame.pack(fill=tk.X, pady=5)
         self.actions_frame.columnconfigure(0, weight=1)
         self.run_button = ttk.Button(

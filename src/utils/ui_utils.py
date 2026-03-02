@@ -29,7 +29,7 @@ class ProgressWithETA(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         # Non configuriamo pesi qui, lo farà il chiamante
-        
+
         self.progress_label = ttk.Label(self, text="Progresso:", width=20, anchor="e")
         self.progress_label.pack(side=tk.LEFT, padx=5)
 

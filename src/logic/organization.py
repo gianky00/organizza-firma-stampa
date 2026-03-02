@@ -60,6 +60,7 @@ class OrganizationProcessor:
             if os.path.normpath(source_dir) != os.path.normpath(local_source_path):
                 self.logger(f"Importazione schede da sorgente: {source_dir}", "INFO")
                 from src.utils.file_utils import clear_folder_content
+
                 clear_folder_content(local_source_path, self.logger, folder_display_name="Area Sorgente Locale")
 
                 files_to_import = self._get_excel_files(source_dir)
@@ -67,6 +68,7 @@ class OrganizationProcessor:
                     return
 
                 import shutil
+
                 for f in files_to_import:
                     shutil.copy2(f, local_source_path)
 
@@ -91,6 +93,7 @@ class OrganizationProcessor:
                 backup_parent_source = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR, "Originali_Organizzati")
                 if create_backup(active_source, backup_parent_dir=backup_parent_source):
                     from src.utils.file_utils import clear_folder_content
+
                     clear_folder_content(active_source, self.logger, folder_display_name="Schede Lavorate")
 
                 self.logger("Organizzazione completata!", "SUCCESS")

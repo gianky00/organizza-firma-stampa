@@ -99,8 +99,6 @@ class ExcelGateway:
 
     def get_workbook_date(self, file_path: str, password: str = "") -> datetime | None:
         """Apre un workbook (anche protetto) e tenta di estrarne la data di emissione."""
-        from src.domain.models import DEFAULT_DATE_CANDIDATES, RENAME_MODELS
-
         with self.excel_handler_class(self.logger) as excel:
             if not excel:
                 return None
@@ -111,24 +109,29 @@ class ExcelGateway:
                     return None
 
                 ws = wb.Worksheets(1)
-
-                # Prova matching modelli specifici
-                dt = self._find_date_by_model(ws, RENAME_MODELS)
-                if dt:
-                    return dt
-
-                # Prova candidati di default
-                dt = self._find_date_in_cells(ws, DEFAULT_DATE_CANDIDATES)
-                if dt:
-                    return dt
-
-                return None
+                return self.extract_date_from_worksheet(ws)
             except Exception as e:
                 self.logger(f"Errore estrazione data da {os.path.basename(file_path)}: {e}", "ERROR")
                 return None
             finally:
                 if wb:
                     wb.Close(SaveChanges=False)
+
+    def extract_date_from_worksheet(self, ws: Any) -> datetime | None:
+        """Logica core per estrarre la data da un foglio di lavoro usando modelli e candidati."""
+        from src.domain.models import DEFAULT_DATE_CANDIDATES, RENAME_MODELS
+
+        # Prova matching modelli specifici
+        dt = self._find_date_by_model(ws, RENAME_MODELS)
+        if dt:
+            return dt
+
+        # Prova candidati di default
+        dt = self._find_date_in_cells(ws, DEFAULT_DATE_CANDIDATES)
+        if dt:
+            return dt
+
+        return None
 
     def _open_workbook(self, excel, file_path, password):
         try:

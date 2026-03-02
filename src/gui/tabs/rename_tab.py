@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from src.logic.renaming import RenameProcessor
-from src.utils.ui_utils import ProgressWithETA, create_path_entry, select_folder_dialog
+from src.utils.ui_utils import create_path_entry, select_folder_dialog
 
 
 class RenameTab(ttk.Frame):
