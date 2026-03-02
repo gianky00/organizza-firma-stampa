@@ -1,21 +1,34 @@
 import os
 import re
 import traceback
-from datetime import datetime
-from src.utils import constants as const
-from src.utils.excel_handler import ExcelHandler
-from src.utils.word_handler import WordHandler
+from pathlib import Path
+
+from src.utils.excel_gateway import ExcelGateway
+from src.utils.word_gateway import WordGateway
+
 
 class MonthlyFeesProcessor:
-    def __init__(self, gui, app_config):
+    def __init__(
+        self,
+        gui,
+        app_config,
+        excel_gateway_class=None,
+        word_gateway_class=None,
+    ):
         self.gui = gui
         self.app_config = app_config
         self.logger = gui.log_canoni
+        self.excel_gateway = (excel_gateway_class or ExcelGateway)(self.logger)
+        self.word_gateway = (word_gateway_class or WordGateway)(self.logger)
 
     def get_printers(self):
         try:
             import win32print
-            printers = [p[2] for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)]
+
+            printers = [
+                p[2]
+                for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)
+            ]
             default_printer = win32print.GetDefaultPrinter()
             return printers, default_printer
         except Exception as e:
@@ -23,40 +36,51 @@ class MonthlyFeesProcessor:
             return [], None
 
     def get_giornaliera_path(self, year, month_name):
-        if not year or not month_name: return "Seleziona Anno e Mese"
+        if not year or not month_name:
+            return ""
         month_number = self.app_config.mesi_giornaliera_map.get(month_name)
-        if not month_number: return "Mese non valido"
+        if not month_number:
+            return ""
         year_folder_name = f"Giornaliere {year}"
         file_name = f"Giornaliera {month_number}-{year}.xlsm"
-        return os.path.join(const.CANONI_GIORNALIERA_BASE_DIR, year_folder_name, file_name)
+        base_dir = self.app_config.canoni_giornaliera_base_dir.get()
+        return os.path.join(base_dir, year_folder_name, file_name)
 
     def get_consuntivo_path(self, year, consuntivo_num):
-        if not year: return "Anno non selezionato"
-        if not consuntivo_num.strip().isdigit(): return "Inserire un numero valido"
-        cons_dir = os.path.join(const.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
-        if not os.path.isdir(cons_dir): return f"ERRORE: Cartella non trovata"
+        if not year:
+            return ""
+        if not consuntivo_num.strip().isdigit():
+            return ""
+        base_dir = self.app_config.canoni_consuntivi_base_dir.get()
+        cons_dir = os.path.join(base_dir, year, "CONSUNTIVI", year)
+        if not Path(cons_dir).is_dir():
+            return ""
         try:
             for filename in os.listdir(cons_dir):
-                if filename.startswith(f"{consuntivo_num}-") or filename.startswith(f"{consuntivo_num} "):
+                if filename.startswith((f"{consuntivo_num}-", f"{consuntivo_num} ")):
                     return os.path.join(cons_dir, filename)
-            return f"File non trovato per il n° {consuntivo_num}"
+            return ""
         except Exception as e:
             self.logger(f"Errore ricerca consuntivo n°{consuntivo_num}: {e}", "ERROR")
-            return "Errore ricerca file"
+            return ""
 
     def find_consuntivo_for_tcl(self, year, month_name, tcl_name, cancel_event):
-        if not year or not month_name: return None, "Periodo non selezionato"
-        cons_dir = os.path.join(const.CANONI_CONSUNTIVI_BASE_DIR, year, "CONSUNTIVI", year)
-        if not os.path.isdir(cons_dir): return None, f"Cartella non trovata: {cons_dir}"
+        if not year or not month_name:
+            return None, "Periodo non selezionato"
+        base_dir = self.app_config.canoni_consuntivi_base_dir.get()
+        cons_dir = os.path.join(base_dir, year, "CONSUNTIVI", year)
+        if not Path(cons_dir).is_dir():
+            return None, f"Cartella non trovata: {cons_dir}"
         try:
             files_in_dir = os.listdir(cons_dir)
             month_norm = month_name.upper()
             tcl_norm = tcl_name.upper()
             for filename in files_in_dir:
-                if cancel_event.is_set(): return None, "Annullato"
+                if cancel_event.is_set():
+                    return None, "Annullato"
                 filename_norm = filename.upper()
-                if all(keyword in filename_norm for keyword in ["CANONE", month_norm, tcl_norm]):
-                    match = re.match(r'^(\d+)', filename)
+                if all(keyword in filename_norm for keyword in ("CANONE", month_norm, tcl_norm)):
+                    match = re.match(r"^(\d+)", filename)
                     if match:
                         number = match.group(1)
                         self.logger(f"Trovato file '{filename}' per {tcl_name}, numero: {number}", "SUCCESS")
@@ -70,70 +94,91 @@ class MonthlyFeesProcessor:
     def run_printing_process(self, cancel_event, paths_to_print, printer_name, macro_name):
         self.logger("Avvio del processo di stampa canoni...", "HEADER")
         try:
-            if not self._validate_paths(paths_to_print, printer_name, macro_name): return
-            if cancel_event.is_set(): return
+            printers, _ = self.get_printers()
+            if printer_name not in printers:
+                self.logger(f"ERRORE: Stampante '{printer_name}' non trovata nel sistema.", "ERROR")
+                return
 
-            with ExcelHandler(self.logger) as excel_app, WordHandler(self.logger) as word_app:
-                if not excel_app or not word_app: return
-                if cancel_event.is_set(): return
+            if not self._validate_paths(paths_to_print, printer_name, macro_name) or cancel_event.is_set():
+                return
+
+            # Batch execution using raw handlers via Gateways for optimization
+            from src.utils.excel_handler import ExcelHandler
+            from src.utils.word_handler import WordHandler
+
+            excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
+            word_h_class = getattr(self.word_gateway, "word_handler_class", WordHandler)
+
+            with excel_h_class(self.logger) as excel_app, word_h_class(self.logger) as word_app:
+                if not excel_app or not word_app or cancel_event.is_set():
+                    return
 
                 word_app.ActivePrinter = printer_name
                 self.logger(f"Stampante attiva impostata su: '{printer_name}'", "SUCCESS")
 
-                giornaliera_path = paths_to_print["giornaliera"]
-                consuntivi_data = paths_to_print["consuntivi"]
-                word_path = paths_to_print["word"]
-
-                # Filter only enabled consuntivi
-                enabled_consuntivi = [c for c in consuntivi_data if c["print"]]
+                enabled_consuntivi = [c for c in paths_to_print["consuntivi"] if c["print"]]
                 if not enabled_consuntivi:
                     self.logger("Nessun canone selezionato per la stampa.", "WARNING")
                     return
 
                 self.logger(f"Canoni da stampare: {', '.join(c['name'] for c in enabled_consuntivi)}", "INFO")
-
-                wb_giornaliera = excel_app.Workbooks.Open(giornaliera_path)
-                wb_cons_list = [(excel_app.Workbooks.Open(c["path"]), c["name"]) for c in enabled_consuntivi]
-                doc_word = word_app.Documents.Open(word_path)
-                self.logger("Documenti aperti.", 'INFO')
-
-                for i, (cons_wb, cons_name) in enumerate(wb_cons_list):
-                    if cancel_event.is_set(): break
-
-                    leaf_name = cons_wb.Name
-                    self.logger(f"Esecuzione macro '{macro_name}' su {leaf_name} ({cons_name})...", 'INFO')
-                    excel_app.Run(f"'{leaf_name}'!{macro_name}")
-                    self.logger(f"Macro su Consuntivo {cons_name} completata.", 'SUCCESS')
-
-                    if i < len(wb_cons_list) - 1:
-                        if cancel_event.is_set(): break
-                        self.logger(f"Stampa file Word: {doc_word.Name}...", 'INFO')
-                        doc_word.PrintOut()
-                        self.logger("Comando di stampa Word inviato.", 'SUCCESS')
-
-                doc_word.Close(SaveChanges=0)
-                for wb, _ in wb_cons_list: wb.Close(SaveChanges=False)
-                wb_giornaliera.Close(SaveChanges=False)
+                self._execute_batch_print(
+                    excel_app, word_app, paths_to_print, enabled_consuntivi, macro_name, cancel_event
+                )
 
             if not cancel_event.is_set():
-                self.logger("--- PROCESSO STAMPA CANONI COMPLETATO ---", 'SUCCESS')
+                self.logger("--- PROCESSO STAMPA CANONI COMPLETATO ---", "SUCCESS")
         except Exception as e:
-            self.logger(f"ERRORE CRITICO nel processo: {e}", "ERROR")
+            self.logger(f"ERRORE CRITICO: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")
         finally:
-            if cancel_event.is_set(): self.logger("Processo di stampa annullato.", "WARNING")
+            if cancel_event.is_set():
+                self.logger("Processo annullato.", "WARNING")
             self.gui.after(0, self.gui.on_process_finished)
 
+    def _execute_batch_print(self, excel, word, paths, consuntivi, macro, cancel_event):
+        wb_giornaliera = excel.Workbooks.Open(paths["giornaliera"])
+        if wb_giornaliera is None:
+            self.logger("Impossibile aprire il file Giornaliera.", "ERROR")
+            return
+
+        doc_word = word.Documents.Open(paths["word"])
+        if doc_word is None:
+            self.logger("Impossibile aprire il file Word.", "ERROR")
+            wb_giornaliera.Close(SaveChanges=False)
+            return
+
+        try:
+            for i, cons_info in enumerate(consuntivi):
+                if cancel_event.is_set():
+                    break
+
+                wb_cons = excel.Workbooks.Open(cons_info["path"])
+                if wb_cons is None:
+                    self.logger(f"Impossibile aprire il consuntivo: {cons_info['name']}", "ERROR")
+                    continue
+                try:
+                    leaf_name = wb_cons.Name
+                    self.logger(f"Esecuzione macro '{macro}' su {leaf_name} ({cons_info['name']})...", "INFO")
+                    excel.Run(f"'{leaf_name}'!{macro}")
+
+                    if i < len(consuntivi) - 1 and not cancel_event.is_set():
+                        self.logger(f"Stampa file Word: {doc_word.Name}...", "INFO")
+                        doc_word.PrintOut()
+                finally:
+                    wb_cons.Close(SaveChanges=False)
+        finally:
+            try:
+                doc_word.Close(SaveChanges=0)
+            except Exception as e:
+                self.logger(f"Errore chiusura documento Word: {e}", "WARNING")
+            wb_giornaliera.Close(SaveChanges=False)
+
     def _validate_paths(self, paths, printer, macro):
-        all_paths = {"File Giornaliera": paths["giornaliera"], "File Foglio Canone": paths["word"]}
-        # Only validate paths for enabled consuntivi
-        for c in paths["consuntivi"]:
-            if c["print"]:
-                all_paths[f"Canone {c['name']}"] = c["path"]
-        for name, path in all_paths.items():
-            if not path or not os.path.isfile(path):
-                self.logger(f"ERRORE: Percorso per '{name}' non valido o file non trovato: '{path}'", 'ERROR')
-                return False
-        if not macro.strip(): self.logger("ERRORE: Nome della macro VBA non specificato.", 'ERROR'); return False
-        if not printer: self.logger("ERRORE: Nessuna stampante selezionata.", 'ERROR'); return False
+        if not printer or not macro:
+            self.logger("ERRORE: Stampante o Macro non specificata.", "ERROR")
+            return False
+        if not os.path.isfile(paths["giornaliera"]) or not os.path.isfile(paths["word"]):
+            self.logger("ERRORE: File Giornaliera o Word non trovato.", "ERROR")
+            return False
         return True

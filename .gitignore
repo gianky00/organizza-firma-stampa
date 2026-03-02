@@ -1,33 +1,65 @@
+# Python artifacts
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Database
-*.db
+# Distribution / Release
+*.exe
+*.msi
+*.msm
+*.cab
+pyarmor_runtime_*/
 
-# Environment
+# Cache and Testing
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment and Secrets
 .env
 .venv/
 env/
 venv/
 ENV/
+config_programma.json
 
-# IDE
+# Database
+*.db
+*.sqlite
+
+# IDEs
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Progetto - Cartelle di dati e output
-FILE EXCEL DA FIRMARE/*
-!FILE EXCEL DA FIRMARE/.gitkeep
-PDF/*
-!PDF/.gitkeep
-SCHEDE DA ORGANIZZARE/*
-!SCHEDE DA ORGANIZZARE/.gitkeep
-SCHEDE ORGANIZZATE/*
-!SCHEDE ORGANIZZATE/.gitkeep
-SCHEDE SENZA DATA/*
-!SCHEDE SENZA DATA/.gitkeep
+# Project Specific - Operational Data
+# Ignore everything inside Workspace including backups
+Workspace/
 
-# Escludi file specifici se sono documenti di lavoro
-BUG_FIX_PLAN.md
-CLAUDE.md
+# OS specific
+Thumbs.db
+desktop.ini

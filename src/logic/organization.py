@@ -1,14 +1,30 @@
 import os
 import re
 import shutil
-import traceback
-import time
+from pathlib import Path
+from typing import TypedDict
+
 from src.utils import constants as const
-from src.utils.excel_handler import ExcelHandler
-from src.utils.file_utils import clear_folder_content
+from src.utils.excel_gateway import ExcelGateway
+from src.utils.file_utils import create_backup
+
+
+class OrgSummary(TypedDict):
+    processed: int
+    errors: list[tuple[str, str]]
+
 
 class OrganizationProcessor:
-    def __init__(self, gui, app_config, fees_processor, setup_progress_cb, update_progress_cb, hide_progress_cb):
+    def __init__(
+        self,
+        gui,
+        app_config,
+        fees_processor,
+        setup_progress_cb,
+        update_progress_cb,
+        hide_progress_cb,
+        excel_gateway_class=None,
+    ):
         self.gui = gui
         self.app_config = app_config
         self.fees_processor = fees_processor
@@ -16,163 +32,289 @@ class OrganizationProcessor:
         self.setup_progress = setup_progress_cb
         self.update_progress = update_progress_cb
         self.hide_progress = hide_progress_cb
+        self.excel_gateway = (excel_gateway_class or ExcelGateway)(self.logger)
         self.stampa_processing_data = {
             "schedacontrolloSTRUMENTIANALOGICI": {"PrintArea": "A2:N55"},
             "schedacontrolloSTRUMENTIDIGITALI": {"PrintArea": "A2:N50"},
             "SchedacontrolloREPORTMANUTENZIONECORRETTIVA": {"PrintArea": "A2:N55"},
-            "SCHEDAMANUTENZIONE": {"PrintArea": "A1:FV106"}
+            "schedacontrolloBILANCE": {"PrintArea": "A2:N50"},
+            "schedacontrolloCALIBRI": {"PrintArea": "A2:N45"},
+            "schedacontrolloMICROMETRI": {"PrintArea": "A2:N45"},
+            "schedacontrolloCOMPARATORI": {"PrintArea": "A2:N45"},
+            "schedacontrolloALESAMETRI": {"PrintArea": "A2:N45"},
+            "schedacontrolloDISCOCALIBRO": {"PrintArea": "A2:N45"},
+            "schedacontrolloSQUADRE": {"PrintArea": "A2:N45"},
+            "schedacontrolloGONIOMETRI": {"PrintArea": "A2:N45"},
+            "schedacontrolloPRISMI": {"PrintArea": "A2:N45"},
+            "schedacontrolloRIGHE": {"PrintArea": "A2:N45"},
+            "schedacontrolloLIVELLADIGITALE": {"PrintArea": "A2:N45"},
         }
 
     def run_organization_process(self, cancel_event):
-        self.logger("Avvio del processo di organizzazione...", "HEADER")
-        dest_dir = self.app_config.organizza_dest_dir.get()
-        backup_dir = ""
-        operation_successful = False
         try:
-            try:
-                if os.path.isdir(dest_dir) and os.listdir(dest_dir):
-                    timestamp = time.strftime("%Y%m%d-%H%M%S")
-                    backup_dir = f"{dest_dir}_backup_{timestamp}"
-                    self.logger(f"Creazione backup: {os.path.basename(backup_dir)}", "INFO")
-                    shutil.copytree(dest_dir, backup_dir)
-            except Exception as e:
-                self.logger(f"ERRORE CRITICO durante la creazione del backup: {e}", "ERROR")
-                self.logger("L'operazione di organizzazione è stata interrotta per prevenire la perdita di dati.", "ERROR")
-                return # Abort the entire operation if backup fails
+            source_dir = self.app_config.organizza_source_dir.get()
+            dest_dir = self.app_config.organizza_dest_dir.get()
+            local_source_path = os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_SOURCE_DIR)
 
-            clear_folder_content(dest_dir, self.logger, folder_display_name=const.ORGANIZZA_DEST_DIR)
-            os.makedirs(dest_dir, exist_ok=True)
-            if cancel_event.is_set(): return
+            # 1. Logica di Importazione per Organizzazione
+            if os.path.normpath(source_dir) != os.path.normpath(local_source_path):
+                self.logger(f"Importazione schede da sorgente: {source_dir}", "INFO")
+                from src.utils.file_utils import clear_folder_content
 
-            self._organize_files(cancel_event)
+                clear_folder_content(local_source_path, self.logger, folder_display_name="Area Sorgente Locale")
+
+                files_to_import = self._get_excel_files(source_dir)
+                if not files_to_import:
+                    return
+
+                import shutil
+
+                for f in files_to_import:
+                    shutil.copy2(f, local_source_path)
+
+                self.logger(f"Importate {len(files_to_import)} schede nell'area locale.", "SUCCESS")
+                active_source = local_source_path
+            else:
+                active_source = source_dir
+
+            # 2. Backup Destinazione
+            if Path(dest_dir).is_dir() and any(os.scandir(dest_dir)):
+                self.logger("Creazione backup cartella di destinazione...")
+                backup_parent = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR, "Storico_Organizzate")
+                if not create_backup(dest_dir, backup_parent_dir=backup_parent):
+                    self.logger("ERRORE: Impossibile creare il backup. Operazione annullata.", "ERROR")
+                    return
+
+            # 3. Elaborazione
+            self._organize_files_at_path(active_source, cancel_event)
 
             if not cancel_event.is_set():
-                operation_successful = True
-                self.logger("Organizzazione completata.", "SUCCESS")
-                self.gui.after(0, self.gui.populate_stampa_list)
-        except Exception as e:
-            self.logger(f"ERRORE CRITICO: {e}", "ERROR"); self.logger(traceback.format_exc(), "ERROR")
-            operation_successful = False
-        finally:
-            if operation_successful:
-                if backup_dir: shutil.rmtree(backup_dir)
+                self.logger("--- PULIZIA: Spostamento originali in backup... ---", "INFO")
+                backup_parent_source = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR, "Originali_Organizzati")
+                if create_backup(active_source, backup_parent_dir=backup_parent_source):
+                    from src.utils.file_utils import clear_folder_content
+
+                    clear_folder_content(active_source, self.logger, folder_display_name="Schede Lavorate")
+
+                self.logger("Organizzazione completata!", "SUCCESS")
             else:
-                self.logger("ANNULLAMENTO/ERRORE: Ripristino cartella dal backup.", "WARNING")
-                if backup_dir and os.path.isdir(backup_dir):
-                    clear_folder_content(dest_dir, self.logger)
-                    shutil.rmtree(dest_dir)
-                    os.rename(backup_dir, dest_dir)
-                    self.logger("Ripristino completato.", "SUCCESS")
-
-            if cancel_event.is_set(): self.logger("Processo annullato.", "WARNING")
-            self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.on_process_finished)
-
-    def run_printing_process(self, cancel_event, folders_to_print):
-        if not folders_to_print:
-            self.logger("Nessuna cartella selezionata.", "WARNING")
-            self.gui.after(0, self.gui.on_process_finished)
-            return
-        try:
-            self.logger(f"--- Avvio Stampa per {len(folders_to_print)} cartelle ---", "HEADER")
-            self._print_files_in_folders(cancel_event, folders_to_print)
-            if not cancel_event.is_set(): self.logger("--- Stampa Completata ---", "SUCCESS")
-        except Exception as e:
-            self.logger(f"ERRORE CRITICO: {e}", "ERROR"); self.logger(traceback.format_exc(), "ERROR")
+                self.logger("Operazione annullata dall'utente.", "WARNING")
         finally:
-            if cancel_event.is_set(): self.logger("Processo di stampa annullato.", "WARNING")
             self.gui.after(0, self.hide_progress)
             self.gui.after(0, self.gui.on_process_finished)
 
-    def _organize_files(self, cancel_event):
-        source_dir = self.app_config.organizza_source_dir.get(); dest_dir = self.app_config.organizza_dest_dir.get()
-        if not os.path.isdir(source_dir): self.logger(f"ERRORE: Cartella di origine non trovata.", "ERROR"); return
-        try:
-            excel_files = [os.path.join(r, f) for r, _, fs in os.walk(source_dir) for f in fs if f.lower().endswith(('.xls', '.xlsx', '.xlsm', '.xlsb')) and not f.startswith('~')]
-        except Exception as e:
-            self.logger(f"ERRORE accesso cartella di origine: {e}", "ERROR"); return
-        if not excel_files: self.logger(f"Nessun file Excel trovato.", "WARNING"); return
+    def run_printing_process(self, cancel_event):
+        dest_dir = self.app_config.organizza_dest_dir.get()
+        if not Path(dest_dir).is_dir():
+            self.logger("ERRORE: Cartella organizzata non trovata.", "ERROR")
+            return
+
+        folder_list = [
+            os.path.join(dest_dir, d) for d in os.listdir(dest_dir) if Path(os.path.join(dest_dir, d)).is_dir()
+        ]
+
+        if not folder_list:
+            self.logger("Nessuna cartella trovata nella destinazione.", "WARNING")
+            return
+
+        self._print_files_in_folders(cancel_event, folder_list)
+        if cancel_event.is_set():
+            self.logger("Stampa annullata.", "WARNING")
+        else:
+            self.logger("Processo di stampa completato!", "SUCCESS")
+
+        self.gui.after(0, self.hide_progress)
+        self.gui.after(0, self.gui.on_process_finished)
+
+    def _organize_files_at_path(self, source_dir, cancel_event):
+        dest_dir = self.app_config.organizza_dest_dir.get()
+
+        excel_files = self._get_excel_files(source_dir)
+        if not excel_files:
+            self.logger("Nessun file Excel trovato da organizzare.", "WARNING")
+            return
 
         self.gui.after(0, self.setup_progress, len(excel_files), "Organizzazione in corso:")
-        summary = {"processed": 0, "errors": []}
-        with ExcelHandler(self.logger) as excel:
-            if not excel: return
-            for i, fp in enumerate(excel_files):
-                if cancel_event.is_set(): return
-                self.gui.after(0, self.update_progress, i + 1)
-                self.logger(f"Processando: {os.path.basename(fp)}...")
-                wb = None
-                try:
-                    wb = excel.Workbooks.Open(fp)
-                    ws = wb.Worksheets(1)
-                    odc_v = next((ws.Range(c).Value for c in ["L50", "L45", "DB14", "DB17"] if ws.Range(c).Value is not None and str(ws.Range(c).Value).strip() != ""), None)
-                    odc_s = str(int(odc_v)) if isinstance(odc_v, (int, float)) else (str(odc_v).strip() if isinstance(odc_v, str) else "")
-                    wb.Close(SaveChanges=False); wb = None
-                    dest_folder_name = re.sub(r'[\\/:*?"<>|]', '', odc_s) if odc_s and odc_s.upper() != "NA" else "Schede senza ODC"
-                    dest_folder_path = os.path.join(dest_dir, dest_folder_name)
-                    os.makedirs(dest_folder_path, exist_ok=True)
-                    shutil.copy2(fp, dest_folder_path)
-                    summary["processed"] += 1
-                except Exception as e:
-                    summary["errors"].append((os.path.basename(fp), f"Dettagli: {e}"))
-                finally:
-                    if wb: wb.Close(SaveChanges=False)
-        # ... (summary logging)
+        summary: OrgSummary = {"processed": 0, "errors": []}
+
+        for i, fp in enumerate(excel_files):
+            if cancel_event.is_set():
+                break
+            self.gui.after(0, self.update_progress, i + 1)
+            self.logger(f"Processando: {os.path.basename(fp)}...")
+
+            success, error = self._process_single_file(fp, dest_dir)
+            if success:
+                summary["processed"] += 1
+            else:
+                summary["errors"].append((os.path.basename(fp), error or "Errore sconosciuto"))
+
+        self._log_org_summary(summary, len(excel_files))
+
+    def _get_excel_files(self, source_dir):
+        if not Path(source_dir).is_dir():
+            self.logger("ERRORE: Cartella di origine non trovata.", "ERROR")
+            return []
+        try:
+            files = [
+                os.path.join(r, f)
+                for r, _, fs in os.walk(source_dir)
+                for f in fs
+                if f.lower().endswith((".xls", ".xlsx", ".xlsm", ".xlsb")) and not f.startswith("~")
+            ]
+            if not files:
+                self.logger("Nessun file Excel trovato.", "WARNING")
+            return files
+        except Exception as e:
+            self.logger(f"ERRORE accesso cartella di origine: {e}", "ERROR")
+            return []
+
+    def _process_single_file(self, file_path, dest_dir):
+        try:
+            odc_s = self.excel_gateway.get_odc_value(file_path)
+            dest_folder_name = (
+                re.sub(r'[\\/:*?"<>|]', "", odc_s) if odc_s and odc_s.upper() != "NA" else "Schede senza ODC"
+            )
+            # Prevenzione Path Traversal: puliamo ulteriormente il nome
+            dest_folder_name = os.path.basename(dest_folder_name)
+            dest_folder_path = Path(dest_dir) / dest_folder_name
+
+            # Validazione che il path sia effettivamente interno alla directory di destinazione
+            if str(Path(dest_dir).resolve()) not in str(dest_folder_path.resolve()):
+                return False, "Tentativo di path traversal bloccato."
+
+            dest_folder_path.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(file_path, str(dest_folder_path))
+            return True, None
+        except Exception as e:
+            return False, str(e)
+
+    def _log_org_summary(self, summary, total):
+        self.logger(f"Processati {summary['processed']} file su {total}.")
+        if summary["errors"]:
+            self.logger(f"Si sono verificati {len(summary['errors'])} errori:", "ERROR")
+            for f, err in summary["errors"]:
+                self.logger(f" - {f}: {err}", "ERROR")
 
     def _print_files_in_folders(self, cancel_event, folder_list):
         self.gui.after(0, self.setup_progress, len(folder_list), "Stampa in corso:")
-        with ExcelHandler(self.logger) as excel:
-            if not excel: return
+        from src.utils.excel_handler import ExcelHandler
+
+        excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
+
+        with excel_h_class(self.logger) as excel:
+            if not excel:
+                self.logger("Impossibile avviare il gestore Excel.", "ERROR")
+                return
             errors = []
             for i, folder_p in enumerate(folder_list):
-                if cancel_event.is_set(): return
+                if cancel_event.is_set():
+                    break
                 self.gui.after(0, self.update_progress, i + 1)
                 self.logger(f"Stampa cartella: {os.path.basename(folder_p)}")
-                try:
-                    excel_fs = [os.path.join(folder_p, f) for f in os.listdir(folder_p) if f.lower().endswith(('.xls', '.xlsx', '.xlsm', '.xlsb')) and not f.startswith('~')]
-                    if not excel_fs: self.logger("  -> Nessun file Excel trovato.", "WARNING"); continue
-                    for fp in excel_fs:
-                        if cancel_event.is_set(): return
-                        wb = None
-                        try:
-                            wb = excel.Workbooks.Open(fp)
-                            ws = wb.Worksheets(1)
-                            m_val = next((str(ws.Cells(r, c).Value).strip() for r, c in [(2, 5), (2, 20), (5, 20)] if ws.Cells(r, c).Value and str(ws.Cells(r, c).Value).strip()), "")
-                            cleaned_model = re.sub(r'\W', '', m_val)
-                            if cleaned_model in self.stampa_processing_data:
-                                ws.PageSetup.PrintArea = self.stampa_processing_data[cleaned_model]["PrintArea"]
-                                wb.PrintOut()
-                                self.logger(f"  -> Stampa inviata per: {os.path.basename(fp)}", "SUCCESS")
-                            else: self.logger(f"  -> Ignorato (modello non trovato): {os.path.basename(fp)}", "WARNING")
-                        except Exception as e_file: errors.append((os.path.basename(fp), f"Dettagli: {e_file}"))
-                        finally:
-                            if wb: wb.Close(SaveChanges=False)
-                except Exception as e_folder: errors.append((os.path.basename(folder_p), f"Dettagli: {e_folder}"))
-        # ... (error summary logging)
+
+                folder_errors = self._print_folder_content(excel, folder_p, cancel_event)
+                errors.extend(folder_errors)
+
+            if errors:
+                self.logger(f"Errori durante la stampa di {len(errors)} file.", "ERROR")
+
+    def _print_folder_content(self, excel, folder_path, cancel_event):
+        errors = []
+        try:
+            excel_fs = [
+                os.path.join(folder_path, f)
+                for f in os.listdir(folder_path)
+                if f.lower().endswith((".xls", ".xlsx", ".xlsm", ".xlsb")) and not f.startswith("~")
+            ]
+            if not excel_fs:
+                self.logger("  -> Nessun file Excel trovato.", "WARNING")
+                return []
+
+            for fp in excel_fs:
+                if cancel_event.is_set():
+                    break
+                success, err = self._print_single_excel_file(excel, fp)
+                if not success:
+                    errors.append((os.path.basename(fp), err))
+        except Exception as e:
+            self.logger(f"ERRORE cartella {os.path.basename(folder_path)}: {e}", "ERROR")
+        return errors
+
+    def _print_single_excel_file(self, excel, file_path):
+        wb = None
+        try:
+            wb = excel.Workbooks.Open(file_path)
+            if wb is None:
+                return False, "Impossibile aprire il file Excel (Workbook è None)."
+            ws = wb.Worksheets(1)
+            m_val = next(
+                (
+                    str(ws.Cells(r, c).Value).strip()
+                    for r, c in ((2, 5), (2, 20), (5, 20))
+                    if ws.Cells(r, c).Value and str(ws.Cells(r, c).Value).strip()
+                ),
+                "",
+            )
+            cleaned_model = re.sub(r"\W", "", m_val)
+            if cleaned_model in self.stampa_processing_data:
+                ws.PageSetup.PrintArea = self.stampa_processing_data[cleaned_model]["PrintArea"]
+                wb.PrintOut()
+                self.logger(f"  -> Stampa inviata per: {os.path.basename(file_path)}", "SUCCESS")
+                return True, None
+            else:
+                self.logger(f"  -> Ignorato (modello non trovato): {os.path.basename(file_path)}", "WARNING")
+                return True, None
+        except Exception as e:
+            return False, str(e)
+        finally:
+            if wb:
+                wb.Close(SaveChanges=False)
 
     def get_odc_to_canone_map(self, year, month):
         self.logger(f"Lettura del file Giornaliera per {month} {year}...", "INFO")
         giornaliera_path = self.fees_processor.get_giornaliera_path(year, month)
 
-        if not os.path.isfile(giornaliera_path):
+        if not Path(giornaliera_path).is_file():
             self.logger(f"File Giornaliera non trovato: {giornaliera_path}", "WARNING")
             return {}
 
+        from src.utils.excel_handler import ExcelHandler
+
+        excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
+
         mapping = {}
-        with ExcelHandler(self.logger) as excel:
-            if not excel: return {}
+        with excel_h_class(self.logger) as excel:
+            if not excel:
+                return {}
             wb = None
             try:
                 wb = excel.Workbooks.Open(giornaliera_path, ReadOnly=True)
-                ws = wb.Worksheets("RIEPILOGO")
-                cells_to_check = [("S16", "S17"), ("U16", "U17"), ("V16", "V17")]
-                for header_cell, value_cell in cells_to_check:
-                    header = ws.Range(header_cell).Value; value_raw = ws.Range(value_cell).Value
-                    if header and value_raw:
-                        odc_num = str(value_raw).split('\n')[0].strip()
-                        if odc_num.isdigit(): mapping[odc_num] = str(header).lower()
-            except Exception as e: self.logger(f"Errore lettura Giornaliera: {e}", "ERROR")
+                if wb is None:
+                    self.logger("Apertura file Giornaliera fallita: Workbook è None.", "ERROR")
+                    return {}
+                try:
+                    ws = wb.Worksheets("RIEPILOGO")
+                except Exception:
+                    self.logger("Foglio 'RIEPILOGO' non trovato nel file Giornaliera.", "WARNING")
+                    return {}
+                mapping = self._extract_mapping_from_riepilogo(ws)
+            except Exception as e:
+                self.logger(f"Errore lettura Giornaliera: {e}", "ERROR")
             finally:
-                if wb: wb.Close(SaveChanges=False)
+                if wb:
+                    wb.Close(SaveChanges=False)
         self.logger(f"Mappa ODC creata con {len(mapping)} voci.", "INFO")
+        return mapping
+
+    def _extract_mapping_from_riepilogo(self, worksheet):
+        mapping = {}
+        cells_to_check = (("S16", "S17"), ("U16", "U17"), ("V16", "V17"))
+        for header_cell, value_cell in cells_to_check:
+            header = worksheet.Range(header_cell).Value
+            value_raw = worksheet.Range(value_cell).Value
+            if header and value_raw:
+                odc_num = str(value_raw).split("\n")[0].strip()
+                if odc_num.isdigit():
+                    mapping[odc_num] = str(header).lower()
         return mapping

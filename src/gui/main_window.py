@@ -1,24 +1,24 @@
-import tkinter as tk
-from tkinter import ttk
 import os
+import tkinter as tk
 from datetime import datetime, timedelta
+from tkinter import ttk
 
+from src.gui.tabs.fees_tab import FeesTab
+from src.gui.tabs.organize_tab import OrganizeTab
+from src.gui.tabs.rename_tab import RenameTab
+from src.gui.tabs.settings_tab import SettingsTab
+from src.gui.tabs.signature_tab import SignatureTab
 from src.utils import constants as const
 from src.utils.config_manager import ConfigManager
-from src.utils.ui_utils import create_log_widget, log_message, clear_log
+from src.utils.ui_utils import create_log_widget, log_message
 
-from src.gui.tabs.signature_tab import SignatureTab
-from src.gui.tabs.rename_tab import RenameTab
-from src.gui.tabs.organize_tab import OrganizeTab
-from src.gui.tabs.fees_tab import FeesTab
-from src.logic.monthly_fees import MonthlyFeesProcessor
 
 class MainApplication(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Gestione Documenti Ufficio (Refactored)")
         try:
-            self.state('zoomed')
+            self.state("zoomed")
         except tk.TclError:
             self.geometry("1200x900")
             self.center_window(1200, 900)
@@ -28,9 +28,9 @@ class MainApplication(tk.Tk):
         self.config_manager.load()
 
         self._initialize_stringvars()
+        self._load_config_into_vars()  # Carica i dati PRIMA di creare i widget
         self._setup_style()
         self._create_widgets()
-        self._load_config_into_vars()
 
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
@@ -39,7 +39,7 @@ class MainApplication(tk.Tk):
         screen_height = self.winfo_screenheight()
         x = (screen_width // 2) - (width // 2)
         y = (screen_height // 2) - (height // 2)
-        self.geometry(f'{width}x{height}+{x}+{y}')
+        self.geometry(f"{width}x{height}+{x}+{y}")
 
     def _setup_style(self):
         self.font_main = ("Segoe UI", 10)
@@ -47,29 +47,31 @@ class MainApplication(tk.Tk):
         self.background_color = "#f0f0f0"
 
         style = ttk.Style(self)
-        style.theme_use('clam')
+        style.theme_use("clam")
 
-        style.configure('.', font=self.font_main, background=self.background_color)
-        style.configure('TLabel', font=self.font_main, background=self.background_color)
-        style.configure('TLabelframe', background=self.background_color, bordercolor="#cccccc")
-        style.configure('TLabelframe.Label', font=self.font_bold, background=self.background_color)
-        style.configure('info.TLabel', foreground='#333333', background=self.background_color)
+        style.configure(".", font=self.font_main, background=self.background_color)
+        style.configure("TLabel", font=self.font_main, background=self.background_color)
+        style.configure("TLabelframe", background=self.background_color, bordercolor="#cccccc")
+        style.configure("TLabelframe.Label", font=self.font_bold, background=self.background_color)
+        style.configure("info.TLabel", foreground="#333333", background=self.background_color)
 
-        style.configure('TButton', padding=6, font=self.font_main)
-        style.map('TButton',
-                  background=[('active', '#e0e0e0')],
-                  foreground=[('disabled', '#a0a0a0')])
+        style.configure("TButton", padding=6, font=self.font_main)
+        style.map("TButton", background=[("active", "#e0e0e0")], foreground=[("disabled", "#a0a0a0")])
 
-        style.configure('primary.TButton', background='#0078D4', foreground='white', font=self.font_bold)
-        style.map('primary.TButton',
-                  background=[('active', '#005a9e'), ('disabled', '#a0a0a0')],
-                  foreground=[('disabled', '#ffffff')])
+        style.configure("primary.TButton", background="#0078D4", foreground="white", font=self.font_bold)
+        style.map(
+            "primary.TButton",
+            background=[("active", "#005a9e"), ("disabled", "#a0a0a0")],
+            foreground=[("disabled", "#ffffff")],
+        )
 
-        style.configure('TNotebook', background=self.background_color, borderwidth=0)
-        style.configure('TNotebook.Tab', padding=[12, 6], font=self.font_main)
-        style.map('TNotebook.Tab',
-                  background=[('selected', self.background_color), ('!selected', '#d0d0d0')],
-                  expand=[("selected", [0, 2, 0, 0])])
+        style.configure("TNotebook", background=self.background_color, borderwidth=0)
+        style.configure("TNotebook.Tab", padding=[12, 6], font=self.font_main)
+        style.map(
+            "TNotebook.Tab",
+            background=[("selected", self.background_color), ("!selected", "#d0d0d0")],
+            expand=[("selected", [0, 2, 0, 0])],
+        )
 
     def _initialize_stringvars(self):
         # ... (this method is unchanged)
@@ -86,7 +88,9 @@ class MainApplication(tk.Tk):
         self.EMAIL_BODY_GENERIC_INFORMAL = const.EMAIL_BODY_GENERIC_INFORMAL
         self.EMAIL_BODY_GENERIC_FORMAL = const.EMAIL_BODY_GENERIC_FORMAL
         self.firma_excel_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.FIRMA_EXCEL_INPUT_DIR))
-        self.firma_image_path = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, 'src', 'assets', const.FIRMA_IMAGE_NAME))
+        self.firma_image_path = tk.StringVar(
+            value=os.path.join(const.APPLICATION_PATH, "src", "assets", const.FIRMA_IMAGE_NAME)
+        )
         self.firma_pdf_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.FIRMA_PDF_OUTPUT_DIR))
         self.firma_ghostscript_path = tk.StringVar()
         self.firma_processing_mode = tk.StringVar(value="schede")
@@ -102,14 +106,10 @@ class MainApplication(tk.Tk):
         self.organizza_dest_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_DEST_DIR))
         self.canoni_selected_year = tk.StringVar()
         self.canoni_selected_month = tk.StringVar()
-        self.canoni_messina_num = tk.StringVar()
-        self.canoni_naselli_num = tk.StringVar()
-        self.canoni_caldarella_num = tk.StringVar()
-        self.canoni_caldarella2_num = tk.StringVar()
-        self.canoni_messina_print = tk.BooleanVar(value=True)
-        self.canoni_naselli_print = tk.BooleanVar(value=True)
-        self.canoni_caldarella_print = tk.BooleanVar(value=True)
-        self.canoni_caldarella2_print = tk.BooleanVar(value=False)
+
+        # Le variabili dinamiche dei TCL verranno popolate in _load_config_into_vars
+        self.canoni_tcl_vars = []
+
         self.canoni_word_path = tk.StringVar()
         self.selected_printer = tk.StringVar()
         self.canoni_macro_name = tk.StringVar(value=const.DEFAULT_MACRO_NAME)
@@ -118,6 +118,11 @@ class MainApplication(tk.Tk):
         self.canoni_cons2_path = tk.StringVar()
         self.canoni_cons3_path = tk.StringVar()
         self.canoni_cons4_path = tk.StringVar()
+
+        # New dynamic settings
+        self.canoni_giornaliera_base_dir = tk.StringVar()
+        self.canoni_consuntivi_base_dir = tk.StringVar()
+        self.organizza_base_dir = tk.StringVar()
 
     def _load_config_into_vars(self):
         # ... (this method is unchanged)
@@ -131,97 +136,147 @@ class MainApplication(tk.Tk):
         self.canoni_selected_year.set(prev_month_year_str)
         self.canoni_selected_month.set(fees_tab_month_name)
         organize_folder_month_str = f"{prev_month_date.month:02d} - {fees_tab_month_name.upper()}"
-        organize_default_path = os.path.join(const.ORGANIZZA_BASE_DIR, prev_month_year_str, organize_folder_month_str)
-        self.organizza_source_dir.set(organize_default_path)
-        self.canoni_messina_num.set(self.config_manager.get("canoni_messina_num"))
-        self.canoni_naselli_num.set(self.config_manager.get("canoni_naselli_num"))
-        self.canoni_caldarella_num.set(self.config_manager.get("canoni_caldarella_num"))
-        self.canoni_caldarella2_num.set(self.config_manager.get("canoni_caldarella2_num"))
-        self.canoni_messina_print.set(self.config_manager.get("canoni_messina_print"))
-        self.canoni_naselli_print.set(self.config_manager.get("canoni_naselli_print"))
-        self.canoni_caldarella_print.set(self.config_manager.get("canoni_caldarella_print"))
-        self.canoni_caldarella2_print.set(self.config_manager.get("canoni_caldarella2_print"))
+
+        tcl_data = self.config_manager.get("canoni_tcl_list")
+        self.canoni_tcl_vars = []
+        for ref in tcl_data:
+            self.canoni_tcl_vars.append(
+                {
+                    "name": tk.StringVar(value=ref.get("name", "")),
+                    "tcl": tk.StringVar(value=ref.get("tcl", "")),
+                    "num": tk.StringVar(value=ref.get("num", "")),
+                    "print": tk.BooleanVar(value=ref.get("print", False)),
+                    "path": tk.StringVar(value=""),
+                }
+            )
+
         self.canoni_word_path.set(self.config_manager.get("canoni_word_path"))
         self.selected_printer.set(self.config_manager.get("selected_printer"))
         self.email_to.set(self.config_manager.get("email_to"))
         self.email_cc.set(self.config_manager.get("email_cc"))
         self.email_subject.set(self.config_manager.get("email_subject"))
         self.email_tcl.set(self.config_manager.get("email_tcl"))
-        self.email_is_formal.set(self.config_manager.get("email_is_formal"))
+        self.email_is_formal.set(bool(self.config_manager.get("email_is_formal")))
         self.email_size_limit.set(self.config_manager.get("email_size_limit"))
+        self.canoni_giornaliera_base_dir.set(self.config_manager.get("canoni_giornaliera_base_dir"))
+        self.canoni_consuntivi_base_dir.set(self.config_manager.get("canoni_consuntivi_base_dir"))
+        self.organizza_base_dir.set(self.config_manager.get("organizza_base_dir"))
+
+        organize_default_path = os.path.join(
+            self.organizza_base_dir.get(), prev_month_year_str, organize_folder_month_str
+        )
+        self.organizza_source_dir.set(organize_default_path)
 
     def _create_widgets(self):
         self.configure(background=self.background_color)
+
+        # --- Header con Progress Bar Globale ---
+        self.header_frame = ttk.Frame(self, padding=(15, 5))
+        self.header_frame.pack(fill=tk.X, side=tk.TOP)
+
+        # Info App a sinistra
+        app_info_lbl = ttk.Label(
+            self.header_frame, text="GESTIONE DOCUMENTI - SMI", font=("Segoe UI", 9, "bold"), foreground="#666666"
+        )
+        app_info_lbl.pack(side=tk.LEFT)
+
+        from src.utils.ui_utils import ProgressWithETA
+
+        self.global_progress = ProgressWithETA(self.header_frame)
+        # Inizialmente non visibile
+        self.global_progress.pack_forget()
+
         main_container = ttk.Frame(self, padding="10")
         main_container.pack(fill=tk.BOTH, expand=True)
 
         # --- Notebook for Tabs ---
         notebook = ttk.Notebook(main_container)
-        notebook.pack(expand=True, fill='both')
+        notebook.pack(expand=True, fill="both")
 
         # --- Create Tab Containers ---
         self.firma_container = ttk.Frame(notebook, padding="15")
         self.rinomina_container = ttk.Frame(notebook, padding="15")
         self.organizza_container = ttk.Frame(notebook, padding="15")
         self.canoni_container = ttk.Frame(notebook, padding="15")
+        self.impostazioni_container = ttk.Frame(notebook, padding="15")
 
         self.firma_container.columnconfigure(0, weight=1)
         self.rinomina_container.columnconfigure(0, weight=1)
         self.organizza_container.columnconfigure(0, weight=1)
         self.canoni_container.columnconfigure(0, weight=1)
+        self.impostazioni_container.columnconfigure(0, weight=1)
 
-        notebook.add(self.firma_container, text=' Apponi Firma ')
-        notebook.add(self.rinomina_container, text=' Aggiungi Data Schede ')
-        notebook.add(self.organizza_container, text=' Organizza e Stampa Schede ')
-        notebook.add(self.canoni_container, text=' Stampa Canoni Mensili ')
+        notebook.add(self.rinomina_container, text=" Aggiungi Data Schede ")
+        notebook.add(self.firma_container, text=" Apponi Firma ")
+        notebook.add(self.organizza_container, text=" Organizza e Stampa Schede ")
+        notebook.add(self.canoni_container, text=" Stampa Canoni Mensili ")
+        notebook.add(self.impostazioni_container, text=" Impostazioni Avanzate ")
 
         # --- Create Log Widgets ---
-        self.log_widget_firma = self._create_log_frame(self.firma_container, "Log Esecuzione (Firma)")
-        self.log_widget_rinomina = self._create_log_frame(self.rinomina_container, "Log Esecuzione (Aggiungi Data)")
-        self.log_widget_organizza = self._create_log_frame(self.organizza_container, "Log Esecuzione (Organizza/Stampa)")
-        self.log_widget_canoni = self._create_log_frame(self.canoni_container, "Log Esecuzione (Stampa Canoni)")
+        self.log_widget_firma, self.log_frame_firma = self._create_log_frame(
+            self.firma_container, "Log Esecuzione (Firma)"
+        )
+        self.log_widget_rinomina, self.log_frame_rinomina = self._create_log_frame(
+            self.rinomina_container, "Log Esecuzione (Aggiungi Data)"
+        )
+        self.log_widget_organizza, self.log_frame_organizza = self._create_log_frame(
+            self.organizza_container, "Log Esecuzione (Organizza/Stampa)"
+        )
+        self.log_widget_canoni, self.log_frame_canoni = self._create_log_frame(
+            self.canoni_container, "Log Esecuzione (Stampa Canoni)"
+        )
 
         # --- Dependency Injection and Tab Creation ---
-        self.signature_tab = SignatureTab(self.firma_container, self, lambda msg, level='INFO': log_message(self.log_widget_firma, msg, level))
-        self.signature_tab.pack(fill='both', expand=True)
-        self.log_widget_firma.master.pack_forget() # Hide log frame initially
-        self.log_widget_firma.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
+        # PACK LOGS FIRST AT BOTTOM (Ensure they are visible)
+        self.log_frame_firma.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
+        self.log_frame_rinomina.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
+        self.log_frame_canoni.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
+        self.log_frame_organizza.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
 
-        self.rename_tab = RenameTab(self.rinomina_container, self, lambda msg, level='INFO': log_message(self.log_widget_rinomina, msg, level))
-        self.rename_tab.pack(fill='both', expand=True)
-        self.log_widget_rinomina.master.pack_forget()
-        self.log_widget_rinomina.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
+        # THEN PACK TABS (they will expand to fill the rest)
+        self.signature_tab = SignatureTab(
+            self.firma_container, self, lambda msg, level="INFO": log_message(self.log_widget_firma, msg, level)
+        )
+        self.signature_tab.pack(fill="both", expand=True)
 
-        self.fees_tab = FeesTab(self.canoni_container, self, lambda msg, level='INFO': log_message(self.log_widget_canoni, msg, level))
-        self.fees_tab.pack(fill='both', expand=True)
-        self.log_widget_canoni.master.pack_forget()
-        self.log_widget_canoni.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
+        self.rename_tab = RenameTab(
+            self.rinomina_container, self, lambda msg, level="INFO": log_message(self.log_widget_rinomina, msg, level)
+        )
+        self.rename_tab.pack(fill="both", expand=True)
 
-        self.organize_tab = OrganizeTab(self.organizza_container, self, lambda msg, level='INFO': log_message(self.log_widget_organizza, msg, level), self.fees_tab.processor)
-        self.organize_tab.pack(fill='both', expand=True)
-        self.log_widget_organizza.master.pack_forget()
-        self.log_widget_organizza.master.pack(fill=tk.X, side=tk.BOTTOM, pady=(15, 0))
+        self.fees_tab = FeesTab(
+            self.canoni_container, self, lambda msg, level="INFO": log_message(self.log_widget_canoni, msg, level)
+        )
+        self.fees_tab.pack(fill="both", expand=True)
+
+        self.organize_tab = OrganizeTab(
+            self.organizza_container,
+            self,
+            lambda msg, level="INFO": log_message(self.log_widget_organizza, msg, level),
+            self.fees_tab.processor,
+        )
+        self.organize_tab.pack(fill="both", expand=True)
+
+        self.settings_tab = SettingsTab(self.impostazioni_container, self)
+        self.settings_tab.pack(fill="both", expand=True)
 
     def _create_log_frame(self, parent, title):
         log_frame = ttk.LabelFrame(parent, text=title, padding="10")
-        # The frame is packed by the caller
         log_widget = create_log_widget(log_frame)
-        return log_widget
+        return log_widget, log_frame
 
     def _on_closing(self):
-        # ... (this method is unchanged)
+        # --- On Closing ---
+        tcl_to_save = [
+            {"name": ref["name"].get(), "tcl": ref["tcl"].get(), "num": ref["num"].get(), "print": ref["print"].get()}
+            for ref in self.canoni_tcl_vars
+        ]
+
         current_config = {
             "firma_ghostscript_path": self.firma_ghostscript_path.get(),
             "rinomina_path": self.rinomina_path.get(),
             "rinomina_password": self.rinomina_password.get(),
-            "canoni_messina_num": self.canoni_messina_num.get(),
-            "canoni_naselli_num": self.canoni_naselli_num.get(),
-            "canoni_caldarella_num": self.canoni_caldarella_num.get(),
-            "canoni_caldarella2_num": self.canoni_caldarella2_num.get(),
-            "canoni_messina_print": self.canoni_messina_print.get(),
-            "canoni_naselli_print": self.canoni_naselli_print.get(),
-            "canoni_caldarella_print": self.canoni_caldarella_print.get(),
-            "canoni_caldarella2_print": self.canoni_caldarella2_print.get(),
+            "canoni_tcl_list": tcl_to_save,
             "canoni_word_path": self.canoni_word_path.get(),
             "selected_printer": self.selected_printer.get(),
             "email_to": self.email_to.get(),
@@ -229,7 +284,29 @@ class MainApplication(tk.Tk):
             "email_subject": self.email_subject.get(),
             "email_tcl": self.email_tcl.get(),
             "email_is_formal": self.email_is_formal.get(),
-            "email_size_limit": self.email_size_limit.get()
+            "email_size_limit": self.email_size_limit.get(),
+            "canoni_giornaliera_base_dir": self.canoni_giornaliera_base_dir.get(),
+            "canoni_consuntivi_base_dir": self.canoni_consuntivi_base_dir.get(),
+            "organizza_base_dir": self.organizza_base_dir.get(),
         }
         self.config_manager.save(current_config)
         self.destroy()
+
+    # --- Metodi Progress Bar Globale ---
+    def setup_global_progress(self, max_value, label_text="Progresso:"):
+        self.global_progress.pack(side=tk.RIGHT, padx=10)
+        self.global_progress.setup(max_value, label_text)
+        self.header_frame.update()
+
+    def show_global_indeterminate(self, label_text="Elaborazione..."):
+        self.global_progress.pack(side=tk.RIGHT, padx=10)
+        self.global_progress.setup_indeterminate(label_text)
+        self.header_frame.update()
+
+    def update_global_progress(self, value):
+        self.global_progress.update_progress(value)
+
+    def hide_global_progress(self):
+        self.global_progress.stop_indeterminate()
+        self.global_progress.pack_forget()
+        self.header_frame.update()

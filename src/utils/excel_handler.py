@@ -1,73 +1,62 @@
-import traceback
-import tkinter as tk
-from tkinter import messagebox
+from contextlib import suppress
+
+import pythoncom
+import win32com.client
+
 
 class ExcelHandler:
     """
-    A context manager to safely handle a single instance of the Excel application.
-    Ensures that Excel is properly initialized and terminated.
+    Context manager for safely handling Excel COM instance.
+    Optimized for high performance by reusing instance and disabling UI updates.
     """
-    def __init__(self, logger, visible=False, display_alerts=False):
+
+    def __init__(self, logger):
+        self.excel = None
         self.logger = logger
-        self.visible = visible
-        self.display_alerts = display_alerts
-        self.excel_app = None
+        self.co_initialized = False
 
     def __enter__(self):
-        """
-        Initializes COM and starts the Excel application.
-        Returns the Excel application object.
-        """
-        # Lazy import to speed up startup
-        try:
-            import pythoncom
-            import win32com.client
-        except ImportError:
-            self.logger("ERRORE FATALE: Le librerie necessarie (pywin32) per controllare Excel non sono installate.", "ERROR")
-            messagebox.showerror(
-                "Errore di Dipendenze",
-                "Le librerie 'pywin32' necessarie per comunicare con Excel non sono installate. "
-                "Si prega di installarle eseguendo 'pip install pywin32' da un terminale."
-            )
-            return None
-
         try:
             pythoncom.CoInitialize()
-            # Use DispatchEx to ensure a new instance is created, which can help avoid errors.
-            self.excel_app = win32com.client.DispatchEx("Excel.Application")
-            # Only set Visible if it's explicitly required to be True.
-            # Avoids setting it to False, which can cause "can not be set" errors in some environments.
-            if self.visible:
-                self.excel_app.Visible = True
-            self.excel_app.DisplayAlerts = self.display_alerts
-            self.logger("Applicazione Excel avviata in background.", "INFO")
-            return self.excel_app
+            self.co_initialized = True
+            # DispatchEx ensures a fresh separate process, better for performance
+            self.excel = win32com.client.DispatchEx("Excel.Application")
+            self.excel.Visible = False
+            self.excel.DisplayAlerts = False
+
+            # TURBO MODE: Prova a disabilitare aggiornamenti pesanti, ma non crashare se Excel rifiuta
+            try:
+                self.excel.ScreenUpdating = False
+                self.excel.EnableEvents = False
+                # xlCalculationManual può fallire se Excel è in certi stati
+                with suppress(Exception):
+                    self.excel.Calculation = -4135  # xlCalculationManual
+            except Exception as e:
+                self.logger(f"Avviso: Impossibile ottimizzare completamente Excel (Turbo Mode): {e}", "DEBUG")
+
+            return self.excel
+        except ImportError:
+            self.logger(
+                "ERRORE FATALE: Le librerie necessarie (pywin32) per controllare Excel non sono installate.", "ERROR"
+            )
+            return None
         except Exception as e:
-            error_message = f"Impossibile avviare l'applicazione Excel. Verificare che sia installata correttamente. Dettagli: {e}"
-            self.logger(f"ERRORE FATALE: {error_message}", "ERROR")
-            self.logger(traceback.format_exc(), "ERROR")
-            messagebox.showerror("Errore Avvio Excel", error_message)
-            # Uninitialize if we failed to start
-            pythoncom.CoUninitialize()
+            self.logger(f"ERRORE FATALE: Impossibile avviare l'applicazione Excel. Dettagli: {e}", "ERROR")
             return None
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Quits the Excel application and uninitializes COM.
-        """
-        if self.excel_app:
+        if self.excel:
             try:
-                self.excel_app.Quit()
-                self.logger("Applicazione Excel chiusa correttamente.", "INFO")
+                # Ripristina impostazioni prima di uscire
+                with suppress(Exception):
+                    self.excel.Calculation = -4105  # xlCalculationAutomatic
+                    self.excel.ScreenUpdating = True
+                    self.excel.EnableEvents = True
+                self.excel.Quit()
             except Exception as e:
-                self.logger(f"ATTENZIONE: Si è verificato un errore durante la chiusura di Excel. Potrebbe rimanere un processo attivo. Dettagli: {e}", "WARNING")
-
-        # Always uninitialize COM
-        try:
-            import pythoncom
-            pythoncom.CoUninitialize()
-        except ImportError:
-            pass # Should not happen if __enter__ succeeded
-
-        # Return False to propagate exceptions if they occurred inside the 'with' block
-        return False
+                self.logger(f"Errore durante la chiusura di Excel: {e}", "WARNING")
+            finally:
+                self.excel = None
+        if self.co_initialized:
+            with suppress(Exception):
+                pythoncom.CoUninitialize()

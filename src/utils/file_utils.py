@@ -1,5 +1,7 @@
 import os
 import shutil
+from pathlib import Path
+
 
 def clear_folder_content(folder_path, logger, folder_display_name=None):
     """
@@ -14,7 +16,7 @@ def clear_folder_content(folder_path, logger, folder_display_name=None):
     if folder_display_name is None:
         folder_display_name = os.path.basename(folder_path)
 
-    logger(f"--- Pulizia della cartella '{folder_display_name}' in corso... ---", 'HEADER')
+    logger(f"--- Pulizia della cartella '{folder_display_name}' in corso... ---", "HEADER")
     if os.path.isdir(folder_path):
         for item_name in os.listdir(folder_path):
             item_path = os.path.join(folder_path, item_name)
@@ -22,7 +24,33 @@ def clear_folder_content(folder_path, logger, folder_display_name=None):
                 if os.path.isdir(item_path):
                     shutil.rmtree(item_path)
                 else:
-                    os.remove(item_path)
+                    Path(item_path).unlink()
             except Exception as e:
-                logger(f"Impossibile eliminare '{item_name}': {e}", 'ERROR')
-    logger(f"--- Pulizia di '{folder_display_name}' completata. ---", 'SUCCESS')
+                logger(f"Impossibile eliminare '{item_name}': {e}", "ERROR")
+    logger(f"--- Pulizia di '{folder_display_name}' completata. ---", "SUCCESS")
+
+
+def create_backup(folder_path: str, backup_parent_dir: str | None = None) -> bool:
+    """
+    Crea un backup della cartella specificata aggiungendo un timestamp.
+    Se backup_parent_dir è fornito, il backup verrà creato lì dentro.
+    """
+    if not Path(folder_path).is_dir():
+        return False
+
+    from datetime import datetime
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    folder_name = os.path.basename(folder_path)
+
+    if backup_parent_dir:
+        Path(backup_parent_dir).mkdir(parents=True, exist_ok=True)
+        backup_path = os.path.join(backup_parent_dir, f"{folder_name}_backup_{timestamp}")
+    else:
+        backup_path = f"{folder_path}_backup_{timestamp}"
+
+    try:
+        shutil.copytree(folder_path, backup_path)
+        return True
+    except Exception:
+        return False
