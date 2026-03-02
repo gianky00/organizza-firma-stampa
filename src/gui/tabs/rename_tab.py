@@ -97,8 +97,11 @@ class RenameTab(ttk.Frame):
     def log_rinomina(self, message, level="INFO"):
         self.master.after(0, self.log_widget, message, level)
 
-    def setup_progress(self, max_value):
-        self.app_config.setup_global_progress(max_value)
+    def setup_progress(self, max_value, label_text="Progresso:"):
+        self.app_config.setup_global_progress(max_value, label_text)
+
+    def show_indeterminate(self, label_text="Inizializzazione..."):
+        self.app_config.show_global_indeterminate(label_text)
 
     def update_progress(self, value):
         self.app_config.update_global_progress(value)

@@ -173,16 +173,18 @@ class MainApplication(tk.Tk):
         # --- Header con Progress Bar Globale ---
         self.header_frame = ttk.Frame(self, padding=(15, 5))
         self.header_frame.pack(fill=tk.X, side=tk.TOP)
-        self.header_frame.columnconfigure(0, weight=1)
 
         # Info App a sinistra
-        app_info_lbl = ttk.Label(self.header_frame, text="GESTIONE DOCUMENTI - SMI", font=("Segoe UI", 9, "bold"), foreground="#666666")
-        app_info_lbl.grid(row=0, column=0, sticky="w")
+        app_info_lbl = ttk.Label(
+            self.header_frame, text="GESTIONE DOCUMENTI - SMI", font=("Segoe UI", 9, "bold"), foreground="#666666"
+        )
+        app_info_lbl.pack(side=tk.LEFT)
 
         from src.utils.ui_utils import ProgressWithETA
+
         self.global_progress = ProgressWithETA(self.header_frame)
-        self.global_progress.grid(row=0, column=1, sticky="e")
-        self.global_progress.grid_remove() # Inizialmente nascosta ma mantiene il posto se grid_propagate è gestito
+        # Inizialmente non visibile
+        self.global_progress.pack_forget()
 
         main_container = ttk.Frame(self, padding="10")
         main_container.pack(fill=tk.BOTH, expand=True)
@@ -288,19 +290,19 @@ class MainApplication(tk.Tk):
 
     # --- Metodi Progress Bar Globale ---
     def setup_global_progress(self, max_value, label_text="Progresso:"):
-        self.global_progress.grid(row=0, column=1, sticky="e")
+        self.global_progress.pack(side=tk.RIGHT, padx=10)
         self.global_progress.setup(max_value, label_text)
-        self.update_idletasks()
+        self.header_frame.update()
 
     def show_global_indeterminate(self, label_text="Elaborazione..."):
-        self.global_progress.grid(row=0, column=1, sticky="e")
+        self.global_progress.pack(side=tk.RIGHT, padx=10)
         self.global_progress.setup_indeterminate(label_text)
-        self.update_idletasks()
+        self.header_frame.update()
 
     def update_global_progress(self, value):
         self.global_progress.update_progress(value)
 
     def hide_global_progress(self):
         self.global_progress.stop_indeterminate()
-        self.global_progress.grid_remove()
-        self.update_idletasks()
+        self.global_progress.pack_forget()
+        self.header_frame.update()

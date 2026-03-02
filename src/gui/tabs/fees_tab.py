@@ -296,8 +296,17 @@ class FeesTab(ttk.Frame):
             self.cancel_button.pack_forget()
             self.run_button.pack(fill=tk.X, ipady=8, pady=5)
 
+    def setup_progress(self, max_value, label_text="Progresso:"):
+        self.app_config.setup_global_progress(max_value, label_text)
+
+    def show_indeterminate(self, label_text="Ricerca in corso..."):
+        self.app_config.show_global_indeterminate(label_text)
+
+    def update_progress(self, value):
+        self.app_config.update_global_progress(value)
+
     def show_progress(self):
-        self.app_config.show_global_indeterminate("Ricerca in corso...")
+        self.show_indeterminate("Ricerca in corso...")
 
     def hide_progress(self):
         self.app_config.hide_global_progress()
