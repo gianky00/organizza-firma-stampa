@@ -137,17 +137,22 @@ class ExcelGateway:
         return None
 
     def extract_tcl_from_worksheet(self, ws: Any) -> str | None:
-        """Estrae il nome del TCL (referente) basandosi sul modello riconosciuto."""
+        """Estrae il nome del TCL (referente) basandosi sul modello riconosciuto scansionando tcl_cells."""
         models_config = self._get_dynamic_models_config()
 
         for cfg in models_config:
-            if cfg.get("id_cell"):
+            # Supporta sia id_cells (lista) che id_cell (stringa)
+            id_cells = cfg.get("id_cells") or ([cfg.get("id_cell")] if cfg.get("id_cell") else [])
+            match_value = cfg.get("match_value")
+
+            for id_cell in id_cells:
                 try:
-                    val = self._normalize_model_string(ws.Range(cfg["id_cell"]).Value)
-                    if val == cfg.get("match_value"):
-                        tcl_cell = cfg.get("tcl_cell")
-                        if tcl_cell:
-                            tcl_val = ws.Range(tcl_cell).Value
+                    val = self._normalize_model_string(ws.Range(id_cell).Value)
+                    if val == match_value:
+                        # Se il modello coincide, prova le celle TCL in ordine
+                        tcl_cells = cfg.get("tcl_cells") or ([cfg.get("tcl_cell")] if cfg.get("tcl_cell") else [])
+                        for t_cell in tcl_cells:
+                            tcl_val = ws.Range(t_cell).Value
                             if tcl_val:
                                 return str(tcl_val).strip()
                 except Exception:
@@ -172,15 +177,23 @@ class ExcelGateway:
 
     def _find_date_by_model(self, worksheet, models_config) -> datetime | None:
         for cfg in models_config:
-            # Gestisce sia oggetti (RENAME_MODELS) che dizionari (da JSON config)
-            id_cell = getattr(cfg, "id_cell", cfg.get("id_cell") if isinstance(cfg, dict) else None)
-            match_value = getattr(cfg, "match_value", cfg.get("match_value") if isinstance(cfg, dict) else None)
-            date_cells = getattr(cfg, "date_cells", cfg.get("date_cells") if isinstance(cfg, dict) else [])
+            # Supporta sia oggetti che dizionari
+            is_dict = isinstance(cfg, dict)
+            id_cells = cfg.get("id_cells") if is_dict else getattr(cfg, "id_cells", None)
+            if not id_cells:
+                id_cell = cfg.get("id_cell") if is_dict else getattr(cfg, "id_cell", None)
+                id_cells = [id_cell] if id_cell else []
+            
+            match_value = cfg.get("match_value") if is_dict else getattr(cfg, "match_value", None)
+            date_cells = cfg.get("date_cells") if is_dict else getattr(cfg, "date_cells", [])
 
-            if id_cell:
-                val = self._normalize_model_string(worksheet.Range(id_cell).Value)
-                if val == match_value:
-                    return self._find_date_in_cells(worksheet, date_cells)
+            for id_cell in id_cells:
+                try:
+                    val = self._normalize_model_string(worksheet.Range(id_cell).Value)
+                    if val == match_value:
+                        return self._find_date_in_cells(worksheet, date_cells)
+                except Exception:
+                    continue
         return None
 
     def _find_date_in_cells(self, worksheet, cell_list) -> datetime | None:

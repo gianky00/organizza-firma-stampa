@@ -27,10 +27,11 @@ class SignatureProcessor:
         self.hide_progress = hide_progress_cb
         self.excel_gateway = (excel_gateway_class or ExcelGateway)(self.logger)
         self.firma_processing_data = {
-            "schedacontrolloSTRUMENTIANALOGICI": {"PrintArea": "A2:N55", "FirmaCella": "G54"},
-            "schedacontrolloSTRUMENTIDIGITALI": {"PrintArea": "A2:N50", "FirmaCella": "G49"},
-            "SchedacontrolloREPORTMANUTENZIONECORRETTIVA": {"PrintArea": "A2:N55", "FirmaCella": "G54"},
-            "SCHEDAMANUTENZIONE": {"PrintArea": "A1:FV106", "FirmaCella": "FO104"},
+            "schedacontrollostrumentianalogici": {"PrintArea": "A2:N55", "FirmaCella": "G54"},
+            "schedacontrollostrumentidigitali": {"PrintArea": "A2:N50", "FirmaCella": "G49"},
+            "schedacontrolloreportmanutenzionecorrettiva": {"PrintArea": "A2:N55", "FirmaCella": "G54"},
+            "schedamanutenzione": {"PrintArea": "A1:FV106", "FirmaCella": "FO104"},
+            "valvolediregolazione": {"PrintArea": "A1:DG110", "FirmaCella": "BU105"},
         }
 
     def run_full_signature_process(self, cancel_event):
@@ -203,19 +204,43 @@ class SignatureProcessor:
 
     def _apply_signature_schede(self, workbook, pdf_path, image_path):
         ws = workbook.Worksheets(1)
-        val_e2 = ws.Cells(2, 5).Text.strip()
-        val_t2 = ws.Cells(2, 20).Text.strip()
-        val_t5 = ws.Cells(5, 20).Text.strip()
-        model_value = val_e2 or val_t2 or val_t5
-        cleaned_model = "".join(filter(str.isalnum, model_value))
+        
+        # PRIORITÀ DI RICONOSCIMENTO: T3/T6 vincono su T2
+        # Leggiamo le celle chiave
+        cells_to_check = ["T3", "T6", "E2", "T2", "T5", "F2", "Q3", "S3", "N1"]
+        
+        cleaned_model = None
+        matched_cell = None
+        for cell_ref in cells_to_check:
+            try:
+                raw_val = ws.Range(cell_ref).Value
+                norm_val = self.excel_gateway._normalize_model_string(raw_val)
+                if norm_val in self.firma_processing_data:
+                    cleaned_model = norm_val
+                    matched_cell = cell_ref
+                    break
+            except Exception:
+                continue
 
-        if cleaned_model in self.firma_processing_data:
+        if cleaned_model:
             data = self.firma_processing_data[cleaned_model]
-            ws.PageSetup.PrintArea = data["PrintArea"]
+            
+            # LOGICA SPECIALE PRINT AREA PER VALVOLE DI REGOLAZIONE
+            if cleaned_model == "valvolediregolazione":
+                if matched_cell == "T3":
+                    ws.PageSetup.PrintArea = "A1:FX106"
+                elif matched_cell == "T6":
+                    ws.PageSetup.PrintArea = "A4:FX109"
+                else:
+                    ws.PageSetup.PrintArea = data["PrintArea"]
+            else:
+                ws.PageSetup.PrintArea = data["PrintArea"]
 
-            # Dimensioni fisse immagine firma: specifiche richieste per il modello SCHEDAMANUTENZIONE
-            # rispetto ad altri modelli generici
-            img_width, img_height = (105, 35) if cleaned_model == "SCHEDAMANUTENZIONE" else (150, 50)
+            # Dimensioni fisse immagine firma: specifiche richieste per certi modelli
+            if cleaned_model in ["schedamanutenzione", "valvolediregolazione"]:
+                img_width, img_height = (105, 35)
+            else:
+                img_width, img_height = (150, 50)
 
             cell_address = data["FirmaCella"]
             col_str = "".join(re.findall("[A-Z]+", cell_address))
@@ -225,7 +250,7 @@ class SignatureProcessor:
             # 28.35 punti per centimetro in Excel
             points_per_cm = 28.35
             # Offset manuale per far combaciare l'immagine esattamente con l'area pre-stampata del modello
-            offset_cm = 0.3 if cleaned_model == "SCHEDAMANUTENZIONE" else 1.0
+            offset_cm = 0.3 if cleaned_model == "schedamanutenzione" else 1.0
             top_pos = max(0, target_cell.Top - (offset_cm * points_per_cm))
             left_pos = max(0, target_cell.Left - (1.0 * points_per_cm))
 
