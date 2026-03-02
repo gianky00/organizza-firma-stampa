@@ -146,9 +146,6 @@ class FeesTab(ttk.Frame):
         self.cancel_button = ttk.Button(self.actions_frame, text="Annulla Processo", command=self.cancel_process)
         # self.cancel_button is packed dynamically
 
-        # --- Progress Bar ---
-        self.progress_frame = ProgressWithETA(self)
-
         self.anno_combo.bind("<<ComboboxSelected>>", self._update_paths_from_ui)
         self.mese_combo.bind("<<ComboboxSelected>>", self._update_paths_from_ui)
         self._setup_tcl_traces()

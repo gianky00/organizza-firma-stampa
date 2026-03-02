@@ -28,19 +28,19 @@ def create_path_entry(
 class ProgressWithETA(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
-        self.columnconfigure(1, weight=1)
+        # Non configuriamo pesi qui, lo farà il chiamante
+        
+        self.progress_label = ttk.Label(self, text="Progresso:", width=20, anchor="e")
+        self.progress_label.pack(side=tk.LEFT, padx=5)
 
-        self.progress_label = ttk.Label(self, text="Progresso:", width=25)
-        self.progress_label.grid(row=0, column=0, sticky="w", padx=(0, 5))
-
-        self.progressbar = ttk.Progressbar(self, orient="horizontal", mode="determinate")
-        self.progressbar.grid(row=0, column=1, sticky="ew", padx=5)
+        self.progressbar = ttk.Progressbar(self, orient="horizontal", mode="determinate", length=150)
+        self.progressbar.pack(side=tk.LEFT, padx=5)
 
         self.percent_label = ttk.Label(self, text="0%", width=5)
-        self.percent_label.grid(row=0, column=2, sticky="w", padx=5)
+        self.percent_label.pack(side=tk.LEFT, padx=2)
 
-        self.eta_label = ttk.Label(self, text="ETA: --:--", width=15)
-        self.eta_label.grid(row=0, column=3, sticky="e", padx=(5, 0))
+        self.eta_label = ttk.Label(self, text="ETA: --:--", width=12)
+        self.eta_label.pack(side=tk.LEFT, padx=5)
 
         self.start_time = 0.0
         self.max_value = 0

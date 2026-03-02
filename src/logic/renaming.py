@@ -4,7 +4,9 @@ import traceback
 from pathlib import Path
 from typing import TypedDict
 
+from src.utils import constants as const
 from src.utils.excel_gateway import ExcelGateway
+from src.utils.file_utils import create_backup
 
 
 class RenameSummary(TypedDict):
@@ -34,14 +36,55 @@ class RenameProcessor:
 
     def run_rename_process(self, cancel_event):
         self.logger("Avvio del processo di ridenominazione...", "HEADER")
-        root_path = self.app_config.rinomina_path.get()
-        if not Path(root_path).is_dir():
-            self.logger(f"ERRORE: La cartella specificata non è valida o non esiste: '{root_path}'", "ERROR")
-            self.gui.after(0, self.gui.on_process_finished)
-            return
-
         try:
-            self._rename_excel_files_in_place(root_path, cancel_event)
+            # 0. Mostra barra di caricamento immediata
+            if hasattr(self.gui, "show_indeterminate"):
+                self.gui.after(0, self.gui.show_indeterminate, "Inizializzazione ambiente...")
+
+            # 1. Identificazione Area di Lavoro Locale e Sorgente
+            local_work_path = os.path.join(const.APPLICATION_PATH, const.RINOMINA_DEFAULT_DIR)
+            source_path = self.app_config.rinomina_path.get()
+
+            # 2. Logica di Importazione
+            if os.path.normpath(source_path) != os.path.normpath(local_work_path):
+                if hasattr(self.gui, "show_indeterminate"):
+                    self.gui.after(0, self.gui.show_indeterminate, "Importazione file da rete...")
+                self.logger(f"Importazione file da sorgente: {source_path}", "INFO")
+                # Pulizia locale preventiva
+                from src.utils.file_utils import clear_folder_content
+
+                clear_folder_content(local_work_path, self.logger, folder_display_name="Area di Lavoro Locale")
+
+                excel_files_to_import = self._get_excel_files(source_path, cancel_event)
+                if not excel_files_to_import:
+                    return
+
+                import shutil
+
+                for f in excel_files_to_import:
+                    shutil.copy2(f, local_work_path)
+
+                self.logger(f"Importati {len(excel_files_to_import)} file Excel.", "SUCCESS")
+                active_path = local_work_path
+            else:
+                active_path = source_path
+
+            if not Path(active_path).is_dir():
+                self.logger(f"ERRORE: La cartella specificata non è valida o non esiste: '{active_path}'", "ERROR")
+                return
+
+            # 3. Elaborazione
+            self._rename_excel_files_in_place(active_path, cancel_event)
+
+            # 4. Auto-Clean Finale (solo se sorgente era esterna)
+            if not cancel_event.is_set() and os.path.normpath(source_path) != os.path.normpath(local_work_path):
+                self.logger("--- PULIZIA: Spostamento file rinominati in backup... ---", "INFO")
+                backup_parent = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR, "Originali_Rinominati")
+                if create_backup(active_path, backup_parent_dir=backup_parent):
+                    from src.utils.file_utils import clear_folder_content
+
+                    clear_folder_content(active_path, self.logger, folder_display_name="Area Rinominati")
+
         except Exception as e:
             self.logger(f"ERRORE CRITICO E IMPREVISTO durante la ridenominazione: {e}", "ERROR")
             self.logger(traceback.format_exc(), "ERROR")

@@ -180,12 +180,9 @@ class MainApplication(tk.Tk):
         app_info_lbl.grid(row=0, column=0, sticky="w")
 
         from src.utils.ui_utils import ProgressWithETA
-        self.global_progress_container = ttk.Frame(self.header_frame)
-        self.global_progress_container.grid(row=0, column=1, sticky="e")
-
-        self.global_progress = ProgressWithETA(self.global_progress_container)
-        # La teniamo inizialmente invisibile tramite il metodo hide_global_progress()
-        self.hide_global_progress()
+        self.global_progress = ProgressWithETA(self.header_frame)
+        self.global_progress.grid(row=0, column=1, sticky="e")
+        self.global_progress.grid_remove() # Inizialmente nascosta ma mantiene il posto se grid_propagate è gestito
 
         main_container = ttk.Frame(self, padding="10")
         main_container.pack(fill=tk.BOTH, expand=True)
@@ -291,19 +288,19 @@ class MainApplication(tk.Tk):
 
     # --- Metodi Progress Bar Globale ---
     def setup_global_progress(self, max_value, label_text="Progresso:"):
-        self.global_progress.pack(side=tk.RIGHT)
+        self.global_progress.grid(row=0, column=1, sticky="e")
         self.global_progress.setup(max_value, label_text)
-        self.header_frame.update_idletasks()
+        self.update_idletasks()
 
     def show_global_indeterminate(self, label_text="Elaborazione..."):
-        self.global_progress.pack(side=tk.RIGHT)
+        self.global_progress.grid(row=0, column=1, sticky="e")
         self.global_progress.setup_indeterminate(label_text)
-        self.header_frame.update_idletasks()
+        self.update_idletasks()
 
     def update_global_progress(self, value):
         self.global_progress.update_progress(value)
 
     def hide_global_progress(self):
         self.global_progress.stop_indeterminate()
-        self.global_progress.pack_forget()
-        self.header_frame.update_idletasks()
+        self.global_progress.grid_remove()
+        self.update_idletasks()
