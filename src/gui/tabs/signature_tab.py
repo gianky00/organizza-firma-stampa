@@ -144,13 +144,13 @@ class SignatureTab(ttk.Frame):
         )
         self.style_check.grid(row=0, column=2, sticky=tk.W, padx=(0, 10))
 
-        ttk.Label(email_settings_frame, text="Limite MB/Email:", width=15).grid(row=0, column=3, sticky=tk.E, padx=(10, 5))
+        ttk.Label(email_settings_frame, text="Limite MB/Email:", width=15).grid(
+            row=0, column=3, sticky=tk.E, padx=(10, 5)
+        )
         self.size_limit_entry = ttk.Entry(email_settings_frame, textvariable=self.app_config.email_size_limit, width=8)
         self.size_limit_entry.grid(row=0, column=4, sticky=tk.E)
 
-        create_path_entry(
-            self.email_frame, "Destinatario(i):", self.app_config.email_to, None, 1, readonly=False
-        )
+        create_path_entry(self.email_frame, "Destinatario(i):", self.app_config.email_to, None, 1, readonly=False)
         create_path_entry(self.email_frame, "CC:", self.app_config.email_cc, None, 2, readonly=False)
         create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, None, 3, readonly=False)
 
@@ -179,9 +179,6 @@ class SignatureTab(ttk.Frame):
             action_preview_frame, text="Crea Bozze in Outlook", command=self.start_email_creation_process
         )
         self.email_button.pack(side=tk.RIGHT)
-
-        # --- Progress Bar ---
-        self.progress_frame = ProgressWithETA(self)
 
         self.tcl_combo.bind("<<ComboboxSelected>>", self._update_email_preview)
         self.style_check.config(command=self._update_email_preview)
@@ -231,7 +228,9 @@ class SignatureTab(ttk.Frame):
                 raise ValueError("Limite <= 0")
             limit_bytes = limit_mb * 1024 * 1024
         except (ValueError, TypeError):
-            self.log_firma(f"ERRORE: Limite di dimensione non valido: '{limit_mb_str}'. Inserire un numero > 0.", "ERROR")
+            self.log_firma(
+                f"ERRORE: Limite di dimensione non valido: '{limit_mb_str}'. Inserire un numero > 0.", "ERROR"
+            )
             return
         pdf_dir = self.app_config.firma_pdf_dir.get()
         if not os.path.isdir(pdf_dir):
@@ -320,8 +319,8 @@ class SignatureTab(ttk.Frame):
     def create_email_drafts_in_outlook(self):
         try:
             with self.drafts_lock:
-                drafts_copy = list(self.prepared_drafts)
-                
+                drafts_copy = self.prepared_drafts.copy()
+
             if not drafts_copy:
                 self.log_firma("Nessuna bozza da creare.", "WARNING")
                 return
@@ -343,14 +342,16 @@ class SignatureTab(ttk.Frame):
         self.master.after(0, self.log_widget, message, level)
 
     def setup_progress(self, max_value, label_text="Progresso:"):
-        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.email_frame)
-        self.progress_frame.setup(max_value, label_text)
+        self.app_config.setup_global_progress(max_value, label_text)
+
+    def show_indeterminate(self, label_text="Inizializzazione..."):
+        self.app_config.show_global_indeterminate(label_text)
 
     def update_progress(self, value):
-        self.progress_frame.update_progress(value)
+        self.app_config.update_global_progress(value)
 
     def hide_progress(self):
-        self.progress_frame.pack_forget()
+        self.app_config.hide_global_progress()
 
     def _get_date_range_from_filenames(self):
         pdf_dir = self.app_config.firma_pdf_dir.get()

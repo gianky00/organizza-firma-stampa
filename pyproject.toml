@@ -74,6 +74,8 @@ ignore_missing_imports = true
 warn_return_any = true
 warn_unused_configs = true
 show_error_codes = true
+exclude = ["tests", ".venv", "build", "dist", "__pycache__"]
+explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = "win32com.*"

@@ -24,27 +24,27 @@ def clear_folder_content(folder_path, logger, folder_display_name=None):
                 if os.path.isdir(item_path):
                     shutil.rmtree(item_path)
                 else:
-                    os.remove(item_path)
+                    Path(item_path).unlink()
             except Exception as e:
                 logger(f"Impossibile eliminare '{item_name}': {e}", "ERROR")
     logger(f"--- Pulizia di '{folder_display_name}' completata. ---", "SUCCESS")
 
 
-def create_backup(folder_path: str, backup_parent_dir: str = None) -> bool:
+def create_backup(folder_path: str, backup_parent_dir: str | None = None) -> bool:
     """
     Crea un backup della cartella specificata aggiungendo un timestamp.
     Se backup_parent_dir è fornito, il backup verrà creato lì dentro.
     """
-    if not os.path.isdir(folder_path):
+    if not Path(folder_path).is_dir():
         return False
 
     from datetime import datetime
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = os.path.basename(folder_path)
-    
+
     if backup_parent_dir:
-        os.makedirs(backup_parent_dir, exist_ok=True)
+        Path(backup_parent_dir).mkdir(parents=True, exist_ok=True)
         backup_path = os.path.join(backup_parent_dir, f"{folder_name}_backup_{timestamp}")
     else:
         backup_path = f"{folder_path}_backup_{timestamp}"

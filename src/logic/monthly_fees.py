@@ -2,9 +2,7 @@ import os
 import re
 import traceback
 from pathlib import Path
-from typing import Optional
 
-from src.utils import constants as const
 from src.utils.excel_gateway import ExcelGateway
 from src.utils.word_gateway import WordGateway
 
@@ -107,9 +105,9 @@ class MonthlyFeesProcessor:
             # Batch execution using raw handlers via Gateways for optimization
             from src.utils.excel_handler import ExcelHandler
             from src.utils.word_handler import WordHandler
-            
-            excel_h_class = getattr(self.excel_gateway, 'excel_handler_class', ExcelHandler)
-            word_h_class = getattr(self.word_gateway, 'word_handler_class', WordHandler)
+
+            excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
+            word_h_class = getattr(self.word_gateway, "word_handler_class", WordHandler)
 
             with excel_h_class(self.logger) as excel_app, word_h_class(self.logger) as word_app:
                 if not excel_app or not word_app or cancel_event.is_set():
@@ -124,7 +122,9 @@ class MonthlyFeesProcessor:
                     return
 
                 self.logger(f"Canoni da stampare: {', '.join(c['name'] for c in enabled_consuntivi)}", "INFO")
-                self._execute_batch_print(excel_app, word_app, paths_to_print, enabled_consuntivi, macro_name, cancel_event)
+                self._execute_batch_print(
+                    excel_app, word_app, paths_to_print, enabled_consuntivi, macro_name, cancel_event
+                )
 
             if not cancel_event.is_set():
                 self.logger("--- PROCESSO STAMPA CANONI COMPLETATO ---", "SUCCESS")
@@ -141,7 +141,7 @@ class MonthlyFeesProcessor:
         if wb_giornaliera is None:
             self.logger("Impossibile aprire il file Giornaliera.", "ERROR")
             return
-            
+
         doc_word = word.Documents.Open(paths["word"])
         if doc_word is None:
             self.logger("Impossibile aprire il file Word.", "ERROR")

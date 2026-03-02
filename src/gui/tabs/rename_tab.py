@@ -69,9 +69,6 @@ class RenameTab(ttk.Frame):
         self.cancel_button = ttk.Button(self.actions_frame, text="Annulla Processo", command=self.cancel_process)
         # self.cancel_button is packed dynamically
 
-        # --- Progress Bar ---
-        self.progress_frame = ProgressWithETA(self)
-
         self.on_process_finished()
 
     def start_rename_process(self):
@@ -101,11 +98,10 @@ class RenameTab(ttk.Frame):
         self.master.after(0, self.log_widget, message, level)
 
     def setup_progress(self, max_value):
-        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.actions_frame)
-        self.progress_frame.setup(max_value)
+        self.app_config.setup_global_progress(max_value)
 
     def update_progress(self, value):
-        self.progress_frame.update_progress(value)
+        self.app_config.update_global_progress(value)
 
     def hide_progress(self):
-        self.progress_frame.pack_forget()
+        self.app_config.hide_global_progress()

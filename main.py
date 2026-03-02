@@ -5,7 +5,10 @@ from tkinter import messagebox
 
 # Add the 'src' directory to the Python path
 # This allows us to import modules from the src directory
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
+
+from pathlib import Path
+
 
 def main():
     """
@@ -15,26 +18,26 @@ def main():
     # This gives immediate feedback to the user while heavy imports load.
     splash = tk.Tk()
     splash.overrideredirect(True)  # Borderless window
-    
+
     # Calculate center position
     width, height = 300, 120
     screen_width = splash.winfo_screenwidth()
     screen_height = splash.winfo_screenheight()
     x = (screen_width // 2) - (width // 2)
     y = (screen_height // 2) - (height // 2)
-    splash.geometry(f'{width}x{height}+{x}+{y}')
-    
+    splash.geometry(f"{width}x{height}+{x}+{y}")
+
     # Style the splash screen
-    bg_color = '#f0f0f0'
+    bg_color = "#f0f0f0"
     splash.configure(bg=bg_color)
-    
+
     # Add a frame for a border effect
     frame = tk.Frame(splash, bg=bg_color, highlightbackground="#cccccc", highlightthickness=1)
     frame.pack(fill=tk.BOTH, expand=True)
-    
+
     tk.Label(frame, text="Gestione Documenti", font=("Segoe UI", 14, "bold"), bg=bg_color).pack(pady=(25, 5))
     tk.Label(frame, text="Caricamento in corso...", font=("Segoe UI", 10), bg=bg_color, fg="#666666").pack(pady=(0, 20))
-    
+
     # Force the window to appear immediately
     splash.update()
 
@@ -42,15 +45,16 @@ def main():
     # Lazy import of constants to avoid early dependency loading
     try:
         from utils import constants as const
+
         folders_to_create = [
             os.path.join(const.APPLICATION_PATH, const.FIRMA_EXCEL_INPUT_DIR),
             os.path.join(const.APPLICATION_PATH, const.FIRMA_PDF_OUTPUT_DIR),
             os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_SOURCE_DIR),
             os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_DEST_DIR),
-            os.path.join(const.APPLICATION_PATH, const.RINOMINA_DEFAULT_DIR)
+            os.path.join(const.APPLICATION_PATH, const.RINOMINA_DEFAULT_DIR),
         ]
         for folder in folders_to_create:
-            os.makedirs(folder, exist_ok=True)
+            Path(folder).mkdir(parents=True, exist_ok=True)
     except Exception as e:
         splash.destroy()
         # Create a hidden root to show the error message properly
@@ -74,6 +78,7 @@ def main():
     splash.destroy()
     app = MainApplication()
     app.mainloop()
+
 
 if __name__ == "__main__":
     main()

@@ -36,18 +36,48 @@ class SignatureProcessor:
     def run_full_signature_process(self, cancel_event):
         self.logger("Avvio del processo di firma...", "HEADER")
         try:
+            # 0. Mostra barra di caricamento immediata
+            self.gui.after(0, self.gui.show_indeterminate, "Inizializzazione ambiente...")
+
+            # 1. Identificazione Area di Lavoro Locale e Sorgente
+            local_work_path = os.path.join(const.APPLICATION_PATH, const.FIRMA_EXCEL_INPUT_DIR)
+            source_path = self.app_config.firma_excel_dir.get()
+
+            # 2. Logica di Importazione
+            if os.path.normpath(source_path) != os.path.normpath(local_work_path):
+                self.gui.after(0, self.gui.show_indeterminate, "Importazione file da rete...")
+                self.logger(f"Importazione file da sorgente: {source_path}", "INFO")
+                # Pulizia locale preventiva
+                from src.utils.file_utils import clear_folder_content
+                clear_folder_content(local_work_path, self.logger, folder_display_name="Area di Lavoro Locale")
+
+                files_to_import = self._get_input_files(source_path)
+                if not files_to_import:
+                    return
+
+                import shutil
+                for f in files_to_import:
+                    shutil.copy2(os.path.join(source_path, f), local_work_path)
+
+                self.logger(f"Importati {len(files_to_import)} file Excel.", "SUCCESS")
+                active_excel_path = local_work_path
+            else:
+                active_excel_path = source_path
+
+            # 3. Inizializzazione (pulizia PDF)
             if not self._initialize_process():
                 return
 
-            excel_path = self.app_config.firma_excel_dir.get()
-            excel_files = self._get_input_files(excel_path)
+            excel_files = self._get_input_files(active_excel_path)
             if not excel_files:
                 return
 
-            self.gui.after(0, self.setup_progress, len(excel_files) * 2, "Processo di firma:")
+            # 4. Passaggio a barra di progresso determinata con ETA
+            self.gui.after(0, self.setup_progress, len(excel_files) * 2, "Elaborazione in corso:")
 
             self.logger("--- FASE 1: Elaborazione Excel e Conversione PDF ---", "HEADER")
-            processed_ok = self._process_excel_files(excel_files, cancel_event)
+            # Passiamo il percorso attivo alla funzione di elaborazione
+            processed_ok = self._process_excel_files_at_path(active_excel_path, excel_files, cancel_event)
 
             if cancel_event.is_set() or not processed_ok:
                 return
@@ -56,6 +86,12 @@ class SignatureProcessor:
             self._compress_pdfs(cancel_event, len(excel_files))
 
             if not cancel_event.is_set():
+                self.logger("--- PULIZIA: Spostamento originali in backup... ---", "INFO")
+                backup_parent = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR, "Originali_Firmati")
+                if create_backup(active_excel_path, backup_parent_dir=backup_parent):
+                    from src.utils.file_utils import clear_folder_content
+                    clear_folder_content(active_excel_path, self.logger, folder_display_name="Excel da Firmare")
+
                 self.logger("--- PROCESSO DI FIRMA COMPLETATO ---", "SUCCESS")
 
         except Exception as e:
@@ -100,12 +136,11 @@ class SignatureProcessor:
                 return False
         return True
 
-    def _process_excel_files(self, excel_files, cancel_event) -> bool:
-        excel_path = self.app_config.firma_excel_dir.get()
+    def _process_excel_files_at_path(self, excel_path, excel_files, cancel_event) -> bool:
         pdf_path = self.app_config.firma_pdf_dir.get()
         image_path = self.app_config.firma_image_path.get()
         mode = self.app_config.firma_processing_mode.get()
-        
+
         errors = []
         for i, file_name in enumerate(excel_files):
             if cancel_event.is_set():
@@ -113,14 +148,14 @@ class SignatureProcessor:
             self.gui.after(0, self.update_progress, i + 1)
             self.logger("-" * 50)
             self.logger(f"Elaborazione: {file_name}", "INFO")
-            
+
             fp = os.path.join(excel_path, file_name)
             output_pdf = os.path.join(pdf_path, f"{Path(file_name).stem}.pdf")
-            
+
             success, err = self._sign_and_export(fp, output_pdf, image_path, mode)
             if not success:
                 errors.append((file_name, err))
-                
+
         if errors:
             self._log_errors(errors)
         return not errors
@@ -130,10 +165,11 @@ class SignatureProcessor:
         # Nota: SignatureProcessor ha logiche di posizionamento custom che il Gateway attuale non ha del tutto.
         # Estendiamo il Gateway o manteniamo qui la logica ma usando l'handler iniettato.
         # Per ora deleghiamo al gateway le operazioni base.
-        
+
         from src.utils.excel_handler import ExcelHandler
+
         excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
-        
+
         with excel_h_class(self.logger) as excel:
             if not excel:
                 return False, "Impossibile avvia r Excel"
@@ -159,27 +195,27 @@ class SignatureProcessor:
         val_t5 = ws.Cells(5, 20).Text.strip()
         model_value = val_e2 or val_t2 or val_t5
         cleaned_model = "".join(filter(str.isalnum, model_value))
-        
+
         if cleaned_model in self.firma_processing_data:
             data = self.firma_processing_data[cleaned_model]
             ws.PageSetup.PrintArea = data["PrintArea"]
-            
+
             # Dimensioni fisse immagine firma: specifiche richieste per il modello SCHEDAMANUTENZIONE
             # rispetto ad altri modelli generici
             img_width, img_height = (105, 35) if cleaned_model == "SCHEDAMANUTENZIONE" else (150, 50)
-            
+
             cell_address = data["FirmaCella"]
             col_str = "".join(re.findall("[A-Z]+", cell_address))
             row_str = "".join(re.findall(r"\d+", cell_address))
             target_cell = ws.Cells(int(row_str), self._col_to_num(col_str))
-            
+
             # 28.35 punti per centimetro in Excel
             points_per_cm = 28.35
             # Offset manuale per far combaciare l'immagine esattamente con l'area pre-stampata del modello
             offset_cm = 0.3 if cleaned_model == "SCHEDAMANUTENZIONE" else 1.0
             top_pos = max(0, target_cell.Top - (offset_cm * points_per_cm))
             left_pos = max(0, target_cell.Left - (1.0 * points_per_cm))
-            
+
             ws.Shapes.AddPicture(image_path, True, True, left_pos, top_pos, img_width, img_height)
             workbook.ActiveSheet.ExportAsFixedFormat(0, pdf_path)
             self.logger("Firma applicata e PDF esportato.", "SUCCESS")
@@ -193,7 +229,7 @@ class SignatureProcessor:
             self.logger("Foglio 'Consuntivo' non trovato. Export foglio attivo.", "WARNING")
             workbook.ActiveSheet.ExportAsFixedFormat(0, pdf_path)
             return
-            
+
         ws.Activate()
         ws.PageSetup.PrintArea = "A3:L63"
         target_cell = ws.Cells(59, 3)
@@ -206,7 +242,7 @@ class SignatureProcessor:
         pdf_files = [f for f in os.listdir(pdf_path) if f.lower().endswith(".pdf")]
         if not pdf_files:
             return
-            
+
         gs_exe = self.app_config.firma_ghostscript_path.get()
         for i, pdf_file in enumerate(pdf_files):
             if cancel_event.is_set():
@@ -218,10 +254,17 @@ class SignatureProcessor:
         input_pdf = Path(pdf_path) / file_name
         temp_pdf = Path(pdf_path) / f"temp_{file_name}"
         self.logger(f"Compressione: {file_name}", "INFO")
-        
+
         args = [
-            gs_exe, "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4", "-dPDFSETTINGS=/ebook",
-            "-dNOPAUSE", "-dBATCH", "-dQUIET", f"-sOutputFile={temp_pdf}", str(input_pdf)
+            gs_exe,
+            "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.4",
+            "-dPDFSETTINGS=/ebook",
+            "-dNOPAUSE",
+            "-dBATCH",
+            "-dQUIET",
+            f"-sOutputFile={temp_pdf}",
+            str(input_pdf),
         ]
         try:
             subprocess.run(args, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -230,12 +273,14 @@ class SignatureProcessor:
                 temp_pdf.rename(input_pdf)
                 self.logger("Compressione OK.", "SUCCESS")
             else:
-                if temp_pdf.exists(): temp_pdf.unlink()
+                if temp_pdf.exists():
+                    temp_pdf.unlink()
         except Exception as e:
             self.logger(f"Errore compressione {file_name}: {e}\nComando: {' '.join(args)}", "ERROR")
             if isinstance(e, subprocess.CalledProcessError):
                 self.logger(f"Dettagli errore Ghostscript: {e.stderr}", "ERROR")
-            if temp_pdf.exists(): temp_pdf.unlink()
+            if temp_pdf.exists():
+                temp_pdf.unlink()
 
     def _log_errors(self, errors):
         self.logger("\n--- RIEPILOGO ERRORI ---", "HEADER")

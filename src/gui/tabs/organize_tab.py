@@ -113,9 +113,6 @@ class OrganizeTab(ttk.Frame):
         self.stampa_checkbox_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.bind("<Configure>", lambda e: canvas.itemconfig(self.canvas_window, width=e.width))
 
-        # --- Progress Bar ---
-        self.progress_frame = ProgressWithETA(self)
-
         self.on_process_finished()
 
     def start_process(self, process_type, target_func, *args):
@@ -168,14 +165,13 @@ class OrganizeTab(ttk.Frame):
         self.master.after(0, self.log_widget, message, level)
 
     def setup_progress(self, max_value, label_text="Progresso:"):
-        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.print_frame)
-        self.progress_frame.setup(max_value, label_text)
+        self.app_config.setup_global_progress(max_value, label_text)
 
     def update_progress(self, value):
-        self.progress_frame.update_progress(value)
+        self.app_config.update_global_progress(value)
 
     def hide_progress(self):
-        self.progress_frame.pack_forget()
+        self.app_config.hide_global_progress()
 
     def populate_stampa_list(self):
         for widget in self.stampa_checkbox_frame.winfo_children():

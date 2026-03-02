@@ -52,19 +52,50 @@ class OrganizationProcessor:
 
     def run_organization_process(self, cancel_event):
         try:
+            source_dir = self.app_config.organizza_source_dir.get()
             dest_dir = self.app_config.organizza_dest_dir.get()
+            local_source_path = os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_SOURCE_DIR)
+
+            # 1. Logica di Importazione per Organizzazione
+            if os.path.normpath(source_dir) != os.path.normpath(local_source_path):
+                self.logger(f"Importazione schede da sorgente: {source_dir}", "INFO")
+                from src.utils.file_utils import clear_folder_content
+                clear_folder_content(local_source_path, self.logger, folder_display_name="Area Sorgente Locale")
+
+                files_to_import = self._get_excel_files(source_dir)
+                if not files_to_import:
+                    return
+
+                import shutil
+                for f in files_to_import:
+                    shutil.copy2(f, local_source_path)
+
+                self.logger(f"Importate {len(files_to_import)} schede nell'area locale.", "SUCCESS")
+                active_source = local_source_path
+            else:
+                active_source = source_dir
+
+            # 2. Backup Destinazione
             if Path(dest_dir).is_dir() and any(os.scandir(dest_dir)):
                 self.logger("Creazione backup cartella di destinazione...")
-                backup_parent = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR)
+                backup_parent = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR, "Storico_Organizzate")
                 if not create_backup(dest_dir, backup_parent_dir=backup_parent):
                     self.logger("ERRORE: Impossibile creare il backup. Operazione annullata.", "ERROR")
                     return
 
-            self._organize_files(cancel_event)
-            if cancel_event.is_set():
-                self.logger("Operazione annullata dall'utente.", "WARNING")
-            else:
+            # 3. Elaborazione
+            self._organize_files_at_path(active_source, cancel_event)
+
+            if not cancel_event.is_set():
+                self.logger("--- PULIZIA: Spostamento originali in backup... ---", "INFO")
+                backup_parent_source = os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR, "Originali_Organizzati")
+                if create_backup(active_source, backup_parent_dir=backup_parent_source):
+                    from src.utils.file_utils import clear_folder_content
+                    clear_folder_content(active_source, self.logger, folder_display_name="Schede Lavorate")
+
                 self.logger("Organizzazione completata!", "SUCCESS")
+            else:
+                self.logger("Operazione annullata dall'utente.", "WARNING")
         finally:
             self.gui.after(0, self.hide_progress)
             self.gui.after(0, self.gui.on_process_finished)
@@ -92,8 +123,7 @@ class OrganizationProcessor:
         self.gui.after(0, self.hide_progress)
         self.gui.after(0, self.gui.on_process_finished)
 
-    def _organize_files(self, cancel_event):
-        source_dir = self.app_config.organizza_source_dir.get()
+    def _organize_files_at_path(self, source_dir, cancel_event):
         dest_dir = self.app_config.organizza_dest_dir.get()
 
         excel_files = self._get_excel_files(source_dir)
@@ -145,11 +175,11 @@ class OrganizationProcessor:
             # Prevenzione Path Traversal: puliamo ulteriormente il nome
             dest_folder_name = os.path.basename(dest_folder_name)
             dest_folder_path = Path(dest_dir) / dest_folder_name
-            
+
             # Validazione che il path sia effettivamente interno alla directory di destinazione
             if str(Path(dest_dir).resolve()) not in str(dest_folder_path.resolve()):
-                 return False, "Tentativo di path traversal bloccato."
-                 
+                return False, "Tentativo di path traversal bloccato."
+
             dest_folder_path.mkdir(parents=True, exist_ok=True)
             shutil.copy2(file_path, str(dest_folder_path))
             return True, None
@@ -258,8 +288,8 @@ class OrganizationProcessor:
             try:
                 wb = excel.Workbooks.Open(giornaliera_path, ReadOnly=True)
                 if wb is None:
-                     self.logger("Apertura file Giornaliera fallita: Workbook è None.", "ERROR")
-                     return {}
+                    self.logger("Apertura file Giornaliera fallita: Workbook è None.", "ERROR")
+                    return {}
                 try:
                     ws = wb.Worksheets("RIEPILOGO")
                 except Exception:

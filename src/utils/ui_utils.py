@@ -5,7 +5,9 @@ from contextlib import suppress
 from tkinter import filedialog, ttk
 
 
-def create_path_entry(parent, label_text, variable, browse_command=None, row=0, column_span=1, readonly=False, button_text="Sfoglia"):
+def create_path_entry(
+    parent, label_text, variable, browse_command=None, row=0, column_span=1, readonly=False, button_text="Sfoglia"
+):
     """
     Creates a standardized path entry widget with an optional 'Sfoglia' button.
     """
@@ -16,29 +18,31 @@ def create_path_entry(parent, label_text, variable, browse_command=None, row=0, 
     state = "readonly" if readonly else "normal"
     ttk.Label(frame, text=label_text, width=25).grid(row=0, column=0, sticky="w", padx=(0, 5))
     ttk.Entry(frame, textvariable=variable, state=state).grid(row=0, column=1, sticky="ew", padx=5)
-    
+
     if browse_command is not None:
-        ttk.Button(frame, text=button_text, command=browse_command, width=10).grid(row=0, column=2, sticky="e", padx=(5, 0))
+        ttk.Button(frame, text=button_text, command=browse_command, width=10).grid(
+            row=0, column=2, sticky="e", padx=(5, 0)
+        )
 
 
 class ProgressWithETA(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.columnconfigure(1, weight=1)
-        
+
         self.progress_label = ttk.Label(self, text="Progresso:", width=25)
         self.progress_label.grid(row=0, column=0, sticky="w", padx=(0, 5))
-        
+
         self.progressbar = ttk.Progressbar(self, orient="horizontal", mode="determinate")
         self.progressbar.grid(row=0, column=1, sticky="ew", padx=5)
-        
+
         self.percent_label = ttk.Label(self, text="0%", width=5)
         self.percent_label.grid(row=0, column=2, sticky="w", padx=5)
-        
+
         self.eta_label = ttk.Label(self, text="ETA: --:--", width=15)
         self.eta_label.grid(row=0, column=3, sticky="e", padx=(5, 0))
-        
-        self.start_time = 0
+
+        self.start_time = 0.0
         self.max_value = 0
 
     def setup(self, max_value, label_text="Progresso:"):
@@ -52,12 +56,12 @@ class ProgressWithETA(ttk.Frame):
 
     def update_progress(self, value):
         self.progressbar["value"] = value
-        try:
+        with suppress(ValueError, TypeError):
             max_val = float(self.progressbar["maximum"])
             if max_val > 0:
                 percent = (value / max_val) * 100
                 self.percent_label["text"] = f"{percent:.0f}%"
-                
+
                 # Calcolo ETA
                 elapsed = time.time() - self.start_time
                 if value > 0 and elapsed > 1:  # Calcola dopo 1 sec per stabilità
@@ -69,8 +73,6 @@ class ProgressWithETA(ttk.Frame):
                         self.eta_label["text"] = f"ETA: {hrs:02d}:{mins:02d}:{secs:02d}"
                     else:
                         self.eta_label["text"] = f"ETA: {mins:02d}:{secs:02d}"
-        except (ValueError, TypeError):
-            pass
 
     def setup_indeterminate(self, label_text="Elaborazione in corso..."):
         self.progress_label["text"] = label_text
@@ -78,7 +80,7 @@ class ProgressWithETA(ttk.Frame):
         self.percent_label["text"] = ""
         self.eta_label["text"] = ""
         self.progressbar.start(10)
-        
+
     def stop_indeterminate(self):
         self.progressbar.stop()
         self.progressbar.config(mode="determinate")

@@ -25,9 +25,7 @@ class ConfigManager:
         # Get the previous month's date for defaults
         from datetime import datetime, timedelta
 
-        today = datetime.now()
-        first_day_current_month = today.replace(day=1)
-        prev_month_date = first_day_current_month - timedelta(days=1)
+        prev_month_date = datetime.now().replace(day=1) - timedelta(days=1)
 
         return {
             "firma_excel_dir": os.path.join(const.APPLICATION_PATH, const.FIRMA_EXCEL_INPUT_DIR),
@@ -44,7 +42,7 @@ class ConfigManager:
                 {"name": "Messina", "tcl": "MESSINA", "num": "036", "print": False},
                 {"name": "Agusta", "tcl": "AGUSTA", "num": "007", "print": False},
                 {"name": "Caldarella", "tcl": "CALDARELLA", "num": "034", "print": False},
-                {"name": "Caldarella2 (manuale)", "tcl": "CALDARELLA", "num": "011", "print": False}
+                {"name": "Caldarella2 (manuale)", "tcl": "CALDARELLA", "num": "011", "print": False},
             ],
             "canoni_word_path": const.CANONI_WORD_DEFAULT_PATH,
             "canoni_macro_name": const.DEFAULT_MACRO_NAME,
@@ -69,15 +67,15 @@ class ConfigManager:
             if Path(self.config_file_path).exists():
                 with open(self.config_file_path, encoding="utf-8") as f:
                     loaded_settings = json.load(f)
-                    
+
                     # Migrazione automatica da 'canoni_referenti' a 'canoni_tcl_list'
                     if "canoni_referenti" in loaded_settings and "canoni_tcl_list" not in loaded_settings:
                         loaded_settings["canoni_tcl_list"] = loaded_settings.pop("canoni_referenti")
-                    
+
                     # Merge loaded settings with defaults to ensure all keys exist
                     self.settings = {**self.defaults, **loaded_settings}
-                    
-                    if "rinomina_password" in self.settings and self.settings["rinomina_password"]:
+
+                    if self.settings.get("rinomina_password"):
                         pw = self.settings["rinomina_password"]
                         if pw.startswith("b64:"):
                             try:
@@ -97,8 +95,10 @@ class ConfigManager:
             self.settings.update(settings_to_save)
 
         settings_copy = self.settings.copy()
-        if "rinomina_password" in settings_copy and settings_copy["rinomina_password"]:
-            settings_copy["rinomina_password"] = "b64:" + base64.b64encode(settings_copy["rinomina_password"].encode()).decode()
+        if settings_copy.get("rinomina_password"):
+            settings_copy["rinomina_password"] = (
+                "b64:" + base64.b64encode(settings_copy["rinomina_password"].encode()).decode()
+            )
 
         try:
             with open(self.config_file_path, "w", encoding="utf-8") as f:

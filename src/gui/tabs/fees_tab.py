@@ -77,7 +77,7 @@ class FeesTab(ttk.Frame):
         # Container per la tabella (Header + Righe)
         self.table_container = ttk.Frame(self.consuntivi_frame)
         self.table_container.pack(fill=tk.X)
-        self.table_container.columnconfigure(1, weight=1) # Nome TCL
+        self.table_container.columnconfigure(1, weight=1)  # Nome TCL
 
         # Bottoni di Gestione
         mgmt_f = ttk.Frame(self.consuntivi_frame)
@@ -116,14 +116,12 @@ class FeesTab(ttk.Frame):
         printer_macro_frame = ttk.LabelFrame(settings_frame, text="Dispositivo e Macro", padding=10)
         printer_macro_frame.grid(row=3, column=0, sticky=tk.EW, pady=5)
         printer_macro_frame.columnconfigure(0, weight=1)
-        
+
         p_frame = ttk.Frame(printer_macro_frame)
         p_frame.grid(row=0, column=0, sticky="ew", pady=5)
         p_frame.columnconfigure(1, weight=1)
         ttk.Label(p_frame, text="Stampante:", width=25).grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
-        self.printer_combo = ttk.Combobox(
-            p_frame, textvariable=self.app_config.selected_printer, state="readonly"
-        )
+        self.printer_combo = ttk.Combobox(p_frame, textvariable=self.app_config.selected_printer, state="readonly")
         self.printer_combo.grid(row=0, column=1, sticky=tk.EW, padx=5)
         create_path_entry(
             printer_macro_frame,
@@ -158,15 +156,15 @@ class FeesTab(ttk.Frame):
         self.on_process_finished()
 
     def _setup_tcl_traces(self):
+        from contextlib import suppress
+
         for ref in self.app_config.canoni_tcl_vars:
             # Rimuoviamo eventuali trace vecchie per evitare duplicati
-            try:
-                for mode, callbacks in (ref["num"].trace_info() + ref["name"].trace_info()):
+            with suppress(Exception):
+                for mode, callbacks in ref["num"].trace_info() + ref["name"].trace_info():
                     ref["num"].trace_remove(mode, callbacks[0])
                     ref["name"].trace_remove(mode, callbacks[0])
-            except Exception:
-                pass
-            
+
             ref["num"].trace_add("write", self._update_paths_from_ui)
             # Se cambia il nome, aggiorniamo il log o la vista se necessario
             ref["name"].trace_add("write", lambda *args: self.log_canoni("Nominativo aggiornato", "DEBUG"))
@@ -177,20 +175,26 @@ class FeesTab(ttk.Frame):
             widget.destroy()
 
         # Header con larghezze fisse per allineamento
-        ttk.Label(self.table_container, text="Stampa", font=self.app_config.font_bold, width=8, anchor="center").grid(row=0, column=0, padx=5, pady=5)
-        ttk.Label(self.table_container, text="Nome TCL", font=self.app_config.font_bold, width=35).grid(row=0, column=1, padx=5, pady=5, sticky="w")
-        ttk.Label(self.table_container, text="N° Canone", font=self.app_config.font_bold, width=15).grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        ttk.Label(self.table_container, text="Stampa", font=self.app_config.font_bold, width=8, anchor="center").grid(
+            row=0, column=0, padx=5, pady=5
+        )
+        ttk.Label(self.table_container, text="Nome TCL", font=self.app_config.font_bold, width=35).grid(
+            row=0, column=1, padx=5, pady=5, sticky="w"
+        )
+        ttk.Label(self.table_container, text="N° Canone", font=self.app_config.font_bold, width=15).grid(
+            row=0, column=2, padx=5, pady=5, sticky="w"
+        )
 
         for i, ref in enumerate(self.app_config.canoni_tcl_vars):
             row_idx = i + 1
             # Checkbutton centrato
             cb = ttk.Checkbutton(self.table_container, variable=ref["print"])
             cb.grid(row=row_idx, column=0, padx=5, pady=2)
-            
+
             # Label per il nome (Fisso, non Entry per risparmiare spazio e confusione)
             name_lbl = ttk.Label(self.table_container, textvariable=ref["name"], width=35)
             name_lbl.grid(row=row_idx, column=1, padx=5, pady=2, sticky="w")
-            
+
             # Entry per il numero (unica cosa modificabile qui)
             num_ent = ttk.Entry(self.table_container, textvariable=ref["num"], width=15)
             num_ent.grid(row=row_idx, column=2, padx=5, pady=2, sticky="w")
@@ -218,7 +222,7 @@ class FeesTab(ttk.Frame):
         month = self.app_config.canoni_selected_month.get()
         giornaliera_path = self.processor.get_giornaliera_path(year, month)
         self.app_config.canoni_giornaliera_path.set(giornaliera_path)
-        
+
         for ref in self.app_config.canoni_tcl_vars:
             p = self.processor.get_consuntivo_path(year, ref["num"].get())
             ref["path"].set(p)
@@ -227,15 +231,12 @@ class FeesTab(ttk.Frame):
         self.cancel_event.clear()
         self.toggle_buttons(is_running=True)
         self.show_progress()
-        
-        consuntivi_data = []
-        for ref in self.app_config.canoni_tcl_vars:
-            consuntivi_data.append({
-                "path": ref["path"].get(),
-                "print": ref["print"].get(),
-                "name": ref["name"].get()
-            })
-            
+
+        consuntivi_data = [
+            {"path": ref["path"].get(), "print": ref["print"].get(), "name": ref["name"].get()}
+            for ref in self.app_config.canoni_tcl_vars
+        ]
+
         paths_to_print = {
             "giornaliera": self.app_config.canoni_giornaliera_path.get(),
             "consuntivi": consuntivi_data,
@@ -259,7 +260,7 @@ class FeesTab(ttk.Frame):
         try:
             year = self.app_config.canoni_selected_year.get()
             month = self.app_config.canoni_selected_month.get()
-            
+
             # Mappa TCL -> StringVar per il popolamento
             tcls_to_find = {}
             for ref in self.app_config.canoni_tcl_vars:
@@ -299,12 +300,10 @@ class FeesTab(ttk.Frame):
             self.run_button.pack(fill=tk.X, ipady=8, pady=5)
 
     def show_progress(self):
-        self.progress_frame.pack(fill=tk.X, pady=(10, 5), after=self.actions_frame)
-        self.progress_frame.setup_indeterminate()
+        self.app_config.show_global_indeterminate("Ricerca in corso...")
 
     def hide_progress(self):
-        self.progress_frame.stop_indeterminate()
-        self.progress_frame.pack_forget()
+        self.app_config.hide_global_progress()
 
     def log_canoni(self, message, level="INFO"):
         self.master.after(0, self.log_widget, message, level)

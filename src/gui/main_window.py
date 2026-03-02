@@ -106,10 +106,10 @@ class MainApplication(tk.Tk):
         self.organizza_dest_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_DEST_DIR))
         self.canoni_selected_year = tk.StringVar()
         self.canoni_selected_month = tk.StringVar()
-        
+
         # Le variabili dinamiche dei TCL verranno popolate in _load_config_into_vars
         self.canoni_tcl_vars = []
-        
+
         self.canoni_word_path = tk.StringVar()
         self.selected_printer = tk.StringVar()
         self.canoni_macro_name = tk.StringVar(value=const.DEFAULT_MACRO_NAME)
@@ -118,7 +118,7 @@ class MainApplication(tk.Tk):
         self.canoni_cons2_path = tk.StringVar()
         self.canoni_cons3_path = tk.StringVar()
         self.canoni_cons4_path = tk.StringVar()
-        
+
         # New dynamic settings
         self.canoni_giornaliera_base_dir = tk.StringVar()
         self.canoni_consuntivi_base_dir = tk.StringVar()
@@ -136,18 +136,20 @@ class MainApplication(tk.Tk):
         self.canoni_selected_year.set(prev_month_year_str)
         self.canoni_selected_month.set(fees_tab_month_name)
         organize_folder_month_str = f"{prev_month_date.month:02d} - {fees_tab_month_name.upper()}"
-        
+
         tcl_data = self.config_manager.get("canoni_tcl_list")
         self.canoni_tcl_vars = []
         for ref in tcl_data:
-            self.canoni_tcl_vars.append({
-                "name": tk.StringVar(value=ref.get("name", "")),
-                "tcl": tk.StringVar(value=ref.get("tcl", "")),
-                "num": tk.StringVar(value=ref.get("num", "")),
-                "print": tk.BooleanVar(value=ref.get("print", False)),
-                "path": tk.StringVar(value="")
-            })
-            
+            self.canoni_tcl_vars.append(
+                {
+                    "name": tk.StringVar(value=ref.get("name", "")),
+                    "tcl": tk.StringVar(value=ref.get("tcl", "")),
+                    "num": tk.StringVar(value=ref.get("num", "")),
+                    "print": tk.BooleanVar(value=ref.get("print", False)),
+                    "path": tk.StringVar(value=""),
+                }
+            )
+
         self.canoni_word_path.set(self.config_manager.get("canoni_word_path"))
         self.selected_printer.set(self.config_manager.get("selected_printer"))
         self.email_to.set(self.config_manager.get("email_to"))
@@ -159,12 +161,32 @@ class MainApplication(tk.Tk):
         self.canoni_giornaliera_base_dir.set(self.config_manager.get("canoni_giornaliera_base_dir"))
         self.canoni_consuntivi_base_dir.set(self.config_manager.get("canoni_consuntivi_base_dir"))
         self.organizza_base_dir.set(self.config_manager.get("organizza_base_dir"))
-        
-        organize_default_path = os.path.join(self.organizza_base_dir.get(), prev_month_year_str, organize_folder_month_str)
+
+        organize_default_path = os.path.join(
+            self.organizza_base_dir.get(), prev_month_year_str, organize_folder_month_str
+        )
         self.organizza_source_dir.set(organize_default_path)
 
     def _create_widgets(self):
         self.configure(background=self.background_color)
+
+        # --- Header con Progress Bar Globale ---
+        self.header_frame = ttk.Frame(self, padding=(15, 5))
+        self.header_frame.pack(fill=tk.X, side=tk.TOP)
+        self.header_frame.columnconfigure(0, weight=1)
+
+        # Info App a sinistra
+        app_info_lbl = ttk.Label(self.header_frame, text="GESTIONE DOCUMENTI - SMI", font=("Segoe UI", 9, "bold"), foreground="#666666")
+        app_info_lbl.grid(row=0, column=0, sticky="w")
+
+        from src.utils.ui_utils import ProgressWithETA
+        self.global_progress_container = ttk.Frame(self.header_frame)
+        self.global_progress_container.grid(row=0, column=1, sticky="e")
+
+        self.global_progress = ProgressWithETA(self.global_progress_container)
+        # La teniamo inizialmente invisibile tramite il metodo hide_global_progress()
+        self.hide_global_progress()
+
         main_container = ttk.Frame(self, padding="10")
         main_container.pack(fill=tk.BOTH, expand=True)
 
@@ -185,8 +207,8 @@ class MainApplication(tk.Tk):
         self.canoni_container.columnconfigure(0, weight=1)
         self.impostazioni_container.columnconfigure(0, weight=1)
 
-        notebook.add(self.firma_container, text=" Apponi Firma ")
         notebook.add(self.rinomina_container, text=" Aggiungi Data Schede ")
+        notebook.add(self.firma_container, text=" Apponi Firma ")
         notebook.add(self.organizza_container, text=" Organizza e Stampa Schede ")
         notebook.add(self.canoni_container, text=" Stampa Canoni Mensili ")
         notebook.add(self.impostazioni_container, text=" Impostazioni Avanzate ")
@@ -242,14 +264,10 @@ class MainApplication(tk.Tk):
 
     def _on_closing(self):
         # --- On Closing ---
-        tcl_to_save = []
-        for ref in self.canoni_tcl_vars:
-            tcl_to_save.append({
-                "name": ref["name"].get(),
-                "tcl": ref["tcl"].get(),
-                "num": ref["num"].get(),
-                "print": ref["print"].get()
-            })
+        tcl_to_save = [
+            {"name": ref["name"].get(), "tcl": ref["tcl"].get(), "num": ref["num"].get(), "print": ref["print"].get()}
+            for ref in self.canoni_tcl_vars
+        ]
 
         current_config = {
             "firma_ghostscript_path": self.firma_ghostscript_path.get(),
@@ -270,3 +288,22 @@ class MainApplication(tk.Tk):
         }
         self.config_manager.save(current_config)
         self.destroy()
+
+    # --- Metodi Progress Bar Globale ---
+    def setup_global_progress(self, max_value, label_text="Progresso:"):
+        self.global_progress.pack(side=tk.RIGHT)
+        self.global_progress.setup(max_value, label_text)
+        self.header_frame.update_idletasks()
+
+    def show_global_indeterminate(self, label_text="Elaborazione..."):
+        self.global_progress.pack(side=tk.RIGHT)
+        self.global_progress.setup_indeterminate(label_text)
+        self.header_frame.update_idletasks()
+
+    def update_global_progress(self, value):
+        self.global_progress.update_progress(value)
+
+    def hide_global_progress(self):
+        self.global_progress.stop_indeterminate()
+        self.global_progress.pack_forget()
+        self.header_frame.update_idletasks()
