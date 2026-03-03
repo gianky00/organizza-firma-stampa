@@ -1,7 +1,7 @@
-import tkinter as tk
 from unittest.mock import MagicMock
 
 import pytest
+from PySide6.QtWidgets import QWidget
 
 
 @pytest.fixture
@@ -12,10 +12,11 @@ def mock_logger():
 
 @pytest.fixture
 def mock_gui():
-    """Fixture per simulare la GUI di Tkinter con gli attributi necessari."""
-    gui = MagicMock(spec=tk.Tk)
+    """Fixture per simulare la GUI di PySide6 con gli attributi necessari."""
+    gui = MagicMock(spec=QWidget)
     gui.after = MagicMock()
     gui.on_process_finished = MagicMock()
+    gui.show_indeterminate = MagicMock()
     # Loggers specifici
     gui.log_rinomina = MagicMock()
     gui.log_organizza = MagicMock()

@@ -9,7 +9,14 @@ def test_prepare_email_draft_logic(mock_logger):
     mock_mail = MagicMock()
     mock_mail.HTMLBody = "-- Firma --"
     mock_outlook.CreateItem.return_value = mock_mail
-    draft_data = {"to": "t", "cc": "c", "subject": "s", "intro_text": "i", "file_list": ["f"], "attachments": ["a"]}
+    draft_data = {
+        "to": "t",
+        "cc": "c",
+        "subject": "s",
+        "intro_text": "i",
+        "file_list": [{"name": "f", "tcl": "test"}],
+        "attachments": ["a"],
+    }
     with (
         patch("win32com.client.Dispatch", return_value=mock_outlook),
         patch("pythoncom.CoInitialize"),

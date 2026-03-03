@@ -1,7 +1,18 @@
 import os
-import tkinter as tk
 from datetime import datetime, timedelta
-from tkinter import ttk
+
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QApplication,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from src.gui.tabs.fees_tab import FeesTab
 from src.gui.tabs.organize_tab import OrganizeTab
@@ -10,19 +21,16 @@ from src.gui.tabs.settings_tab import SettingsTab
 from src.gui.tabs.signature_tab import SignatureTab
 from src.utils import constants as const
 from src.utils.config_manager import ConfigManager
-from src.utils.ui_utils import create_log_widget, log_message
+from src.utils.qt_vars import BooleanVar, StringVar
+from src.utils.ui_utils import ProgressWithETA, create_log_widget, log_message
 
 
-class MainApplication(tk.Tk):
+class MainApplication(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title("Gestione Documenti Ufficio (Refactored)")
-        try:
-            self.state("zoomed")
-        except tk.TclError:
-            self.geometry("1200x900")
-            self.center_window(1200, 900)
-        self.resizable(True, True)
+        self.setWindowTitle("Gestione Documenti Ufficio (PySide6)")
+        self.resize(1200, 900)
+        self.center_window(1200, 900)
 
         self.config_manager = ConfigManager()
         self.config_manager.load()
@@ -32,49 +40,64 @@ class MainApplication(tk.Tk):
         self._setup_style()
         self._create_widgets()
 
-        self.protocol("WM_DELETE_WINDOW", self._on_closing)
-
     def center_window(self, width, height):
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        x = (screen_width // 2) - (width // 2)
-        y = (screen_height // 2) - (height // 2)
-        self.geometry(f"{width}x{height}+{x}+{y}")
+        # We can use QScreen to find center
+        screen_geometry = QApplication.primaryScreen().availableGeometry()
+        x = (screen_geometry.width() - width) // 2
+        y = (screen_geometry.height() - height) // 2
+        self.setGeometry(x, y, width, height)
+        # Try to maximize
+        self.showMaximized()
 
     def _setup_style(self):
-        self.font_main = ("Segoe UI", 10)
-        self.font_bold = ("Segoe UI", 11, "bold")
+        # We will use modern PySide6 styles / stylesheets
         self.background_color = "#f0f0f0"
-
-        style = ttk.Style(self)
-        style.theme_use("clam")
-
-        style.configure(".", font=self.font_main, background=self.background_color)
-        style.configure("TLabel", font=self.font_main, background=self.background_color)
-        style.configure("TLabelframe", background=self.background_color, bordercolor="#cccccc")
-        style.configure("TLabelframe.Label", font=self.font_bold, background=self.background_color)
-        style.configure("info.TLabel", foreground="#333333", background=self.background_color)
-
-        style.configure("TButton", padding=6, font=self.font_main)
-        style.map("TButton", background=[("active", "#e0e0e0")], foreground=[("disabled", "#a0a0a0")])
-
-        style.configure("primary.TButton", background="#0078D4", foreground="white", font=self.font_bold)
-        style.map(
-            "primary.TButton",
-            background=[("active", "#005a9e"), ("disabled", "#a0a0a0")],
-            foreground=[("disabled", "#ffffff")],
-        )
-
-        style.configure("TNotebook", background=self.background_color, borderwidth=0)
-        style.configure("TNotebook.Tab", padding=[12, 6], font=self.font_main)
-        style.map(
-            "TNotebook.Tab",
-            background=[("selected", self.background_color), ("!selected", "#d0d0d0")],
-            expand=[("selected", [0, 2, 0, 0])],
-        )
+        self.setStyleSheet(f"""
+            QMainWindow {{
+                background-color: {self.background_color};
+            }}
+            QTabWidget::pane {{
+                border: 1px solid #cccccc;
+                background: {self.background_color};
+            }}
+            QTabBar::tab {{
+                background: #d0d0d0;
+                padding: 8px 15px;
+                margin-right: 2px;
+                font-family: 'Segoe UI';
+                font-size: 10pt;
+            }}
+            QTabBar::tab:selected {{
+                background: {self.background_color};
+                border-bottom-color: {self.background_color};
+                font-weight: bold;
+            }}
+            QGroupBox {{
+                font-weight: bold;
+                border: 1px solid #cccccc;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 15px;
+                font-family: 'Segoe UI';
+                font-size: 11pt;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 3px;
+            }}
+            QLabel {{
+                font-family: 'Segoe UI';
+                font-size: 10pt;
+            }}
+            QPushButton {{
+                padding: 6px;
+                font-family: 'Segoe UI';
+                font-size: 10pt;
+            }}
+        """)
 
     def _initialize_stringvars(self):
-        # ... (this method is unchanged)
         self.FIRMA_EXCEL_INPUT_DIR = const.FIRMA_EXCEL_INPUT_DIR
         self.ORGANIZZA_DEST_DIR = const.ORGANIZZA_DEST_DIR
         self.CANONI_GIORNALIERA_BASE_DIR = const.CANONI_GIORNALIERA_BASE_DIR
@@ -87,47 +110,57 @@ class MainApplication(tk.Tk):
         self.EMAIL_BODY_FORMAL = const.EMAIL_BODY_FORMAL
         self.EMAIL_BODY_GENERIC_INFORMAL = const.EMAIL_BODY_GENERIC_INFORMAL
         self.EMAIL_BODY_GENERIC_FORMAL = const.EMAIL_BODY_GENERIC_FORMAL
-        self.firma_excel_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.FIRMA_EXCEL_INPUT_DIR))
-        self.firma_image_path = tk.StringVar(
-            value=os.path.join(const.APPLICATION_PATH, "src", "assets", const.FIRMA_IMAGE_NAME)
+
+        self.firma_excel_dir = StringVar(
+            value=os.path.join(const.APPLICATION_PATH, const.FIRMA_EXCEL_INPUT_DIR), parent=self
         )
-        self.firma_pdf_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.FIRMA_PDF_OUTPUT_DIR))
-        self.firma_ghostscript_path = tk.StringVar()
-        self.firma_processing_mode = tk.StringVar(value="schede")
-        self.email_to = tk.StringVar()
-        self.email_cc = tk.StringVar()
-        self.email_subject = tk.StringVar()
-        self.email_tcl = tk.StringVar()
-        self.email_is_formal = tk.BooleanVar(value=False)
-        self.email_size_limit = tk.StringVar(value="6")
-        self.rinomina_path = tk.StringVar()
-        self.rinomina_password = tk.StringVar()
-        self.organizza_source_dir = tk.StringVar()
-        self.organizza_dest_dir = tk.StringVar(value=os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_DEST_DIR))
-        self.canoni_selected_year = tk.StringVar()
-        self.canoni_selected_month = tk.StringVar()
+        self.firma_image_path = StringVar(
+            value=os.path.join(const.APPLICATION_PATH, "src", "assets", const.FIRMA_IMAGE_NAME), parent=self
+        )
+        self.firma_pdf_dir = StringVar(
+            value=os.path.join(const.APPLICATION_PATH, const.FIRMA_PDF_OUTPUT_DIR), parent=self
+        )
+        self.firma_ghostscript_path = StringVar(parent=self)
+        self.firma_processing_mode = StringVar(value="schede", parent=self)
+        self.email_to = StringVar(parent=self)
+        self.email_cc = StringVar(parent=self)
+        self.email_subject = StringVar(parent=self)
+        self.email_tcl = StringVar(parent=self)
+        self.email_is_formal = BooleanVar(value=False, parent=self)
+        self.email_size_limit = StringVar(value="6", parent=self)
+        self.rinomina_path = StringVar(parent=self)
+        self.rinomina_password = StringVar(parent=self)
+        self.organizza_source_dir = StringVar(parent=self)
+        self.organizza_dest_dir = StringVar(
+            value=os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_DEST_DIR), parent=self
+        )
+        self.canoni_selected_year = StringVar(parent=self)
+        self.canoni_selected_month = StringVar(parent=self)
 
         # Le variabili dinamiche dei TCL verranno popolate in _load_config_into_vars
         self.canoni_tcl_vars = []
         self.rename_models_vars = []
 
-        self.canoni_word_path = tk.StringVar()
-        self.selected_printer = tk.StringVar()
-        self.canoni_macro_name = tk.StringVar(value=const.DEFAULT_MACRO_NAME)
-        self.canoni_giornaliera_path = tk.StringVar()
-        self.canoni_cons1_path = tk.StringVar()
-        self.canoni_cons2_path = tk.StringVar()
-        self.canoni_cons3_path = tk.StringVar()
-        self.canoni_cons4_path = tk.StringVar()
+        self.canoni_word_path = StringVar(parent=self)
+        self.selected_printer = StringVar(parent=self)
+        self.canoni_macro_name = StringVar(value=const.DEFAULT_MACRO_NAME, parent=self)
+        self.canoni_giornaliera_path = StringVar(parent=self)
+        self.canoni_cons1_path = StringVar(parent=self)
+        self.canoni_cons2_path = StringVar(parent=self)
+        self.canoni_cons3_path = StringVar(parent=self)
+        self.canoni_cons4_path = StringVar(parent=self)
 
         # New dynamic settings
-        self.canoni_giornaliera_base_dir = tk.StringVar()
-        self.canoni_consuntivi_base_dir = tk.StringVar()
-        self.organizza_base_dir = tk.StringVar()
+        self.canoni_giornaliera_base_dir = StringVar(parent=self)
+        self.canoni_consuntivi_base_dir = StringVar(parent=self)
+        self.organizza_base_dir = StringVar(parent=self)
 
     def _load_config_into_vars(self):
-        # ... (this method is unchanged)
+        self.firma_excel_dir.set(self.config_manager.get("firma_excel_dir"))
+        self.firma_pdf_dir.set(self.config_manager.get("firma_pdf_dir"))
+        self.firma_image_path.set(self.config_manager.get("firma_image_path"))
         self.firma_ghostscript_path.set(self.config_manager.get("firma_ghostscript_path"))
+        self.firma_processing_mode.set(self.config_manager.get("firma_processing_mode"))
         self.rinomina_path.set(self.config_manager.get("rinomina_path"))
         self.rinomina_password.set(self.config_manager.get("rinomina_password"))
         today = datetime.now()
@@ -143,43 +176,39 @@ class MainApplication(tk.Tk):
         for ref in tcl_data:
             self.canoni_tcl_vars.append(
                 {
-                    "name": tk.StringVar(value=ref.get("name", "")),
-                    "tcl": tk.StringVar(value=ref.get("tcl", "")),
-                    "num": tk.StringVar(value=ref.get("num", "")),
-                    "print": tk.BooleanVar(value=ref.get("print", False)),
-                    "path": tk.StringVar(value=""),
+                    "name": StringVar(value=ref.get("name", ""), parent=self),
+                    "tcl": StringVar(value=ref.get("tcl", ""), parent=self),
+                    "num": StringVar(value=ref.get("num", ""), parent=self),
+                    "print": BooleanVar(value=ref.get("print", False), parent=self),
+                    "path": StringVar(value="", parent=self),
                 }
             )
 
         models_data = self.config_manager.get("rename_models_config")
         self.rename_models_vars = []
-        
+
         # Carica modelli di default per fallback/healing
         from src.domain.models import RENAME_MODELS
+
         defaults_map = {m.match_value: m for m in RENAME_MODELS}
 
         for mod in models_data:
-            # 1. Recupero Match Value
             match_val = mod.get("match_value", "")
-            
-            # 2. Recupero ID Cells (Legacy support + Healing)
+
             raw_id_cells = mod.get("id_cells", [])
             if not raw_id_cells and mod.get("id_cell"):
                 raw_id_cells = [mod.get("id_cell")]
-            
-            # Se ancora vuoto e abbiamo un default per questo match_value, cura il dato
+
             if not raw_id_cells and match_val in defaults_map:
                 raw_id_cells = defaults_map[match_val].id_cells
 
-            # 3. Recupero TCL Cells (Legacy support + Healing)
             raw_tcl_cells = mod.get("tcl_cells", [])
             if not raw_tcl_cells and mod.get("tcl_cell"):
                 raw_tcl_cells = [mod.get("tcl_cell")]
-            
+
             if not raw_tcl_cells and match_val in defaults_map:
                 raw_tcl_cells = defaults_map[match_val].tcl_cells
 
-            # 4. Altri campi con healing per print_area
             print_area = mod.get("print_area")
             if not print_area and match_val in defaults_map:
                 print_area = defaults_map[match_val].print_area
@@ -188,12 +217,12 @@ class MainApplication(tk.Tk):
 
             self.rename_models_vars.append(
                 {
-                    "name": tk.StringVar(value=mod.get("name", "")),
-                    "match_value": tk.StringVar(value=match_val),
-                    "id_cells": tk.StringVar(value=", ".join(raw_id_cells)),
-                    "tcl_cell": tk.StringVar(value=raw_tcl_cells[0] if raw_tcl_cells else ""),
-                    "date_cells": tk.StringVar(value=", ".join(mod.get("date_cells", []))),
-                    "print_area": tk.StringVar(value=print_area),
+                    "name": StringVar(value=mod.get("name", ""), parent=self),
+                    "match_value": StringVar(value=match_val, parent=self),
+                    "id_cells": StringVar(value=", ".join(raw_id_cells), parent=self),
+                    "tcl_cell": StringVar(value=raw_tcl_cells[0] if raw_tcl_cells else "", parent=self),
+                    "date_cells": StringVar(value=", ".join(mod.get("date_cells", [])), parent=self),
+                    "print_area": StringVar(value=print_area, parent=self),
                 }
             )
 
@@ -215,56 +244,61 @@ class MainApplication(tk.Tk):
         self.organizza_source_dir.set(organize_default_path)
 
     def _create_widgets(self):
-        self.configure(background=self.background_color)
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
+        main_layout = QVBoxLayout(main_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
 
         # --- Header con Progress Bar Globale ---
-        self.header_frame = ttk.Frame(self, padding=(15, 5))
-        self.header_frame.pack(fill=tk.X, side=tk.TOP)
+        self.header_frame = QWidget()
+        header_layout = QHBoxLayout(self.header_frame)
+        header_layout.setContentsMargins(0, 0, 0, 0)
 
         # Info App a sinistra
-        app_info_lbl = ttk.Label(
-            self.header_frame, text="GESTIONE DOCUMENTI - SMI", font=("Segoe UI", 9, "bold"), foreground="#666666"
-        )
-        app_info_lbl.pack(side=tk.LEFT)
+        app_info_lbl = QLabel("GESTIONE DOCUMENTI - SMI")
+        font = QFont("Segoe UI", 10, QFont.Weight.Bold)
+        app_info_lbl.setFont(font)
+        app_info_lbl.setStyleSheet("color: #666666;")
+        header_layout.addWidget(app_info_lbl)
 
-        from src.utils.ui_utils import ProgressWithETA
+        header_layout.addStretch()
 
         self.global_progress = ProgressWithETA(self.header_frame)
-        # Inizialmente non visibile
-        self.global_progress.pack_forget()
+        self.global_progress.hide()
+        header_layout.addWidget(self.global_progress)
 
-        main_container = ttk.Frame(self, padding="10")
-        main_container.pack(fill=tk.BOTH, expand=True)
+        main_layout.addWidget(self.header_frame)
 
-        # --- Notebook for Tabs ---
-        notebook = ttk.Notebook(main_container)
-        notebook.pack(expand=True, fill="both")
+        # --- Tab Widget ---
+        self.notebook = QTabWidget()
+        main_layout.addWidget(self.notebook)
 
         # --- Create Tab Containers ---
-        self.firma_container = ttk.Frame(notebook, padding="15")
-        self.rinomina_container = ttk.Frame(notebook, padding="15")
-        self.organizza_container = ttk.Frame(notebook, padding="15")
-        self.canoni_container = ttk.Frame(notebook, padding="15")
-        self.impostazioni_container = ttk.Frame(notebook, padding="15")
+        self.rinomina_container = QWidget()
+        self.firma_container = QWidget()
+        self.organizza_container = QWidget()
+        self.canoni_container = QWidget()
+        self.impostazioni_container = QWidget()
 
-        self.firma_container.columnconfigure(0, weight=1)
-        self.rinomina_container.columnconfigure(0, weight=1)
-        self.organizza_container.columnconfigure(0, weight=1)
-        self.canoni_container.columnconfigure(0, weight=1)
-        self.impostazioni_container.columnconfigure(0, weight=1)
+        self.notebook.addTab(self.rinomina_container, " Aggiungi Data Schede ")
+        self.notebook.addTab(self.firma_container, " Apponi Firma ")
+        self.notebook.addTab(self.organizza_container, " Organizza e Stampa Schede ")
+        self.notebook.addTab(self.canoni_container, " Stampa Canoni Mensili ")
+        self.notebook.addTab(self.impostazioni_container, " Impostazioni Avanzate ")
 
-        notebook.add(self.rinomina_container, text=" Aggiungi Data Schede ")
-        notebook.add(self.firma_container, text=" Apponi Firma ")
-        notebook.add(self.organizza_container, text=" Organizza e Stampa Schede ")
-        notebook.add(self.canoni_container, text=" Stampa Canoni Mensili ")
-        notebook.add(self.impostazioni_container, text=" Impostazioni Avanzate ")
+        # --- Initialize Layouts for Tabs ---
+        self.rinomina_layout = QVBoxLayout(self.rinomina_container)
+        self.firma_layout = QVBoxLayout(self.firma_container)
+        self.organizza_layout = QVBoxLayout(self.organizza_container)
+        self.canoni_layout = QVBoxLayout(self.canoni_container)
+        self.impostazioni_layout = QVBoxLayout(self.impostazioni_container)
 
         # --- Create Log Widgets ---
-        self.log_widget_firma, self.log_frame_firma = self._create_log_frame(
-            self.firma_container, "Log Esecuzione (Firma)"
-        )
         self.log_widget_rinomina, self.log_frame_rinomina = self._create_log_frame(
             self.rinomina_container, "Log Esecuzione (Aggiungi Data)"
+        )
+        self.log_widget_firma, self.log_frame_firma = self._create_log_frame(
+            self.firma_container, "Log Esecuzione (Firma)"
         )
         self.log_widget_organizza, self.log_frame_organizza = self._create_log_frame(
             self.organizza_container, "Log Esecuzione (Organizza/Stampa)"
@@ -273,46 +307,43 @@ class MainApplication(tk.Tk):
             self.canoni_container, "Log Esecuzione (Stampa Canoni)"
         )
 
-        # --- Dependency Injection and Tab Creation ---
-        # PACK LOGS FIRST AT BOTTOM (Ensure they are visible)
-        self.log_frame_firma.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
-        self.log_frame_rinomina.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
-        self.log_frame_canoni.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
-        self.log_frame_organizza.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=False, pady=(15, 0))
+        # Instantiate Tabs (They will add themselves or provide their widgets to add)
+        # Note: In PySide6, we typically pass the parent and the layout, or the Tab inherits from QWidget and we just add it to the layout.
+        # For simplicity during migration, we'll instantiate them and add them to the VBoxLayouts.
 
-        # THEN PACK TABS (they will expand to fill the rest)
+        self.rename_tab = RenameTab(self, lambda msg, level="INFO": log_message(self.log_widget_rinomina, msg, level))
+        self.rinomina_layout.addWidget(self.rename_tab, 1)  # stretch=1
+        self.rinomina_layout.addWidget(self.log_frame_rinomina)
+
         self.signature_tab = SignatureTab(
-            self.firma_container, self, lambda msg, level="INFO": log_message(self.log_widget_firma, msg, level)
+            self, lambda msg, level="INFO": log_message(self.log_widget_firma, msg, level)
         )
-        self.signature_tab.pack(fill="both", expand=True)
+        self.firma_layout.addWidget(self.signature_tab, 1)
+        self.firma_layout.addWidget(self.log_frame_firma)
 
-        self.rename_tab = RenameTab(
-            self.rinomina_container, self, lambda msg, level="INFO": log_message(self.log_widget_rinomina, msg, level)
-        )
-        self.rename_tab.pack(fill="both", expand=True)
-
-        self.fees_tab = FeesTab(
-            self.canoni_container, self, lambda msg, level="INFO": log_message(self.log_widget_canoni, msg, level)
-        )
-        self.fees_tab.pack(fill="both", expand=True)
+        self.fees_tab = FeesTab(self, lambda msg, level="INFO": log_message(self.log_widget_canoni, msg, level))
+        self.canoni_layout.addWidget(self.fees_tab, 1)
+        self.canoni_layout.addWidget(self.log_frame_canoni)
 
         self.organize_tab = OrganizeTab(
-            self.organizza_container,
-            self,
-            lambda msg, level="INFO": log_message(self.log_widget_organizza, msg, level),
-            self.fees_tab.processor,
+            self, lambda msg, level="INFO": log_message(self.log_widget_organizza, msg, level), self.fees_tab.processor
         )
-        self.organize_tab.pack(fill="both", expand=True)
+        self.organizza_layout.addWidget(self.organize_tab, 1)
+        self.organizza_layout.addWidget(self.log_frame_organizza)
 
-        self.settings_tab = SettingsTab(self.impostazioni_container, self)
-        self.settings_tab.pack(fill="both", expand=True)
+        self.settings_tab = SettingsTab(self)
+        self.impostazioni_layout.addWidget(self.settings_tab, 1)
 
     def _create_log_frame(self, parent, title):
-        log_frame = ttk.LabelFrame(parent, text=title, padding="10")
+        log_frame = QGroupBox(title)
+        layout = QVBoxLayout(log_frame)
         log_widget = create_log_widget(log_frame)
+        layout.addWidget(log_widget)
+        # Prevent it from expanding too much
+        log_frame.setMaximumHeight(200)
         return log_widget, log_frame
 
-    def _on_closing(self):
+    def closeEvent(self, event):
         # --- On Closing ---
         tcl_to_save = [
             {"name": ref["name"].get(), "tcl": ref["tcl"].get(), "num": ref["num"].get(), "print": ref["print"].get()}
@@ -323,16 +354,18 @@ class MainApplication(tk.Tk):
         for mod in self.rename_models_vars:
             id_list = [d.strip() for d in mod["id_cells"].get().split(",") if d.strip()]
             tcl_val = mod["tcl_cell"].get().strip()
-            models_to_save.append({
-                "name": mod["name"].get(),
-                "match_value": mod["match_value"].get(),
-                "id_cells": id_list,
-                "id_cell": id_list[0] if id_list else "", # Legacy support
-                "tcl_cells": [tcl_val] if tcl_val else [],
-                "tcl_cell": tcl_val, # Legacy support
-                "date_cells": [d.strip() for d in mod["date_cells"].get().split(",") if d.strip()],
-                "print_area": mod["print_area"].get(),
-            })
+            models_to_save.append(
+                {
+                    "name": mod["name"].get(),
+                    "match_value": mod["match_value"].get(),
+                    "id_cells": id_list,
+                    "id_cell": id_list[0] if id_list else "",  # Legacy support
+                    "tcl_cells": [tcl_val] if tcl_val else [],
+                    "tcl_cell": tcl_val,  # Legacy support
+                    "date_cells": [d.strip() for d in mod["date_cells"].get().split(",") if d.strip()],
+                    "print_area": mod["print_area"].get(),
+                }
+            )
 
         current_config = {
             "firma_ghostscript_path": self.firma_ghostscript_path.get(),
@@ -353,29 +386,32 @@ class MainApplication(tk.Tk):
             "organizza_base_dir": self.organizza_base_dir.get(),
         }
         self.config_manager.save(current_config)
-        self.destroy()
+        event.accept()
 
     # --- Metodi Progress Bar Globale ---
     def setup_global_progress(self, max_value, label_text="Progresso:"):
         def _setup():
-            self.global_progress.pack(side=tk.RIGHT, padx=10)
+            self.global_progress.show()
             self.global_progress.setup(max_value, label_text)
-            self.header_frame.update()
-        self.after(0, _setup)
+
+        QTimer.singleShot(0, _setup)
 
     def show_global_indeterminate(self, label_text="Elaborazione..."):
         def _show():
-            self.global_progress.pack(side=tk.RIGHT, padx=10)
+            self.global_progress.show()
             self.global_progress.setup_indeterminate(label_text)
-            self.header_frame.update()
-        self.after(0, _show)
+
+        QTimer.singleShot(0, _show)
 
     def update_global_progress(self, value):
-        self.after(0, self.global_progress.update_progress, value)
+        def _update():
+            self.global_progress.update_progress(value)
+
+        QTimer.singleShot(0, _update)
 
     def hide_global_progress(self):
         def _hide():
             self.global_progress.stop_indeterminate()
-            self.global_progress.pack_forget()
-            self.header_frame.update()
-        self.after(0, _hide)
+            self.global_progress.hide()
+
+        QTimer.singleShot(0, _hide)

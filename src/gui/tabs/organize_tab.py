@@ -1,117 +1,124 @@
 import os
 import threading
-import tkinter as tk
-from tkinter import ttk
+
+from PySide6.QtCore import Qt, Signal, QTimer, Signal
+from PySide6.QtWidgets import QCheckBox, QGroupBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from src.logic.organization import OrganizationProcessor
 from src.utils.ui_utils import create_path_entry, open_folder_in_explorer, select_folder_dialog
 
 
-class OrganizeTab(ttk.Frame):
-    def __init__(self, parent, app_config, logger, fees_processor, processor_class=None, excel_gateway_class=None):
+class OrganizeTab(QWidget):
+    log_signal = Signal(str, str)
+    progress_setup_signal = Signal(float, str)
+    progress_update_signal = Signal(float)
+    progress_hide_signal = Signal()
+    indeterminate_signal = Signal(str)
+    process_finished_signal = Signal()
+
+    def __init__(self, parent, logger, fees_processor, processor_class=None, excel_gateway_class=None):
         super().__init__(parent)
-        self.app_config = app_config
+        self.app_config = parent  # MainApplication is passed as parent which acts as app_config
         self.log_widget = logger
-        self.stampa_checkbox_vars = {}
+        self.stampa_checkboxes = {}
         self.cancel_event = threading.Event()
+        self.log_signal.connect(self._handle_log)
+        self.progress_setup_signal.connect(self._handle_setup_progress)
+        self.progress_update_signal.connect(self._handle_update_progress)
+        self.progress_hide_signal.connect(self._handle_hide_progress)
+        self.indeterminate_signal.connect(self._handle_indeterminate)
+        self.process_finished_signal.connect(self.on_process_finished)
         self.active_process_type = None
 
         self._create_widgets()
         processor_cls = processor_class or OrganizationProcessor
         self.processor = processor_cls(
             self,
-            app_config,
+            self.app_config,
             fees_processor,
             self.setup_progress,
             self.update_progress,
             self.hide_progress,
             excel_gateway_class=excel_gateway_class,
         )
-        self.after(100, self.populate_stampa_list)
+        QTimer.singleShot(100, self.populate_stampa_list)
 
     def _create_widgets(self):
-        self.columnconfigure(0, weight=1)
+        main_layout = QVBoxLayout(self)
 
         # --- Description ---
-        desc_label = ttk.Label(
-            self,
-            text="Analizza i file Excel da una cartella, li organizza in sottocartelle per ODC, e poi permette la stampa di gruppo.",
-            wraplength=800,
-            justify=tk.LEFT,
-            style="info.TLabel",
+        desc_label = QLabel(
+            "Analizza i file Excel da una cartella, li organizza in sottocartelle per ODC, e poi permette la stampa di gruppo."
         )
-        desc_label.pack(fill=tk.X, pady=(0, 15), anchor="w")
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("color: #333333;")
+        main_layout.addWidget(desc_label)
 
         # --- Organization Frame ---
-        self.org_frame = ttk.LabelFrame(self, text="1. Organizza File per ODC", padding=15)
-        self.org_frame.pack(fill=tk.X, pady=5)
-        self.org_frame.columnconfigure(0, weight=1)
-        create_path_entry(
+        self.org_frame = QGroupBox("1. Organizza File per ODC")
+        org_layout = QVBoxLayout(self.org_frame)
+
+        path_layout = create_path_entry(
             self.org_frame,
             "Cartella di Origine:",
             self.app_config.organizza_source_dir,
-            lambda: select_folder_dialog(self.app_config.organizza_source_dir),
-            0,
+            lambda: select_folder_dialog(self.app_config.organizza_source_dir, self),
             readonly=False,
         )
-        self.organize_button = ttk.Button(
-            self.org_frame,
-            text="🚀 Avvia Organizzazione",
-            style="primary.TButton",
-            command=self.start_organization_process,
-        )
-        self.organize_button.grid(row=1, column=0, sticky="we", pady=(10, 0))
-        self.cancel_org_button = ttk.Button(self.org_frame, text="Annulla Organizzazione", command=self.cancel_process)
-        # self.cancel_org_button is managed dynamically by toggle_buttons
+        org_layout.addLayout(path_layout)
+
+        self.organize_button = QPushButton("🚀 Avvia Organizzazione")
+        self.organize_button.setStyleSheet("background-color: #0078D4; color: white; font-weight: bold;")
+        self.organize_button.clicked.connect(self.start_organization_process)
+        org_layout.addWidget(self.organize_button)
+
+        self.cancel_org_button = QPushButton("Annulla Organizzazione")
+        self.cancel_org_button.clicked.connect(self.cancel_process)
+        self.cancel_org_button.hide()
+        org_layout.addWidget(self.cancel_org_button)
+
+        main_layout.addWidget(self.org_frame)
 
         # --- Printing Frame ---
-        self.print_frame = ttk.LabelFrame(self, text="2. Stampa Schede Organizzate", padding=15)
-        self.print_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-        self.print_frame.rowconfigure(1, weight=1)
-        self.print_frame.columnconfigure(0, weight=1)
+        self.print_frame = QGroupBox("2. Stampa Schede Organizzate")
+        print_layout = QVBoxLayout(self.print_frame)
 
         # --- Print Controls ---
-        self.print_controls_frame = ttk.Frame(self.print_frame)
-        self.print_controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        self.print_button = ttk.Button(
-            self.print_controls_frame,
-            text="🖨️ Stampa Selezionate",
-            style="primary.TButton",
-            command=self.start_printing_process,
-        )
-        self.print_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5))
-        self.refresh_button = ttk.Button(
-            self.print_controls_frame, text="🔄 Aggiorna", command=self.populate_stampa_list
-        )
-        self.refresh_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        self.open_folder_button = ttk.Button(
-            self.print_controls_frame,
-            text="📂 Apri Cartella",
-            command=lambda: open_folder_in_explorer(self.app_config.organizza_dest_dir.get()),
-        )
-        self.open_folder_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(5, 0))
-        self.cancel_print_button = ttk.Button(
-            self.print_controls_frame, text="Annulla Stampa", command=self.cancel_process
-        )
-        # self.cancel_print_button is managed dynamically
+        self.print_controls_layout = QHBoxLayout()
 
-        # --- Checkbox List ---
-        list_container = ttk.Frame(self.print_frame, borderwidth=1, relief="solid")
-        list_container.grid(row=1, column=0, sticky="nsew")
-        list_container.rowconfigure(0, weight=1)
-        list_container.columnconfigure(0, weight=1)
+        self.print_button = QPushButton("🖨️ Stampa Selezionate")
+        self.print_button.setStyleSheet("background-color: #0078D4; color: white; font-weight: bold;")
+        self.print_button.clicked.connect(self.start_printing_process)
+        self.print_controls_layout.addWidget(self.print_button)
 
-        canvas = tk.Canvas(list_container, borderwidth=0, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=canvas.yview)
-        self.stampa_checkbox_frame = ttk.Frame(canvas)
-        canvas.configure(yscrollcommand=scrollbar.set)
+        self.refresh_button = QPushButton("🔄 Aggiorna")
+        self.refresh_button.clicked.connect(self.populate_stampa_list)
+        self.print_controls_layout.addWidget(self.refresh_button)
 
-        canvas.grid(row=0, column=0, sticky="nsew")
-        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.open_folder_button = QPushButton("📂 Apri Cartella")
+        self.open_folder_button.clicked.connect(
+            lambda: open_folder_in_explorer(self.app_config.organizza_dest_dir.get())
+        )
+        self.print_controls_layout.addWidget(self.open_folder_button)
 
-        self.canvas_window = canvas.create_window((0, 0), window=self.stampa_checkbox_frame, anchor="nw")
-        self.stampa_checkbox_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.bind("<Configure>", lambda e: canvas.itemconfig(self.canvas_window, width=e.width))
+        self.cancel_print_button = QPushButton("Annulla Stampa")
+        self.cancel_print_button.clicked.connect(self.cancel_process)
+        self.cancel_print_button.hide()
+        self.print_controls_layout.addWidget(self.cancel_print_button)
+
+        print_layout.addLayout(self.print_controls_layout)
+
+        # --- Checkbox List (Scroll Area) ---
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+
+        self.stampa_checkbox_widget = QWidget()
+        self.stampa_checkbox_layout = QVBoxLayout(self.stampa_checkbox_widget)
+        self.stampa_checkbox_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.scroll_area.setWidget(self.stampa_checkbox_widget)
+
+        print_layout.addWidget(self.scroll_area)
+        main_layout.addWidget(self.print_frame)
 
         self.on_process_finished()
 
@@ -121,72 +128,87 @@ class OrganizeTab(ttk.Frame):
         self.toggle_buttons(is_running=True)
 
         thread_args = (self.cancel_event, *args)
-        threading.Thread(target=target_func, args=thread_args, daemon=True).start()
+        
+        def _wrapper():
+            try:
+                target_func(*thread_args)
+            finally:
+                self.process_finished_signal.emit()
+        threading.Thread(target=_wrapper, daemon=True).start()
+
 
     def start_organization_process(self):
         self.start_process("organize", self.processor.run_organization_process)
 
     def start_printing_process(self):
-        selected_folders = [d["path"] for d in self.stampa_checkbox_vars.values() if d["var"].get() == 1]
+        selected_folders = [d["path"] for d in self.stampa_checkboxes.values() if d["checkbox"].isChecked()]
         self.start_process("print", self.processor.run_printing_process, selected_folders)
 
     def cancel_process(self):
         self.log_organizza("Annullamento richiesto...", "WARNING")
         self.cancel_event.set()
-        self.cancel_org_button.config(state="disabled")
-        self.cancel_print_button.config(state="disabled")
+        self.cancel_org_button.setEnabled(False)
+        self.cancel_print_button.setEnabled(False)
 
     def on_process_finished(self):
         self.toggle_buttons(is_running=False)
         self.active_process_type = None
 
     def toggle_buttons(self, is_running):
-        state = "disabled" if is_running else "normal"
-        self.organize_button.config(state=state)
-        self.print_button.config(state=state)
-        self.refresh_button.config(state=state)
+        self.organize_button.setEnabled(not is_running)
+        self.print_button.setEnabled(not is_running)
+        self.refresh_button.setEnabled(not is_running)
 
         if is_running:
             if self.active_process_type == "organize":
-                self.organize_button.grid_forget()
-                self.cancel_org_button.grid(row=1, column=0, sticky="we", pady=(10, 5))
-                self.cancel_org_button.config(state="normal")
+                self.organize_button.hide()
+                self.cancel_org_button.show()
+                self.cancel_org_button.setEnabled(True)
             elif self.active_process_type == "print":
-                self.print_button.pack_forget()
-                self.cancel_print_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-                self.cancel_print_button.config(state="normal")
+                self.print_button.hide()
+                self.cancel_print_button.show()
+                self.cancel_print_button.setEnabled(True)
         else:
-            self.cancel_org_button.grid_forget()
-            self.cancel_print_button.pack_forget()
-            self.organize_button.grid(row=1, column=0, sticky="we", pady=(10, 5))
-            self.print_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+            self.cancel_org_button.hide()
+            self.cancel_print_button.hide()
+            self.organize_button.show()
+            self.print_button.show()
 
     def log_organizza(self, message, level="INFO"):
-        self.master.after(0, self.log_widget, message, level)
+        self.log_signal.emit(str(message), str(level))
 
     def setup_progress(self, max_value, label_text="Progresso:"):
-        self.after(0, self.app_config.setup_global_progress, max_value, label_text)
+        self.progress_setup_signal.emit(float(max_value), str(label_text))
 
     def update_progress(self, value):
-        self.after(0, self.app_config.update_global_progress, value)
+        self.progress_update_signal.emit(float(value))
 
     def hide_progress(self):
-        self.after(0, self.app_config.hide_global_progress)
+        self.progress_hide_signal.emit()
 
     def populate_stampa_list(self):
-        for widget in self.stampa_checkbox_frame.winfo_children():
-            widget.destroy()
-        self.stampa_checkbox_vars.clear()
+        # Clear existing checkboxes
+        for i in reversed(range(self.stampa_checkbox_layout.count())):
+            item = self.stampa_checkbox_layout.itemAt(i)
+            if item is None: continue
+            widget_to_remove = item.widget()
+            if widget_to_remove is not None:
+                widget_to_remove.setParent(None)  # type: ignore
+                widget_to_remove.deleteLater()  # type: ignore
+
+        self.stampa_checkboxes.clear()
+
         year = self.app_config.canoni_selected_year.get()
         month = self.app_config.canoni_selected_month.get()
         odc_map = self.processor.get_odc_to_canone_map(year, month)
         dest_path = self.app_config.organizza_dest_dir.get()
+
         if not os.path.isdir(dest_path):
             return
+
         try:
             folders = sorted([d for d in os.listdir(dest_path) if os.path.isdir(os.path.join(dest_path, d))])
             for folder_name in folders:
-                var = tk.IntVar()
                 folder_path = os.path.join(dest_path, folder_name)
                 file_count = 0
                 try:
@@ -195,12 +217,30 @@ class OrganizeTab(ttk.Frame):
                     )
                 except Exception as e:
                     self.log_organizza(f"Impossibile contare i file nella cartella '{folder_name}': {e}", "WARNING")
+
                 display_text = folder_name
                 if folder_name in odc_map:
                     display_text = f"{folder_name} ({odc_map[folder_name]})"
                 display_text = f"{display_text} - qt. {file_count}"
-                cb = ttk.Checkbutton(self.stampa_checkbox_frame, text=display_text, variable=var)
-                cb.pack(anchor="w", padx=5, fill="x")
-                self.stampa_checkbox_vars[folder_name] = {"var": var, "path": folder_path}
+
+                cb = QCheckBox(display_text)
+                self.stampa_checkbox_layout.addWidget(cb)
+                self.stampa_checkboxes[folder_name] = {"checkbox": cb, "path": folder_path}
         except Exception as e:
             self.log_organizza(f"Errore durante la lettura delle cartelle organizzate: {e}", "ERROR")
+
+    # Slot eseguiti nel thread principale
+    def _handle_log(self, message, level):
+        self.log_widget(message, level)
+
+    def _handle_setup_progress(self, max_value, label_text):
+        self.app_config.setup_global_progress(max_value, label_text)
+
+    def _handle_update_progress(self, value):
+        self.app_config.update_global_progress(value)
+
+    def _handle_hide_progress(self):
+        self.app_config.hide_global_progress()
+
+    def _handle_indeterminate(self, label_text):
+        self.app_config.show_global_indeterminate(label_text)

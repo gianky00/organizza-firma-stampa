@@ -1,128 +1,164 @@
-import tkinter as tk
 from functools import partial
-from tkinter import messagebox, ttk
 
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
+
+from src.utils.qt_vars import BooleanVar, StringVar
 from src.utils.ui_utils import create_path_entry, select_folder_dialog
 
 
-class SettingsTab(ttk.Frame):
-    def __init__(self, parent, app_config):
+class SettingsTab(QWidget):
+    def __init__(self, parent):
         super().__init__(parent)
-        self.app_config = app_config
+        self.app_config = parent  # MainApplication is passed as parent
         self._create_widgets()
 
     def _create_widgets(self):
-        self.columnconfigure(0, weight=1)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Create a scroll area for the whole settings tab
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+
+        self.scrollable_widget = QWidget()
+        self.scrollable_layout = QVBoxLayout(self.scrollable_widget)
+        self.scrollable_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.scroll_area.setWidget(self.scrollable_widget)
+
+        main_layout.addWidget(self.scroll_area)
+
+        container = self.scrollable_layout
 
         # --- Description ---
-        desc_label = ttk.Label(
-            self,
-            text="Personalizza i percorsi di rete e i referenti per i canoni mensili. Le modifiche ai referenti appariranno nella scheda Canoni dopo il riavvio o l'aggiornamento.",
-            wraplength=800,
-            justify=tk.LEFT,
-            style="info.TLabel",
+        desc_label = QLabel(
+            "Personalizza i percorsi di rete e i TCL per i canoni mensili. Le modifiche ai TCL appariranno nella scheda Canoni dopo il riavvio o l'aggiornamento."
         )
-        desc_label.pack(fill=tk.X, pady=(0, 15), anchor="w")
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("color: #333333;")
+        container.addWidget(desc_label)
 
         # --- Paths Settings Frame ---
-        paths_frame = ttk.LabelFrame(self, text="1. Percorsi di Rete e Cartelle", padding=15)
-        paths_frame.pack(fill=tk.X, pady=5)
-        paths_frame.columnconfigure(0, weight=1)
+        paths_frame = QGroupBox("1. Percorsi di Rete e Cartelle")
+        paths_layout = QVBoxLayout(paths_frame)
+        container.addWidget(paths_frame)
 
-        create_path_entry(
+        p1 = create_path_entry(
             paths_frame,
             "Cartella Giornaliere (Rete):",
             self.app_config.canoni_giornaliera_base_dir,
-            lambda: select_folder_dialog(self.app_config.canoni_giornaliera_base_dir),
-            0,
+            lambda: select_folder_dialog(self.app_config.canoni_giornaliera_base_dir, self),
             readonly=False,
         )
+        paths_layout.addLayout(p1)
 
-        create_path_entry(
+        p2 = create_path_entry(
             paths_frame,
             "Cartella Consuntivi (Rete):",
             self.app_config.canoni_consuntivi_base_dir,
-            lambda: select_folder_dialog(self.app_config.canoni_consuntivi_base_dir),
-            1,
+            lambda: select_folder_dialog(self.app_config.canoni_consuntivi_base_dir, self),
             readonly=False,
         )
+        paths_layout.addLayout(p2)
 
-        create_path_entry(
+        p3 = create_path_entry(
             paths_frame,
             "Archivio ODC (Rete):",
             self.app_config.organizza_base_dir,
-            lambda: select_folder_dialog(self.app_config.organizza_base_dir),
-            2,
+            lambda: select_folder_dialog(self.app_config.organizza_base_dir, self),
             readonly=False,
         )
+        paths_layout.addLayout(p3)
 
-        # --- Referenti Management Frame ---
-        ref_frame = ttk.LabelFrame(self, text="2. Gestione Lista TCL (Canoni)", padding=15)
-        ref_frame.pack(fill=tk.X, pady=10)
-        ref_frame.columnconfigure(0, weight=1)
+        # --- TCL Management Frame ---
+        ref_frame = QGroupBox("2. Gestione Lista TCL (Canoni)")
+        ref_layout = QVBoxLayout(ref_frame)
+        container.addWidget(ref_frame)
 
         # Header TCL
-        header_f = ttk.Frame(ref_frame)
-        header_f.pack(fill="x")
-        ttk.Label(header_f, text="Nome Visualizzato", width=30, font=self.app_config.font_bold).pack(
-            side=tk.LEFT, padx=5
-        )
-        ttk.Label(header_f, text="Chiave TCL (Ricerca)", width=20, font=self.app_config.font_bold).pack(
-            side=tk.LEFT, padx=5
-        )
+        header_layout = QHBoxLayout()
+        lbl1 = QLabel("Nome Visualizzato")
+        lbl1.setStyleSheet("font-weight: bold;")
+        lbl1.setMinimumWidth(200)
+        header_layout.addWidget(lbl1)
 
-        self.ref_list_container = ttk.Frame(ref_frame)
-        self.ref_list_container.pack(fill="x")
+        lbl2 = QLabel("Chiave TCL (Ricerca)")
+        lbl2.setStyleSheet("font-weight: bold;")
+        lbl2.setMinimumWidth(150)
+        header_layout.addWidget(lbl2)
+
+        header_layout.addStretch()
+        ref_layout.addLayout(header_layout)
+
+        self.ref_list_container = QWidget()
+        self.ref_list_layout = QVBoxLayout(self.ref_list_container)
+        self.ref_list_layout.setContentsMargins(0, 0, 0, 0)
+        ref_layout.addWidget(self.ref_list_container)
 
         self._refresh_tcl_list_settings()
 
-        btn_f = ttk.Frame(ref_frame)
-        btn_f.pack(fill="x", pady=(10, 0))
-        ttk.Button(btn_f, text="➕ Aggiungi TCL", command=self._add_tcl_settings).pack(side=tk.LEFT)  # noqa: RUF001
-        ttk.Button(btn_f, text="🔄 Aggiorna Vista", command=self._apply_to_fees_tab).pack(side=tk.LEFT, padx=10)
+        btn_layout = QHBoxLayout()
+        add_tcl_btn = QPushButton("➕ Aggiungi TCL")
+        add_tcl_btn.clicked.connect(self._add_tcl_settings)
+        btn_layout.addWidget(add_tcl_btn)
+
+        update_btn = QPushButton("🔄 Aggiorna Vista")
+        update_btn.clicked.connect(self._apply_to_fees_tab)
+        btn_layout.addWidget(update_btn)
+
+        btn_layout.addStretch()
+        ref_layout.addLayout(btn_layout)
 
         # --- Models Management Frame ---
-        models_frame = ttk.LabelFrame(self, text="3. Configurazione Modelli Schede (Ridenominazione, TCL e Stampa)", padding=15)
-        models_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        models_frame = QGroupBox("3. Configurazione Modelli Schede (Ridenominazione, TCL e Stampa)")
+        models_layout = QVBoxLayout(models_frame)
+        container.addWidget(models_frame)
 
-        # Area scorrevole per i modelli
-        m_canvas = tk.Canvas(models_frame, borderwidth=0, highlightthickness=0, height=400)
-        m_scrollbar = ttk.Scrollbar(models_frame, orient="vertical", command=m_canvas.yview)
-        self.models_container = ttk.Frame(m_canvas)
-
-        self.models_window = m_canvas.create_window((0, 0), window=self.models_container, anchor="nw")
-        m_canvas.configure(yscrollcommand=m_scrollbar.set)
-
-        self.models_container.bind("<Configure>", lambda e: m_canvas.configure(scrollregion=m_canvas.bbox("all")))
-        m_canvas.bind("<Configure>", lambda e: m_canvas.itemconfig(self.models_window, width=e.width))
-
-        m_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        m_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.models_container = QWidget()
+        self.models_layout = QGridLayout(self.models_container)
+        self.models_layout.setContentsMargins(0, 0, 0, 0)
+        models_layout.addWidget(self.models_container)
 
         self._refresh_models_list_settings()
 
-        m_btn_f = ttk.Frame(models_frame)
-        m_btn_f.pack(fill=tk.X, side=tk.BOTTOM, pady=(5, 0))
-        ttk.Button(m_btn_f, text="➕ Aggiungi Nuovo Modello", command=self._add_model_settings).pack(side=tk.LEFT)  # noqa: RUF001
+        m_btn_layout = QHBoxLayout()
+        add_model_btn = QPushButton("➕ Aggiungi Nuovo Modello")
+        add_model_btn.clicked.connect(self._add_model_settings)
+        m_btn_layout.addWidget(add_model_btn)
+        m_btn_layout.addStretch()
+        models_layout.addLayout(m_btn_layout)
 
     def _refresh_models_list_settings(self):
-        for widget in self.models_container.winfo_children():
-            widget.destroy()
+        for i in reversed(range(self.models_layout.count())):
+            item = self.models_layout.itemAt(i)
+            if item is None: continue
+            widget_to_remove = item.widget()
+            if widget_to_remove is not None:
+                widget_to_remove.setParent(None)  # type: ignore
+                widget_to_remove.deleteLater()  # type: ignore
 
         # Configurazione pesi colonne per la griglia
-        # 0: Nome, 1: Match, 2: Celle ID, 3: Area Stampa, 4: Cella TCL, 5: Celle Data, 6: Delete
-        self.models_container.columnconfigure(0, weight=3) # Nome
-        self.models_container.columnconfigure(1, weight=3) # Match
-        self.models_container.columnconfigure(2, weight=1) # Celle ID
-        self.models_container.columnconfigure(3, weight=1) # Area Stampa
-        self.models_container.columnconfigure(4, weight=1) # Cella TCL
-        self.models_container.columnconfigure(5, weight=2) # Celle Data
-        self.models_container.columnconfigure(6, weight=0) # X
+        self.models_layout.setColumnStretch(0, 3)  # Nome
+        self.models_layout.setColumnStretch(1, 3)  # Match
+        self.models_layout.setColumnStretch(2, 1)  # Celle ID
+        self.models_layout.setColumnStretch(3, 1)  # Area Stampa
+        self.models_layout.setColumnStretch(4, 1)  # Cella TCL
+        self.models_layout.setColumnStretch(5, 2)  # Celle Data
+        self.models_layout.setColumnStretch(6, 0)  # X
 
-        # Headers
-        h_f = ttk.Frame(self.models_container)
-        h_f.grid(row=0, column=0, columnspan=7, sticky="ew", pady=(0, 5))
-        
         headers = [
             ("Nome Modello", 0),
             ("Match ID", 1),
@@ -131,31 +167,58 @@ class SettingsTab(ttk.Frame):
             ("Cella TCL", 4),
             ("Celle Data", 5),
         ]
-        
+
         for text, col in headers:
-            lbl = ttk.Label(self.models_container, text=text, font=self.app_config.font_bold, anchor="w")
-            lbl.grid(row=0, column=col, sticky="w", padx=5)
+            lbl = QLabel(text)
+            lbl.setStyleSheet("font-weight: bold;")
+            self.models_layout.addWidget(lbl, 0, col)
 
         for i, mod in enumerate(self.app_config.rename_models_vars):
-            ttk.Entry(self.models_container, textvariable=mod["name"]).grid(row=i+1, column=0, sticky="ew", padx=5, pady=2)
-            ttk.Entry(self.models_container, textvariable=mod["match_value"]).grid(row=i+1, column=1, sticky="ew", padx=5, pady=2)
-            ttk.Entry(self.models_container, textvariable=mod["id_cells"]).grid(row=i+1, column=2, sticky="ew", padx=5, pady=2)
-            ttk.Entry(self.models_container, textvariable=mod["print_area"]).grid(row=i+1, column=3, sticky="ew", padx=5, pady=2)
-            ttk.Entry(self.models_container, textvariable=mod["tcl_cell"]).grid(row=i+1, column=4, sticky="ew", padx=5, pady=2)
-            ttk.Entry(self.models_container, textvariable=mod["date_cells"]).grid(row=i+1, column=5, sticky="ew", padx=5, pady=2)
+            row_idx = i + 1
 
-            ttk.Button(self.models_container, text="❌", width=3, command=partial(self._remove_model_settings, i)).grid(
-                row=i+1, column=6, padx=5, pady=2
-            )
+            w0 = QLineEdit()
+            w0.setText(mod["name"].get())
+            w0.textChanged.connect(mod["name"].set)
+            self.models_layout.addWidget(w0, row_idx, 0)
+
+            w1 = QLineEdit()
+            w1.setText(mod["match_value"].get())
+            w1.textChanged.connect(mod["match_value"].set)
+            self.models_layout.addWidget(w1, row_idx, 1)
+
+            w2 = QLineEdit()
+            w2.setText(mod["id_cells"].get())
+            w2.textChanged.connect(mod["id_cells"].set)
+            self.models_layout.addWidget(w2, row_idx, 2)
+
+            w3 = QLineEdit()
+            w3.setText(mod["print_area"].get())
+            w3.textChanged.connect(mod["print_area"].set)
+            self.models_layout.addWidget(w3, row_idx, 3)
+
+            w4 = QLineEdit()
+            w4.setText(mod["tcl_cell"].get())
+            w4.textChanged.connect(mod["tcl_cell"].set)
+            self.models_layout.addWidget(w4, row_idx, 4)
+
+            w5 = QLineEdit()
+            w5.setText(mod["date_cells"].get())
+            w5.textChanged.connect(mod["date_cells"].set)
+            self.models_layout.addWidget(w5, row_idx, 5)
+
+            btn = QPushButton("❌")
+            btn.setFixedWidth(30)
+            btn.clicked.connect(partial(self._remove_model_settings, i))
+            self.models_layout.addWidget(btn, row_idx, 6)
 
     def _add_model_settings(self):
         new_mod = {
-            "name": tk.StringVar(value="Nuovo Modello"),
-            "match_value": tk.StringVar(value="testo"),
-            "id_cells": tk.StringVar(value="E2, T2"),
-            "print_area": tk.StringVar(value="A1:N50"),
-            "tcl_cell": tk.StringVar(value="L45"),
-            "date_cells": tk.StringVar(value="B50"),
+            "name": StringVar(value="Nuovo Modello", parent=self.app_config),
+            "match_value": StringVar(value="testo", parent=self.app_config),
+            "id_cells": StringVar(value="E2, T2", parent=self.app_config),
+            "print_area": StringVar(value="A1:N50", parent=self.app_config),
+            "tcl_cell": StringVar(value="L45", parent=self.app_config),
+            "date_cells": StringVar(value="B50", parent=self.app_config),
         }
         self.app_config.rename_models_vars.append(new_mod)
         self._refresh_models_list_settings()
@@ -167,36 +230,59 @@ class SettingsTab(ttk.Frame):
         self._refresh_models_list_settings()
 
     def _refresh_tcl_list_settings(self):
-        for widget in self.ref_list_container.winfo_children():
-            widget.destroy()
+        for i in reversed(range(self.ref_list_layout.count())):
+            item = self.ref_list_layout.itemAt(i)
+            if item is None:
+                continue
+            if item.widget() is not None:
+                item.widget().setParent(None)  # type: ignore
+                item.widget().deleteLater()  # type: ignore
+            elif item.layout() is not None:
+                layout = item.layout()
+                while layout.count():
+                    child = layout.takeAt(0)
+                    if child is not None and child.widget() is not None:
+                        child.widget().deleteLater()  # type: ignore
+                layout.deleteLater()
 
         for i, ref in enumerate(self.app_config.canoni_tcl_vars):
-            row_f = ttk.Frame(self.ref_list_container)
-            row_f.pack(fill="x", pady=2)
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(0, 0, 0, 0)
 
-            ttk.Entry(row_f, textvariable=ref["name"], width=30).pack(side=tk.LEFT, padx=5)
-            ttk.Entry(row_f, textvariable=ref["tcl"], width=20).pack(side=tk.LEFT, padx=5)
+            w1 = QLineEdit()
+            w1.setMinimumWidth(200)
+            w1.setText(ref["name"].get())
+            w1.textChanged.connect(ref["name"].set)
+            row_layout.addWidget(w1)
 
-            ttk.Button(row_f, text="❌", width=3, command=partial(self._remove_tcl_settings, i)).pack(
-                side=tk.LEFT, padx=5
-            )
+            w2 = QLineEdit()
+            w2.setMinimumWidth(150)
+            w2.setText(ref["tcl"].get())
+            w2.textChanged.connect(ref["tcl"].set)
+            row_layout.addWidget(w2)
+
+            btn = QPushButton("❌")
+            btn.setFixedWidth(30)
+            btn.clicked.connect(partial(self._remove_tcl_settings, i))
+            row_layout.addWidget(btn)
+
+            row_layout.addStretch()
+            self.ref_list_layout.addLayout(row_layout)
 
     def _add_tcl_settings(self):
-        import tkinter as tk
-
         new_ref = {
-            "name": tk.StringVar(value="Nuovo"),
-            "tcl": tk.StringVar(value="TCL"),
-            "num": tk.StringVar(value=""),
-            "print": tk.BooleanVar(value=False),
-            "path": tk.StringVar(value=""),
+            "name": StringVar(value="Nuovo", parent=self.app_config),
+            "tcl": StringVar(value="TCL", parent=self.app_config),
+            "num": StringVar(value="", parent=self.app_config),
+            "print": BooleanVar(value=False, parent=self.app_config),
+            "path": StringVar(value="", parent=self.app_config),
         }
         self.app_config.canoni_tcl_vars.append(new_ref)
         self._refresh_tcl_list_settings()
 
     def _remove_tcl_settings(self, index):
         if len(self.app_config.canoni_tcl_vars) <= 1:
-            messagebox.showwarning("Attenzione", "Deve esserci almeno un TCL in lista.")
+            QMessageBox.warning(self, "Attenzione", "Deve esserci almeno un TCL in lista.")
             return
         self.app_config.canoni_tcl_vars.pop(index)
         self._refresh_tcl_list_settings()
@@ -205,4 +291,4 @@ class SettingsTab(ttk.Frame):
         if hasattr(self.app_config, "fees_tab"):
             self.app_config.fees_tab._refresh_dynamic_tcl_ui()
             self.app_config.fees_tab._setup_tcl_traces()
-            messagebox.showinfo("Successo", "Interfaccia Canoni aggiornata.")
+            QMessageBox.information(self, "Successo", "Interfaccia Canoni aggiornata.")

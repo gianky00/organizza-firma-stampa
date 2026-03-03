@@ -39,7 +39,7 @@ class SignatureProcessor:
         self.prepared_files_data = []  # Lista di dict {pdf_path, tcl}
         try:
             # 0. Mostra barra di caricamento immediata
-            self.gui.after(0, self.gui.show_indeterminate, "Inizializzazione ambiente...")
+            self.gui.show_indeterminate("Inizializzazione ambiente...")
 
             # 1. Identificazione Area di Lavoro Locale e Sorgente
             local_work_path = os.path.join(const.APPLICATION_PATH, const.FIRMA_EXCEL_INPUT_DIR)
@@ -47,7 +47,7 @@ class SignatureProcessor:
 
             # 2. Logica di Importazione
             if os.path.normpath(source_path) != os.path.normpath(local_work_path):
-                self.gui.after(0, self.gui.show_indeterminate, "Importazione file da rete...")
+                self.gui.show_indeterminate("Importazione file da rete...")
                 self.logger(f"Importazione file da sorgente: {source_path}", "INFO")
                 # Pulizia locale preventiva
                 from src.utils.file_utils import clear_folder_content
@@ -77,7 +77,7 @@ class SignatureProcessor:
                 return
 
             # 4. Passaggio a barra di progresso determinata con ETA
-            self.gui.after(0, self.setup_progress, len(excel_files) * 2, "Elaborazione in corso:")
+            self.setup_progress(len(excel_files) * 2, "Elaborazione in corso:")
 
             self.logger("--- FASE 1: Elaborazione Excel e Conversione PDF ---", "HEADER")
             # Passiamo il percorso attivo alla funzione di elaborazione
@@ -105,8 +105,7 @@ class SignatureProcessor:
         finally:
             if cancel_event.is_set():
                 self.logger("Processo di firma annullato.", "WARNING")
-            self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.on_process_finished)
+            self.hide_progress()
 
     def _initialize_process(self) -> bool:
         clear_folder_content(
@@ -148,16 +147,18 @@ class SignatureProcessor:
 
         from src.utils.excel_handler import ExcelHandler
 
+        excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
+
         errors = []
         # TURBO: Apriamo Excel UNA SOLA VOLTA per l'intero lotto di file
-        with ExcelHandler(self.logger) as excel:
+        with excel_h_class(self.logger) as excel:
             if not excel:
                 return False
 
             for i, file_name in enumerate(excel_files):
                 if cancel_event.is_set():
                     return False
-                self.gui.after(0, self.update_progress, i + 1)
+                self.update_progress(i + 1)
                 self.logger("-" * 50)
                 self.logger(f"Elaborazione: {file_name}", "INFO")
 
@@ -204,11 +205,11 @@ class SignatureProcessor:
 
     def _apply_signature_schede(self, workbook, pdf_path, image_path):
         ws = workbook.Worksheets(1)
-        
+
         # PRIORITÀ DI RICONOSCIMENTO: T3/T6 vincono su T2
         # Leggiamo le celle chiave
         cells_to_check = ["T3", "T6", "E2", "T2", "T5", "F2", "Q3", "S3", "N1"]
-        
+
         cleaned_model = None
         matched_cell = None
         for cell_ref in cells_to_check:
@@ -224,7 +225,7 @@ class SignatureProcessor:
 
         if cleaned_model:
             data = self.firma_processing_data[cleaned_model]
-            
+
             # LOGICA SPECIALE PRINT AREA PER VALVOLE DI REGOLAZIONE
             if cleaned_model == "valvolediregolazione":
                 if matched_cell == "T3":
@@ -237,7 +238,7 @@ class SignatureProcessor:
                 ws.PageSetup.PrintArea = data["PrintArea"]
 
             # Dimensioni fisse immagine firma: specifiche richieste per certi modelli
-            if cleaned_model in ["schedamanutenzione", "valvolediregolazione"]:
+            if cleaned_model in ("schedamanutenzione", "valvolediregolazione"):
                 img_width, img_height = (105, 35)
             else:
                 img_width, img_height = (150, 50)
@@ -292,7 +293,7 @@ class SignatureProcessor:
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = []
-            for _i, pdf_file in enumerate(pdf_files):
+            for pdf_file in pdf_files:
                 if cancel_event.is_set():
                     break
                 futures.append(executor.submit(self._compress_single_pdf, pdf_path, pdf_file, gs_exe))
@@ -302,7 +303,7 @@ class SignatureProcessor:
                 if cancel_event.is_set():
                     break
                 future.result()  # Attende completamento
-                self.gui.after(0, self.update_progress, progress_offset + i + 1)
+                self.update_progress(progress_offset + i + 1)
 
     def _compress_single_pdf(self, pdf_path, file_name, gs_exe):
         input_pdf = Path(pdf_path) / file_name

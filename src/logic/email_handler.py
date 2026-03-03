@@ -11,7 +11,7 @@ class EmailHandler:
         self.logger = logger
 
     def _generate_html_body(self, intro_text, file_list):
-        """Genera il contenuto HTML raggruppando i file per TCL in tabelle separate."""
+        """Genera il contenuto HTML raggruppando i file per TCL in tabelle separate e affiancate."""
         # Pulizia testo introduzione
         intro_html = intro_text.replace("{file_list}", "").replace("Elenco file:", "").strip().replace("\n", "<br>")
 
@@ -23,39 +23,55 @@ class EmailHandler:
                 grouped_files[tcl] = []
             grouped_files[tcl].append(file_data.get("name", "N/D"))
 
-        # Generazione delle sezioni (una tabella per ogni TCL)
-        sections_html = ""
-        for tcl, names in grouped_files.items():
+        # 1. Creazione del Riepilogo (Summary)
+        summary_html = """
+        <div style="margin-bottom: 25px; padding: 15px; background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 5px;">
+            <h4 style="color: #333333; margin-top: 0; margin-bottom: 10px; font-size: 11pt; text-transform: uppercase;">Riepilogo TCL</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #555555; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 10pt;">
+        """
+        for tcl, names in sorted(grouped_files.items()):
+            count = len(names)
+            noun = "scheda" if count == 1 else "schede"
+            summary_html += f"<li style='margin-bottom: 5px;'><strong>{tcl}</strong>: {count} {noun}</li>"
+        summary_html += """
+            </ul>
+        </div>
+        """
+
+        # 2. Generazione delle tabelle affiancate (fluide)
+        sections_html = '<div>\n'
+        
+        for tcl, names in sorted(grouped_files.items()):
             table_rows = ""
             for i, filename in enumerate(names):
                 bg_color = "#f9f9f9" if i % 2 == 0 else "#ffffff"
                 table_rows += f"""
                     <tr style="background-color: {bg_color};">
-                        <td style="padding: 6px 12px; border-bottom: 1px solid #eeeeee; color: #333333; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10pt; white-space: nowrap; border-right: 1px solid #eeeeee;">
+                        <td style="padding: 6px 12px; border-bottom: 1px solid #eeeeee; color: #333333; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 9pt; white-space: nowrap;">
                             {filename}
-                        </td>
-                        <td style="padding: 6px 12px; border-bottom: 1px solid #eeeeee; color: #666666; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 9.5pt; text-align: center;">
-                            {tcl}
                         </td>
                     </tr>
                 """
-
+            
             sections_html += f"""
-                <div style="margin-bottom: 25px;">
-                    <h4 style="color: #333333; margin-bottom: 8px; font-size: 10pt; text-transform: uppercase; letter-spacing: 1px; border-left: 3px solid #eeeeee; padding-left: 8px; display: block;">REFERENTE: {tcl}</h4>
-                    <table style="width: auto; border-collapse: collapse; border: 1px solid #eeeeee;">
-                        <thead>
-                            <tr style="background-color: #f0f0f0;">
-                                <th style="padding: 6px 12px; border-bottom: 2px solid #dddddd; text-align: left; font-size: 9pt; color: #555555; border-right: 1px solid #eeeeee;">NOME FILE</th>
-                                <th style="padding: 6px 12px; border-bottom: 2px solid #dddddd; text-align: center; font-size: 9pt; color: #555555;">TCL</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {table_rows}
-                        </tbody>
-                    </table>
-                </div>
+            <table align="left" style="margin-right: 25px; margin-bottom: 20px; border-collapse: collapse; border: 1px solid #eeeeee;">
+                <thead>
+                    <tr>
+                        <td style="padding: 0 0 8px 0; border: none;">
+                            <h4 style="color: #333333; margin: 0; font-size: 12pt; text-transform: uppercase; border-left: 3px solid #0078D4; padding-left: 8px;">{tcl}</h4>
+                        </td>
+                    </tr>
+                    <tr style="background-color: #f0f0f0;">
+                        <th style="padding: 6px 12px; border-bottom: 2px solid #dddddd; text-align: left; font-size: 10pt; color: #555555; white-space: nowrap;">NOME FILE</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {table_rows}
+                </tbody>
+            </table>
             """
+            
+        sections_html += '<br style="clear:both;">\n</div>\n'
 
         # Template Finale
         html = f"""
@@ -65,12 +81,15 @@ class EmailHandler:
                 <div style="color: #444444; font-size: 11pt; line-height: 1.6; margin-bottom: 25px;">
                     {intro_html}
                 </div>
+                
+                {summary_html}
 
-                <h3 style="color: #333333; font-size: 11pt; border-bottom: 2px solid #eeeeee; padding-bottom: 5px; margin-bottom: 20px;">SCHEDE ALLEGATE</h3>
+                <h3 style="color: #333333; font-size: 12pt; border-bottom: 2px solid #eeeeee; padding-bottom: 5px; margin-bottom: 20px;">DETTAGLIO SCHEDE ALLEGATE</h3>
                 
                 {sections_html}
             </div>
         </div>
+        <br style="clear:both;">
         <br>
         """
         return html

@@ -2,6 +2,7 @@ import os
 from unittest.mock import MagicMock, patch
 
 from src.logic.organization import OrganizationProcessor
+from src.utils import constants as const
 
 
 def test_organization_backup_creation(fs, mock_gui, app_config):
@@ -9,8 +10,17 @@ def test_organization_backup_creation(fs, mock_gui, app_config):
     app_config.organizza_dest_dir.get.return_value = dest_dir
     fs.create_dir(dest_dir)
     fs.create_file(os.path.join(dest_dir, "f.txt"))
+
+    source_dir = app_config.organizza_source_dir.get()
+    fs.create_dir(source_dir)
+    fs.create_file(os.path.join(source_dir, "source.xlsx"))
+
+    local_source = os.path.join(const.APPLICATION_PATH, const.ORGANIZZA_SOURCE_DIR)
+    fs.create_dir(local_source)
+    fs.create_dir(os.path.join(const.APPLICATION_PATH, const.BACKUP_DIR))
+
     processor = OrganizationProcessor(mock_gui, app_config, MagicMock(), MagicMock(), MagicMock(), MagicMock())
-    with patch("src.logic.organization.shutil.copytree"), patch.object(processor, "_organize_files"):
+    with patch("src.logic.organization.shutil.copytree"), patch.object(processor, "_organize_files_at_path"):
         processor.run_organization_process(MagicMock())
         found = any("Creazione backup" in str(c) for c in mock_gui.log_organizza.call_args_list)
         assert found
@@ -23,8 +33,8 @@ def test_organization_flow_empty(fs, mock_gui, app_config):
     processor = OrganizationProcessor(mock_gui, app_config, MagicMock(), MagicMock(), MagicMock(), MagicMock())
     cancel_event = MagicMock()
     cancel_event.is_set.return_value = False
-    processor._organize_files(cancel_event)
-    mock_gui.log_organizza.assert_any_call("Nessun file Excel trovato.", "WARNING")
+    processor._organize_files_at_path(source_dir, cancel_event)
+    mock_gui.log_organizza.assert_any_call("Nessun file Excel trovato da organizzare.", "WARNING")
 
 
 def test_organization_process_files_full(fs, mock_gui, app_config):
@@ -48,6 +58,6 @@ def test_organization_process_files_full(fs, mock_gui, app_config):
     cancel_event = MagicMock()
     cancel_event.is_set.return_value = False
     with patch("src.logic.organization.shutil.copy2") as mock_copy:
-        processor._organize_files(cancel_event)
+        processor._organize_files_at_path(s_dir, cancel_event)
         assert mock_copy.called
         assert "ODC_TEST" in mock_copy.call_args[0][1]

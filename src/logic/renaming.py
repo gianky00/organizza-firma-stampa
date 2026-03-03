@@ -42,7 +42,7 @@ class RenameProcessor:
         try:
             # 0. Mostra barra di caricamento immediata
             if hasattr(self.gui, "show_indeterminate"):
-                self.gui.after(0, self.gui.show_indeterminate, "Inizializzazione ambiente...")
+                self.gui.show_indeterminate("Inizializzazione ambiente...")
 
             # 1. Identificazione Sorgente
             source_path = self.app_config.rinomina_path.get()
@@ -61,8 +61,7 @@ class RenameProcessor:
         finally:
             if cancel_event.is_set():
                 self.logger("Processo di ridenominazione annullato.", "WARNING")
-            self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.on_process_finished)
+            self.hide_progress()
             import pythoncom
 
             pythoncom.CoUninitialize()  # Rilascio risorse COM per questo thread
@@ -79,7 +78,7 @@ class RenameProcessor:
 
         num_files = len(excel_files)
         self.logger(f"Trovati {num_files} file Excel. Inizio analisi.", "INFO")
-        self.gui.after(0, self.setup_progress, num_files, "Analisi e ridenominazione:")
+        self.setup_progress(num_files, "Analisi e ridenominazione:")
 
         date_in_filename_regex = re.compile(r"\s*\(\d{2}-\d{2}-\d{4}\)")
         summary: RenameSummary = {"corrected": 0, "already_ok": 0, "no_date": 0, "errors": []}
@@ -88,15 +87,17 @@ class RenameProcessor:
 
         from src.utils.excel_handler import ExcelHandler
 
+        excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
+
         # TURBO: Apriamo Excel una volta sola per leggere tutte le date
-        with ExcelHandler(self.logger) as excel:
+        with excel_h_class(self.logger) as excel:
             if not excel:
                 return
 
             for i, file_path in enumerate(excel_files):
                 if cancel_event.is_set():
                     return
-                self.gui.after(0, self.update_progress, i + 1)
+                self.update_progress(i + 1)
 
                 try:
                     # Estrazione data ultra-veloce tramite istanza condivisa

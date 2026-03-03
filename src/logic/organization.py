@@ -44,11 +44,13 @@ class OrganizationProcessor:
                 # Normalizziamo il match_value per il confronto
                 mv = re.sub(r"[\W_]+", "", str(item.get("match_value", "")).lower())
                 if mv:
-                    self.stampa_models_list.append({
-                        "match_value": mv,
-                        "PrintArea": item.get("print_area", "A1:N50"),
-                        "id_cells": item.get("id_cells", ["F2", "E2", "T2"]),
-                    })
+                    self.stampa_models_list.append(
+                        {
+                            "match_value": mv,
+                            "PrintArea": item.get("print_area", "A1:N50"),
+                            "id_cells": item.get("id_cells", ["F2", "E2", "T2"]),
+                        }
+                    )
 
     def run_organization_process(self, cancel_event):
         try:
@@ -100,8 +102,7 @@ class OrganizationProcessor:
             else:
                 self.logger("Operazione annullata dall'utente.", "WARNING")
         finally:
-            self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.on_process_finished)
+            self.hide_progress()
 
     def run_printing_process(self, cancel_event, folder_list=None):
         self.logger("Avvio del processo di stampa schede...", "HEADER")
@@ -130,8 +131,7 @@ class OrganizationProcessor:
         except Exception as e:
             self.logger(f"ERRORE FATALE durante il processo di stampa: {e}", "ERROR")
         finally:
-            self.gui.after(0, self.hide_progress)
-            self.gui.after(0, self.gui.on_process_finished)
+            self.hide_progress()
 
     def _organize_files_at_path(self, source_dir, cancel_event):
         dest_dir = self.app_config.organizza_dest_dir.get()
@@ -141,13 +141,13 @@ class OrganizationProcessor:
             self.logger("Nessun file Excel trovato da organizzare.", "WARNING")
             return
 
-        self.gui.after(0, self.setup_progress, len(excel_files), "Organizzazione in corso:")
+        self.setup_progress(len(excel_files), "Organizzazione in corso:")
         summary: OrgSummary = {"processed": 0, "errors": []}
 
         for i, fp in enumerate(excel_files):
             if cancel_event.is_set():
                 break
-            self.gui.after(0, self.update_progress, i + 1)
+            self.update_progress(i + 1)
             self.logger(f"Processando: {os.path.basename(fp)}...")
 
             success, error = self._process_single_file(fp, dest_dir)
@@ -204,7 +204,7 @@ class OrganizationProcessor:
                 self.logger(f" - {f}: {err}", "ERROR")
 
     def _print_files_in_folders(self, cancel_event, folder_list):
-        self.gui.after(0, self.setup_progress, len(folder_list), "Stampa in corso:")
+        self.setup_progress(len(folder_list), "Stampa in corso:")
         from src.utils.excel_handler import ExcelHandler
 
         excel_h_class = getattr(self.excel_gateway, "excel_handler_class", ExcelHandler)
@@ -217,7 +217,7 @@ class OrganizationProcessor:
             for i, folder_p in enumerate(folder_list):
                 if cancel_event.is_set():
                     break
-                self.gui.after(0, self.update_progress, i + 1)
+                self.update_progress(i + 1)
                 self.logger(f"Stampa cartella: {os.path.basename(folder_p)}")
 
                 folder_errors = self._print_folder_content(excel, folder_p, cancel_event)
@@ -270,7 +270,7 @@ class OrganizationProcessor:
                 # per mostrare cosa contengono e facilitare la correzione del Match ID.
                 hints = []
                 config_data = self.app_config.config_manager.get("rename_models_config") or []
-                
+
                 # Raccogliamo tutte le celle ID uniche presenti nelle configurazioni
                 target_cells = set()
                 for m in config_data:
@@ -278,8 +278,9 @@ class OrganizationProcessor:
                     if not cells and m.get("id_cell"):
                         cells = [m.get("id_cell")]
                     for c in cells:
-                        if c: target_cells.add(c.strip().upper())
-                
+                        if c:
+                            target_cells.add(c.strip().upper())
+
                 # Scansione delle celle effettivamente in uso
                 for cell_ref in sorted(list(target_cells)):
                     try:
@@ -289,9 +290,12 @@ class OrganizationProcessor:
                             hints.append(f"{cell_ref}:'{clean_v}'")
                     except Exception:
                         continue
-                
+
                 hint_str = " | ".join(hints) if hints else "nessun valore trovato nelle celle ID configurate"
-                self.logger(f"  -> Modello NON riconosciuto per {os.path.basename(file_path)}. Contenuto celle ID: {hint_str}", "WARNING")
+                self.logger(
+                    f"  -> Modello NON riconosciuto per {os.path.basename(file_path)}. Contenuto celle ID: {hint_str}",
+                    "WARNING",
+                )
                 return True, None
         except Exception as e:
             return False, str(e)

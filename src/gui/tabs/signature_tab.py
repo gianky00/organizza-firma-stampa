@@ -1,9 +1,24 @@
 import os
 import re
 import threading
-import tkinter as tk
 from datetime import datetime
-from tkinter import ttk
+
+from PySide6.QtCore import Qt, Signal, QTimer, Signal
+from PySide6.QtWidgets import (
+    QFrame,
+    QCheckBox,
+    QComboBox,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QRadioButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 from src.logic.email_handler import EmailHandler
 from src.logic.signature import SignatureProcessor
@@ -15,22 +30,35 @@ from src.utils.ui_utils import (
 )
 
 
-class SignatureTab(ttk.Frame):
-    def __init__(self, parent, app_config, logger, processor_class=None, excel_gateway_class=None):
+class SignatureTab(QWidget):
+    log_signal = Signal(str, str)
+    progress_setup_signal = Signal(float, str)
+    progress_update_signal = Signal(float)
+    progress_hide_signal = Signal()
+    indeterminate_signal = Signal(str)
+    process_finished_signal = Signal()
+
+    def __init__(self, parent, logger, processor_class=None, excel_gateway_class=None):
         super().__init__(parent)
-        self.app_config = app_config
+        self.app_config = parent  # MainApplication
         self.log_widget = logger
         self.prepared_drafts = []
         self.drafts_lock = threading.Lock()
         self.current_draft_index = 0
         self.cancel_event = threading.Event()
+        self.log_signal.connect(self._handle_log)
+        self.progress_setup_signal.connect(self._handle_setup_progress)
+        self.progress_update_signal.connect(self._handle_update_progress)
+        self.progress_hide_signal.connect(self._handle_hide_progress)
+        self.indeterminate_signal.connect(self._handle_indeterminate)
+        self.process_finished_signal.connect(self.on_process_finished)
 
         self._create_widgets()
 
         processor_cls = processor_class or SignatureProcessor
         self.processor = processor_cls(
             self,
-            app_config,
+            self.app_config,
             self.setup_progress,
             self.update_progress,
             self.hide_progress,
@@ -38,207 +66,253 @@ class SignatureTab(ttk.Frame):
         )
 
     def _create_widgets(self):
-        # Create a canvas and scrollbar for scrolling
-        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = ttk.Frame(self.canvas)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        # Create a scroll area
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
 
-        self.scroll_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.scrollable_widget = QWidget()
+        self.scrollable_layout = QVBoxLayout(self.scrollable_widget)
+        self.scrollable_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.scroll_area.setWidget(self.scrollable_widget)
 
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.scroll_window, width=e.width))
+        main_layout.addWidget(self.scroll_area)
 
-        self.scrollbar.pack(side="right", fill="y")
-        self.canvas.pack(side="left", fill="both", expand=True)
+        container = self.scrollable_layout
 
-        # Bind mousewheel to scrolling
-        def _on_mousewheel(event):
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
-
-        self.scrollable_frame.columnconfigure(0, weight=1)
-        container = self.scrollable_frame
-
-        # Update all .pack calls to use 'container' or its children
         # --- Description ---
         desc_text = (
             "Automatizza il processo di firma: apre file Excel, applica una firma, li converte in PDF e li comprime."
         )
-        desc_label = ttk.Label(container, text=desc_text, wraplength=800, justify=tk.LEFT, style="info.TLabel")
-        desc_label.pack(fill=tk.X, pady=(0, 15), anchor="w")
+        desc_label = QLabel(desc_text)
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("color: #333333;")
+        container.addWidget(desc_label)
 
         # --- Frame Setup ---
-        paths_frame = ttk.LabelFrame(container, text="1. Percorsi e Impostazioni", padding=15)
-        paths_frame.pack(fill=tk.X, pady=5)
-        paths_frame.columnconfigure(0, weight=1)
+        paths_frame = QGroupBox("1. Percorsi e Impostazioni")
+        paths_layout = QVBoxLayout(paths_frame)
+        container.addWidget(paths_frame)
 
-        mode_frame = ttk.LabelFrame(container, text="2. Tipo di Documento", padding=15)
-        mode_frame.pack(fill=tk.X, pady=5)
+        mode_frame = QGroupBox("2. Tipo di Documento")
+        mode_layout = QVBoxLayout(mode_frame)
+        container.addWidget(mode_frame)
 
-        self.actions_frame = ttk.LabelFrame(container, text="3. Azioni", padding=15)
-        self.actions_frame.pack(fill=tk.X, pady=5)
-        self.actions_frame.columnconfigure(0, weight=1)
+        self.actions_frame = QGroupBox("3. Azioni")
+        actions_layout = QVBoxLayout(self.actions_frame)
+        container.addWidget(self.actions_frame)
 
-        self.email_frame = ttk.LabelFrame(container, text="4. Crea Bozza Email con PDF Firmati", padding=15)
-        self.email_frame.pack(fill=tk.X, pady=5)
-        self.email_frame.columnconfigure(0, weight=1)
+        self.email_frame = QGroupBox("4. Crea Bozza Email con PDF Firmati")
+        email_layout = QVBoxLayout(self.email_frame)
+        container.addWidget(self.email_frame)
 
         # --- Paths Frame Content ---
-        create_path_entry(
+        p1 = create_path_entry(
             paths_frame,
             "Cartella Excel:",
             self.app_config.firma_excel_dir,
-            lambda: select_folder_dialog(self.app_config.firma_excel_dir),
-            0,
+            lambda: select_folder_dialog(self.app_config.firma_excel_dir, self),
             readonly=True,
         )
-        create_path_entry(
+        paths_layout.addLayout(p1)
+
+        p2 = create_path_entry(
             paths_frame,
             "Cartella PDF di Output:",
             self.app_config.firma_pdf_dir,
             lambda: open_folder_in_explorer(self.app_config.firma_pdf_dir.get()),
-            1,
             readonly=True,
             button_text="Apri",
         )
-        create_path_entry(
+        paths_layout.addLayout(p2)
+
+        p3 = create_path_entry(
             paths_frame,
             "Immagine Firma:",
             self.app_config.firma_image_path,
-            lambda: select_file_dialog(self.app_config.firma_image_path, [("Immagini", "*.png;*.jpg;*.jpeg")]),
-            2,
+            lambda: select_file_dialog(self.app_config.firma_image_path, "Immagini (*.png *.jpg *.jpeg)", self),
             readonly=True,
         )
-        create_path_entry(
+        paths_layout.addLayout(p3)
+
+        p4 = create_path_entry(
             paths_frame,
             "Ghostscript:",
             self.app_config.firma_ghostscript_path,
-            lambda: select_file_dialog(self.app_config.firma_ghostscript_path, [("Eseguibile", "*.exe")]),
-            3,
+            lambda: select_file_dialog(self.app_config.firma_ghostscript_path, "Eseguibile (*.exe)", self),
             readonly=False,
         )
+        paths_layout.addLayout(p4)
 
         # --- Mode Frame Content ---
-        ttk.Radiobutton(
-            mode_frame,
-            text="Schede (Controllo, Manutenzione, etc.)",
-            variable=self.app_config.firma_processing_mode,
-            value="schede",
-        ).pack(anchor=tk.W, padx=5, pady=2)
-        ttk.Radiobutton(
-            mode_frame,
-            text="Preventivi (Basato su foglio 'Consuntivo')",
-            variable=self.app_config.firma_processing_mode,
-            value="preventivi",
-        ).pack(anchor=tk.W, padx=5, pady=2)
+        self.rb_schede = QRadioButton("Schede (Controllo, Manutenzione, etc.)")
+        self.rb_preventivi = QRadioButton("Preventivi (Basato su foglio 'Consuntivo')")
+
+        # Set initial state based on variable
+        if self.app_config.firma_processing_mode.get() == "preventivi":
+            self.rb_preventivi.setChecked(True)
+        else:
+            self.rb_schede.setChecked(True)
+
+        def on_mode_changed():
+            if self.rb_schede.isChecked():
+                self.app_config.firma_processing_mode.set("schede")
+            else:
+                self.app_config.firma_processing_mode.set("preventivi")
+
+        self.rb_schede.toggled.connect(on_mode_changed)
+        self.rb_preventivi.toggled.connect(on_mode_changed)
+
+        mode_layout.addWidget(self.rb_schede)
+        mode_layout.addWidget(self.rb_preventivi)
 
         # --- Actions Frame Content ---
-        self.run_button = ttk.Button(
-            self.actions_frame,
-            text="▶  AVVIA PROCESSO FIRMA COMPLETO",
-            style="primary.TButton",
-            command=self.start_signature_process,
-        )
-        self.run_button.pack(fill=tk.X, ipady=8, pady=5)
-        self.cancel_button = ttk.Button(self.actions_frame, text="Annulla Processo", command=self.cancel_process)
-        # self.cancel_button is packed/unpacked dynamically
+        self.run_button = QPushButton("▶  AVVIA PROCESSO FIRMA COMPLETO")
+        self.run_button.setStyleSheet("background-color: #0078D4; color: white; font-weight: bold; padding: 10px;")
+        self.run_button.clicked.connect(self.start_signature_process)
+        actions_layout.addWidget(self.run_button)
+
+        self.cancel_button = QPushButton("Annulla Processo")
+        self.cancel_button.setStyleSheet("padding: 10px;")
+        self.cancel_button.clicked.connect(self.cancel_process)
+        self.cancel_button.hide()
+        actions_layout.addWidget(self.cancel_button)
 
         # --- Email Frame Content ---
-        email_settings_frame = ttk.Frame(self.email_frame)
-        email_settings_frame.grid(row=0, column=0, sticky=tk.EW, pady=(0, 10))
+        email_settings_layout = QHBoxLayout()
+        email_settings_layout.setContentsMargins(0, 0, 0, 0)
+        email_layout.addLayout(email_settings_layout)
 
-        ttk.Label(email_settings_frame, text="Template TCL:", width=25).grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        email_settings_layout.addWidget(QLabel("Template TCL:"))
+
         tcl_options = ["", *list(self.app_config.TCL_CONTACTS.keys())]
-        self.tcl_combo = ttk.Combobox(
-            email_settings_frame, textvariable=self.app_config.email_tcl, values=tcl_options, state="readonly", width=30
-        )
-        self.tcl_combo.grid(row=0, column=1, sticky=tk.W, padx=(0, 10))
+        self.tcl_combo = QComboBox()
+        self.tcl_combo.addItems(tcl_options)
+        self.tcl_combo.setMinimumWidth(150)
+        self.tcl_combo.setCurrentText(self.app_config.email_tcl.get())
 
-        self.style_check = ttk.Checkbutton(
-            email_settings_frame,
-            text="Usa stile Formale",
-            variable=self.app_config.email_is_formal,
-            onvalue=True,
-            offvalue=False,
-        )
-        self.style_check.grid(row=0, column=2, sticky=tk.W, padx=(0, 10))
+        def on_tcl_changed(text):
+            self.app_config.email_tcl.set(text)
+            self._update_email_preview()
 
-        ttk.Label(email_settings_frame, text="Limite MB/Email:", width=15).grid(
-            row=0, column=3, sticky=tk.E, padx=(10, 5)
-        )
-        self.size_limit_entry = ttk.Entry(email_settings_frame, textvariable=self.app_config.email_size_limit, width=8)
-        self.size_limit_entry.grid(row=0, column=4, sticky=tk.E)
+        self.tcl_combo.currentTextChanged.connect(on_tcl_changed)
+        email_settings_layout.addWidget(self.tcl_combo)
 
-        create_path_entry(self.email_frame, "Destinatario(i):", self.app_config.email_to, None, 1, readonly=False)
-        create_path_entry(self.email_frame, "CC:", self.app_config.email_cc, None, 2, readonly=False)
-        create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, None, 3, readonly=False)
+        self.style_check = QCheckBox("Usa stile Formale")
+        self.style_check.setChecked(self.app_config.email_is_formal.get())
 
-        body_frame = ttk.Frame(self.email_frame)
-        body_frame.grid(row=4, column=0, sticky="ew", pady=5)
-        body_frame.columnconfigure(1, weight=1)
-        ttk.Label(body_frame, text="Corpo del Messaggio:", width=25).grid(row=0, column=0, sticky="nw", padx=(0, 5))
-        self.email_body_text = tk.Text(body_frame, height=8, font=("Segoe UI", 9), relief=tk.SOLID, borderwidth=1)
-        self.email_body_text.grid(row=0, column=1, sticky="ew", padx=5)
+        def on_style_changed(state):
+            self.app_config.email_is_formal.set(bool(state))
+            self._update_email_preview()
 
-        action_preview_frame = ttk.Frame(self.email_frame)
-        action_preview_frame.grid(row=5, column=0, sticky=tk.EW, pady=(10, 0))
-        self.prepare_button = ttk.Button(action_preview_frame, text="Prepara Bozze", command=self.prepare_email_drafts)
-        self.prepare_button.pack(side=tk.LEFT)
+        self.style_check.stateChanged.connect(on_style_changed)
+        email_settings_layout.addWidget(self.style_check)
 
-        self.preview_frame = ttk.Frame(action_preview_frame)
-        # self.preview_frame is packed/unpacked dynamically
-        self.prev_button = ttk.Button(self.preview_frame, text="<", command=self.show_prev_draft, width=3)
-        self.prev_button.pack(side=tk.LEFT, padx=(10, 0))
-        self.preview_label = ttk.Label(self.preview_frame, text="Anteprima 0/0", width=15, anchor="center")
-        self.preview_label.pack(side=tk.LEFT)
-        self.next_button = ttk.Button(self.preview_frame, text=">", command=self.show_next_draft, width=3)
-        self.next_button.pack(side=tk.LEFT)
+        email_settings_layout.addWidget(QLabel("Limite MB/Email:"))
+        self.size_limit_entry = QLineEdit()
+        self.size_limit_entry.setMaximumWidth(60)
+        self.size_limit_entry.setText(self.app_config.email_size_limit.get())
+        self.size_limit_entry.textChanged.connect(self.app_config.email_size_limit.set)
+        email_settings_layout.addWidget(self.size_limit_entry)
 
-        self.email_button = ttk.Button(
-            action_preview_frame, text="Crea Bozze in Outlook", command=self.start_email_creation_process
-        )
-        self.email_button.pack(side=tk.RIGHT)
+        email_settings_layout.addStretch()
 
-        self.tcl_combo.bind("<<ComboboxSelected>>", self._update_email_preview)
-        self.style_check.config(command=self._update_email_preview)
+        e1 = create_path_entry(self.email_frame, "Destinatario(i):", self.app_config.email_to, readonly=False)
+        email_layout.addLayout(e1)
+        e2 = create_path_entry(self.email_frame, "CC:", self.app_config.email_cc, readonly=False)
+        email_layout.addLayout(e2)
+        e3 = create_path_entry(self.email_frame, "Oggetto:", self.app_config.email_subject, readonly=False)
+        email_layout.addLayout(e3)
+
+        body_layout = QHBoxLayout()
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        lbl = QLabel("Corpo del Messaggio:")
+        lbl.setMinimumWidth(150)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        body_layout.addWidget(lbl)
+
+        self.email_body_text = QTextEdit()
+        self.email_body_text.setMinimumHeight(100)
+        self.email_body_text.setMaximumHeight(150)
+        body_layout.addWidget(self.email_body_text, 1)
+        email_layout.addLayout(body_layout)
+
+        action_preview_layout = QHBoxLayout()
+        action_preview_layout.setContentsMargins(0, 0, 0, 0)
+        email_layout.addLayout(action_preview_layout)
+
+        self.prepare_button = QPushButton("Prepara Bozze")
+        self.prepare_button.clicked.connect(self.prepare_email_drafts)
+        action_preview_layout.addWidget(self.prepare_button)
+
+        self.preview_widget = QWidget()
+        self.preview_layout = QHBoxLayout(self.preview_widget)
+        self.preview_layout.setContentsMargins(10, 0, 0, 0)
+
+        self.prev_button = QPushButton("<")
+        self.prev_button.setFixedWidth(30)
+        self.prev_button.clicked.connect(self.show_prev_draft)
+        self.preview_layout.addWidget(self.prev_button)
+
+        self.preview_label = QLabel("Anteprima 0/0")
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setMinimumWidth(100)
+        self.preview_layout.addWidget(self.preview_label)
+
+        self.next_button = QPushButton(">")
+        self.next_button.setFixedWidth(30)
+        self.next_button.clicked.connect(self.show_next_draft)
+        self.preview_layout.addWidget(self.next_button)
+
+        self.preview_widget.hide()
+        action_preview_layout.addWidget(self.preview_widget)
+        action_preview_layout.addStretch()
+
+        self.email_button = QPushButton("Crea Bozze in Outlook")
+        self.email_button.clicked.connect(self.start_email_creation_process)
+        action_preview_layout.addWidget(self.email_button)
+
         self.on_process_finished()
         self._update_email_preview()
 
     def start_signature_process(self):
         self.cancel_event.clear()
         self.toggle_buttons(is_running=True)
-        self.preview_frame.pack_forget()
+        self.preview_widget.hide()
         self.prepared_drafts = []
-        threading.Thread(
-            target=self.processor.run_full_signature_process, args=(self.cancel_event,), daemon=True
-        ).start()
+        def _wrapper():
+            try:
+                self.processor.run_full_signature_process(self.cancel_event)
+            finally:
+                self.process_finished_signal.emit()
+        threading.Thread(target=_wrapper, daemon=True).start()
 
     def cancel_process(self):
         self.log_firma("Annullamento richiesto...", "WARNING")
         self.cancel_event.set()
-        self.cancel_button.config(state="disabled")
+        self.cancel_button.setEnabled(False)
 
     def on_process_finished(self):
         self.toggle_buttons(is_running=False)
         pdf_dir = self.app_config.firma_pdf_dir.get()
         has_pdfs = os.path.isdir(pdf_dir) and any(f.lower().endswith(".pdf") for f in os.listdir(pdf_dir))
-        self.prepare_button.config(state="normal" if has_pdfs else "disabled")
-        self.email_button.config(state="disabled")
+        self.prepare_button.setEnabled(has_pdfs)
+        self.email_button.setEnabled(False)
 
     def toggle_buttons(self, is_running):
         if is_running:
-            self.run_button.pack_forget()
-            self.cancel_button.pack(fill=tk.X, ipady=8, pady=5)
-            self.cancel_button.config(state="normal")
-            self.prepare_button.config(state="disabled")
-            self.email_button.config(state="disabled")
+            self.run_button.hide()
+            self.cancel_button.show()
+            self.cancel_button.setEnabled(True)
+            self.prepare_button.setEnabled(False)
+            self.email_button.setEnabled(False)
         else:
-            self.cancel_button.pack_forget()
-            self.run_button.pack(fill=tk.X, ipady=8, pady=5)
-            self.run_button.config(state="normal")
+            self.cancel_button.hide()
+            self.run_button.show()
+            self.run_button.setEnabled(True)
 
     def prepare_email_drafts(self):
         self.log_firma("Preparazione delle bozze email...", "HEADER")
@@ -305,14 +379,36 @@ class SignatureTab(ttk.Frame):
             raw_subject = self.app_config.email_subject.get()
             base_subject = re.sub(r"^\[\d+/\d+\]\s*", "", raw_subject)
 
-            base_template = self.email_body_text.get("1.0", tk.END).strip()
+            base_template = self.email_body_text.toPlainText().strip()
+            
+            # Helper per calcolare le email dinamiche dai TCL ("PASSANISI D." -> "dpassanisi@isab.com")
+            def get_dynamic_emails(chunk_items):
+                emails = []
+                tcls = set(item["tcl"] for item in chunk_items)
+                for t in tcls:
+                    if not t or t == "N/D":
+                        continue
+                    parts = t.replace('.', '').strip().lower().split()
+                    if len(parts) >= 2:
+                        # Prende prima lettera del secondo nome/cognome + primo nome/cognome
+                        email = f"{parts[1][0]}{parts[0]}@isab.com"
+                        emails.append(email)
+                return "; ".join(emails)
+
+            is_schede_mode = (self.app_config.email_tcl.get() == "Schede" or not self.app_config.email_tcl.get())
 
             for i, chunk in enumerate(chunks):
                 if self.cancel_event.is_set():
                     break
+                    
+                draft_to = self.app_config.email_to.get()
+                if is_schede_mode:
+                    dynamic_to = get_dynamic_emails(chunk)
+                    if dynamic_to:
+                        draft_to = dynamic_to
 
                 draft = {
-                    "to": self.app_config.email_to.get(),
+                    "to": draft_to,
                     "cc": self.app_config.email_cc.get(),
                     "subject": f"[{i + 1}/{num_drafts}] {base_subject}" if num_drafts > 1 else base_subject,
                     "attachments": [item["path"] for item in chunk],
@@ -327,34 +423,34 @@ class SignatureTab(ttk.Frame):
 
             # 7. Finalizzazione
             self.log_firma(f"Preparate {len(self.prepared_drafts)} bozze di email.", "SUCCESS")
+            self.log_firma("Controlla l'anteprima in alto e premi 'Crea Bozze in Outlook' per aprire le email.", "INFO")
             self.current_draft_index = 0
             self._display_draft_preview()
-            self.preview_frame.pack(side=tk.LEFT, padx=(20, 0))
-            self.email_button.config(state="normal")
+            self.preview_widget.show()
+            self.email_button.setEnabled(True)
+            self.email_button.setStyleSheet("background-color: #28a745; color: white; font-weight: bold; padding: 8px;")
 
         except Exception as e:
             self.log_firma(f"ERRORE IMPREVISTO durante la preparazione bozze: {e}", "ERROR")
             import traceback
 
             self.log_firma(traceback.format_exc(), "DEBUG")
-        self.email_button.config(state="normal")
+            self.email_button.setEnabled(False)
 
     def _display_draft_preview(self):
         if not self.prepared_drafts:
-            self.preview_frame.pack_forget()
+            self.preview_widget.hide()
             return
         draft = self.prepared_drafts[self.current_draft_index]
-        self.preview_label["text"] = f"Anteprima {self.current_draft_index + 1}/{len(self.prepared_drafts)}"
+        self.preview_label.setText(f"Anteprima {self.current_draft_index + 1}/{len(self.prepared_drafts)}")
         self.app_config.email_to.set(draft["to"])
         self.app_config.email_subject.set(draft["subject"])
         file_list_str = "\n".join([os.path.splitext(os.path.basename(p))[0] for p in draft["attachments"]])
         full_body = draft["intro_text"].replace("{file_list}", file_list_str)
-        self.email_body_text.delete("1.0", tk.END)
-        self.email_body_text.insert("1.0", full_body)
-        self.prev_button.config(state="normal" if self.current_draft_index > 0 else "disabled")
-        self.next_button.config(
-            state="normal" if self.current_draft_index < len(self.prepared_drafts) - 1 else "disabled"
-        )
+        self.email_body_text.clear()
+        self.email_body_text.insertPlainText(full_body)
+        self.prev_button.setEnabled(self.current_draft_index > 0)
+        self.next_button.setEnabled(self.current_draft_index < len(self.prepared_drafts) - 1)
 
     def show_prev_draft(self):
         with self.drafts_lock:
@@ -390,24 +486,24 @@ class SignatureTab(ttk.Frame):
             self.log_firma("Creazione bozze in Outlook completata.", "SUCCESS")
             with self.drafts_lock:
                 self.prepared_drafts = []
-            self.master.after(0, self.preview_frame.pack_forget)
+            QTimer.singleShot(0, self.preview_widget.hide)
         finally:
-            self.master.after(0, self.on_process_finished)
+            self.process_finished_signal.emit()
 
     def log_firma(self, message, level="INFO"):
-        self.master.after(0, self.log_widget, message, level)
+        self.log_signal.emit(str(message), str(level))
 
     def setup_progress(self, max_value, label_text="Progresso:"):
-        self.app_config.setup_global_progress(max_value, label_text)
+        self.progress_setup_signal.emit(float(max_value), str(label_text))
 
     def show_indeterminate(self, label_text="Inizializzazione..."):
-        self.app_config.show_global_indeterminate(label_text)
+        self.indeterminate_signal.emit(str(label_text))
 
     def update_progress(self, value):
-        self.app_config.update_global_progress(value)
+        self.progress_update_signal.emit(float(value))
 
     def hide_progress(self):
-        self.app_config.hide_global_progress()
+        self.progress_hide_signal.emit()
 
     def _get_date_range_from_filenames(self):
         pdf_dir = self.app_config.firma_pdf_dir.get()
@@ -480,5 +576,21 @@ class SignatureTab(ttk.Frame):
             else:
                 body_template = self.app_config.EMAIL_BODY_GENERIC_INFORMAL.format(file_list="{file_list}")
 
-        self.email_body_text.delete("1.0", tk.END)
-        self.email_body_text.insert("1.0", body_template)
+        self.email_body_text.clear()
+        self.email_body_text.insertPlainText(body_template)
+
+    # Slot eseguiti nel thread principale
+    def _handle_log(self, message, level):
+        self.log_widget(message, level)
+
+    def _handle_setup_progress(self, max_value, label_text):
+        self.app_config.setup_global_progress(max_value, label_text)
+
+    def _handle_update_progress(self, value):
+        self.app_config.update_global_progress(value)
+
+    def _handle_hide_progress(self):
+        self.app_config.hide_global_progress()
+
+    def _handle_indeterminate(self, label_text):
+        self.app_config.show_global_indeterminate(label_text)

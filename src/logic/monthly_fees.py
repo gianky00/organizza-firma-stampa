@@ -134,7 +134,6 @@ class MonthlyFeesProcessor:
         finally:
             if cancel_event.is_set():
                 self.logger("Processo annullato.", "WARNING")
-            self.gui.after(0, self.gui.on_process_finished)
 
     def _execute_batch_print(self, excel, word, paths, consuntivi, macro, cancel_event):
         wb_giornaliera = excel.Workbooks.Open(paths["giornaliera"])

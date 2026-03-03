@@ -27,7 +27,7 @@ def test_clear_folder_content_item_error(fs, mock_logger):
     fs.create_dir(test_dir)
     fs.create_file(os.path.join(test_dir, "file.txt"))
 
-    with patch("os.remove", side_effect=PermissionError("Access denied")):
+    with patch("pathlib.Path.unlink", side_effect=PermissionError("Access denied")):
         clear_folder_content(test_dir, mock_logger)
         mock_logger.assert_any_call("Impossibile eliminare 'file.txt': Access denied", "ERROR")
 

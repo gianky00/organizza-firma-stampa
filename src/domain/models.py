@@ -22,12 +22,12 @@ class ModelConfig:
 # Configuration for different Excel models used in renaming, organization and printing
 RENAME_MODELS: list[ModelConfig] = [
     ModelConfig(
-        name="Valvole Regolazione", 
-        id_cells=["T3", "T6", "E2"], 
-        match_value="valvolediregolazione", 
-        date_cells=["B105", "B108"], 
+        name="Valvole Regolazione",
+        id_cells=["T3", "T6", "E2"],
+        match_value="valvolediregolazione",
+        date_cells=["B105", "B108"],
         tcl_cells=["DE108", "DE105"],
-        print_area="A1:N115"
+        print_area="A1:N115",
     ),
     ModelConfig(
         name="Disco Calibro",
@@ -35,15 +35,15 @@ RENAME_MODELS: list[ModelConfig] = [
         match_value="schedatecnicaverificadiscocalibro",
         date_cells=["AK2"],
         tcl_cells=["L50"],
-        print_area="A2:N45"
+        print_area="A2:N45",
     ),
     ModelConfig(
-        name="Scheda Valvole", 
-        id_cells=["F3", "G3"], 
-        match_value="schedavalvole", 
-        date_cells=["C54"], 
+        name="Scheda Valvole",
+        id_cells=["F3", "G3"],
+        match_value="schedavalvole",
+        date_cells=["C54"],
         tcl_cells=["L45"],
-        print_area="A1:N50"
+        print_area="A1:N50",
     ),
     ModelConfig(
         name="Digitali",
@@ -51,7 +51,7 @@ RENAME_MODELS: list[ModelConfig] = [
         match_value="schedataraturastrumentidigitali",
         date_cells=["B50", "B45"],
         tcl_cells=["L47", "L45"],
-        print_area="A2:N50"
+        print_area="A2:N50",
     ),
     ModelConfig(
         name="Analogici",
@@ -59,7 +59,7 @@ RENAME_MODELS: list[ModelConfig] = [
         match_value="schedacontrollostrumentianalogici",
         date_cells=["F49", "B45", "L52"],
         tcl_cells=["L52"],
-        print_area="A2:N55"
+        print_area="A2:N55",
     ),
     ModelConfig(
         name="Correttiva",
@@ -67,7 +67,7 @@ RENAME_MODELS: list[ModelConfig] = [
         match_value="schedacontrolloreportmanutenzionecorrettiva",
         date_cells=["B50"],
         tcl_cells=["L52"],
-        print_area="A2:N55"
+        print_area="A2:N55",
     ),
     ModelConfig(
         name="Scheda Manutenzione",
@@ -75,7 +75,7 @@ RENAME_MODELS: list[ModelConfig] = [
         match_value="schedamanutenzione",
         date_cells=["B108", "B105"],
         tcl_cells=["FO104"],
-        print_area="A1:N115"
+        print_area="A1:N115",
     ),
 ]
 

@@ -14,9 +14,20 @@ def test_rename_excel_files_success(fs, mock_gui, app_config):
     app_config.rinomina_path.get.return_value = root_dir
     app_config.rinomina_password.get.return_value = ""
 
+    # Mock Excel locale
+    mock_excel_app = MagicMock()
+    mock_wb = MagicMock()
+    mock_ws = MagicMock()
+    mock_excel_app.Workbooks.Open.return_value = mock_wb
+    mock_wb.Worksheets.return_value = mock_ws
+
+    mock_handler_class = MagicMock()
+    mock_handler_class.return_value.__enter__.return_value = mock_excel_app
+
     # Mock Gateway locale
     mock_gateway_instance = MagicMock()
-    mock_gateway_instance.get_workbook_date.return_value = datetime(2024, 5, 20)
+    mock_gateway_instance.extract_date_from_worksheet.return_value = datetime(2024, 5, 20)
+    mock_gateway_instance.excel_handler_class = mock_handler_class
 
     mock_gateway_class = MagicMock(return_value=mock_gateway_instance)
 

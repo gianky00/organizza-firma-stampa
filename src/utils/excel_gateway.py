@@ -123,9 +123,10 @@ class ExcelGateway:
         if cfg:
             date_cells = cfg.get("date_cells", [])
             return self._find_date_in_cells(ws, date_cells)
-        
+
         # Fallback su candidati globali se nessun modello identificato
         from src.domain.models import DEFAULT_DATE_CANDIDATES
+
         return self._find_date_in_cells(ws, DEFAULT_DATE_CANDIDATES)
 
     def extract_tcl_from_worksheet(self, ws: Any) -> str | None:
@@ -149,12 +150,12 @@ class ExcelGateway:
             mv = self._normalize_model_string(cfg.get("match_value", ""))
             if not mv:
                 continue
-                
+
             id_cells = cfg.get("id_cells", [])
             # Supporto per id_cell singola (legacy)
             if not id_cells and cfg.get("id_cell"):
                 id_cells = [cfg.get("id_cell")]
-                
+
             for cell_ref in id_cells:
                 try:
                     raw_val = ws.Range(cell_ref).Value
@@ -169,8 +170,8 @@ class ExcelGateway:
     def _get_dynamic_models_config(self) -> list[dict]:
         """Recupera i modelli dalla configurazione dell'app (file JSON)."""
         from src.utils.config_manager import ConfigManager
-        config = ConfigManager()
-        models = config.get("rename_models_config")
+
+        models = ConfigManager().get("rename_models_config")
         return list(models) if isinstance(models, list) else []
 
     def _open_workbook(self, excel, file_path, password):
@@ -189,7 +190,7 @@ class ExcelGateway:
             if not id_cells:
                 id_cell = cfg.get("id_cell") if is_dict else getattr(cfg, "id_cell", None)
                 id_cells = [id_cell] if id_cell else []
-            
+
             match_value = cfg.get("match_value") if is_dict else getattr(cfg, "match_value", None)
             date_cells = cfg.get("date_cells") if is_dict else getattr(cfg, "date_cells", [])
 
