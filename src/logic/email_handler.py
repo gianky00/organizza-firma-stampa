@@ -39,8 +39,8 @@ class EmailHandler:
         """
 
         # 2. Generazione delle tabelle affiancate (fluide)
-        sections_html = '<div>\n'
-        
+        sections_html = "<div>\n"
+
         for tcl, names in sorted(grouped_files.items()):
             table_rows = ""
             for i, filename in enumerate(names):
@@ -52,7 +52,7 @@ class EmailHandler:
                         </td>
                     </tr>
                 """
-            
+
             sections_html += f"""
             <table align="left" style="margin-right: 25px; margin-bottom: 20px; border-collapse: collapse; border: 1px solid #eeeeee;">
                 <thead>
@@ -70,7 +70,7 @@ class EmailHandler:
                 </tbody>
             </table>
             """
-            
+
         sections_html += '<br style="clear:both;">\n</div>\n'
 
         # Template Finale
@@ -81,11 +81,11 @@ class EmailHandler:
                 <div style="color: #444444; font-size: 11pt; line-height: 1.6; margin-bottom: 25px;">
                     {intro_html}
                 </div>
-                
+
                 {summary_html}
 
                 <h3 style="color: #333333; font-size: 12pt; border-bottom: 2px solid #eeeeee; padding-bottom: 5px; margin-bottom: 20px;">DETTAGLIO SCHEDE ALLEGATE</h3>
-                
+
                 {sections_html}
             </div>
         </div>

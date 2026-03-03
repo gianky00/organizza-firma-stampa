@@ -343,7 +343,7 @@ class MainApplication(QMainWindow):
         log_frame.setMaximumHeight(200)
         return log_widget, log_frame
 
-    def closeEvent(self, event):
+    def closeEvent(self, event):  # noqa: N802
         # --- On Closing ---
         tcl_to_save = [
             {"name": ref["name"].get(), "tcl": ref["tcl"].get(), "num": ref["num"].get(), "print": ref["print"].get()}

@@ -42,7 +42,7 @@ def build():
     for d in required_dirs:
         path = os.path.join(dist_dir, d)
         os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, ".gitkeep"), "w") as f:
+        with open(os.path.join(path, ".gitkeep"), "w"):
             pass
 
     print(f"Build completata nella cartella: {dist_dir}")

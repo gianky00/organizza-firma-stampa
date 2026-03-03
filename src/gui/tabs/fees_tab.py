@@ -1,11 +1,11 @@
 import threading
 from datetime import datetime
 
-from PySide6.QtCore import Qt, Signal, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QFrame,
     QCheckBox,
     QComboBox,
+    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -217,7 +217,8 @@ class FeesTab(QWidget):
         # Pulisce tutto il container della tabella
         for i in reversed(range(self.table_layout.count())):
             item = self.table_layout.itemAt(i)
-            if item is None: continue
+            if item is None:
+                continue
             widget_to_remove = item.widget()
             if widget_to_remove is not None:
                 widget_to_remove.setParent(None)  # type: ignore
@@ -317,11 +318,13 @@ class FeesTab(QWidget):
         }
         printer = self.app_config.selected_printer.get()
         macro = self.app_config.canoni_macro_name.get()
+
         def _wrapper():
             try:
                 self.processor.run_printing_process(self.cancel_event, paths_to_print, printer, macro)
             finally:
                 self.process_finished_signal.emit()
+
         threading.Thread(target=_wrapper, daemon=True).start()
 
     def find_numbers_and_populate(self):

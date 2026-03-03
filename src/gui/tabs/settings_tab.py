@@ -111,7 +111,7 @@ class SettingsTab(QWidget):
         self._refresh_tcl_list_settings()
 
         btn_layout = QHBoxLayout()
-        add_tcl_btn = QPushButton("➕ Aggiungi TCL")
+        add_tcl_btn = QPushButton("+ Aggiungi TCL")
         add_tcl_btn.clicked.connect(self._add_tcl_settings)
         btn_layout.addWidget(add_tcl_btn)
 
@@ -135,7 +135,7 @@ class SettingsTab(QWidget):
         self._refresh_models_list_settings()
 
         m_btn_layout = QHBoxLayout()
-        add_model_btn = QPushButton("➕ Aggiungi Nuovo Modello")
+        add_model_btn = QPushButton("+ Aggiungi Nuovo Modello")
         add_model_btn.clicked.connect(self._add_model_settings)
         m_btn_layout.addWidget(add_model_btn)
         m_btn_layout.addStretch()
@@ -144,7 +144,8 @@ class SettingsTab(QWidget):
     def _refresh_models_list_settings(self):
         for i in reversed(range(self.models_layout.count())):
             item = self.models_layout.itemAt(i)
-            if item is None: continue
+            if item is None:
+                continue
             widget_to_remove = item.widget()
             if widget_to_remove is not None:
                 widget_to_remove.setParent(None)  # type: ignore

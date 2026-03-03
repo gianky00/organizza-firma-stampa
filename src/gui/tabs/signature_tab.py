@@ -3,11 +3,11 @@ import re
 import threading
 from datetime import datetime
 
-from PySide6.QtCore import Qt, Signal, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QFrame,
     QCheckBox,
     QComboBox,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -283,11 +283,13 @@ class SignatureTab(QWidget):
         self.toggle_buttons(is_running=True)
         self.preview_widget.hide()
         self.prepared_drafts = []
+
         def _wrapper():
             try:
                 self.processor.run_full_signature_process(self.cancel_event)
             finally:
                 self.process_finished_signal.emit()
+
         threading.Thread(target=_wrapper, daemon=True).start()
 
     def cancel_process(self):
@@ -380,27 +382,27 @@ class SignatureTab(QWidget):
             base_subject = re.sub(r"^\[\d+/\d+\]\s*", "", raw_subject)
 
             base_template = self.email_body_text.toPlainText().strip()
-            
+
             # Helper per calcolare le email dinamiche dai TCL ("PASSANISI D." -> "dpassanisi@isab.com")
             def get_dynamic_emails(chunk_items):
                 emails = []
-                tcls = set(item["tcl"] for item in chunk_items)
+                tcls = {item["tcl"] for item in chunk_items}
                 for t in tcls:
                     if not t or t == "N/D":
                         continue
-                    parts = t.replace('.', '').strip().lower().split()
+                    parts = t.replace(".", "").strip().lower().split()
                     if len(parts) >= 2:
                         # Prende prima lettera del secondo nome/cognome + primo nome/cognome
                         email = f"{parts[1][0]}{parts[0]}@isab.com"
                         emails.append(email)
                 return "; ".join(emails)
 
-            is_schede_mode = (self.app_config.email_tcl.get() == "Schede" or not self.app_config.email_tcl.get())
+            is_schede_mode = self.app_config.email_tcl.get() == "Schede" or not self.app_config.email_tcl.get()
 
             for i, chunk in enumerate(chunks):
                 if self.cancel_event.is_set():
                     break
-                    
+
                 draft_to = self.app_config.email_to.get()
                 if is_schede_mode:
                     dynamic_to = get_dynamic_emails(chunk)

@@ -1,7 +1,7 @@
 import os
 import threading
 
-from PySide6.QtCore import Qt, Signal, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import QCheckBox, QGroupBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from src.logic.organization import OrganizationProcessor
@@ -128,14 +128,14 @@ class OrganizeTab(QWidget):
         self.toggle_buttons(is_running=True)
 
         thread_args = (self.cancel_event, *args)
-        
+
         def _wrapper():
             try:
                 target_func(*thread_args)
             finally:
                 self.process_finished_signal.emit()
-        threading.Thread(target=_wrapper, daemon=True).start()
 
+        threading.Thread(target=_wrapper, daemon=True).start()
 
     def start_organization_process(self):
         self.start_process("organize", self.processor.run_organization_process)
@@ -190,7 +190,8 @@ class OrganizeTab(QWidget):
         # Clear existing checkboxes
         for i in reversed(range(self.stampa_checkbox_layout.count())):
             item = self.stampa_checkbox_layout.itemAt(i)
-            if item is None: continue
+            if item is None:
+                continue
             widget_to_remove = item.widget()
             if widget_to_remove is not None:
                 widget_to_remove.setParent(None)  # type: ignore

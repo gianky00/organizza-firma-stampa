@@ -282,7 +282,7 @@ class OrganizationProcessor:
                             target_cells.add(c.strip().upper())
 
                 # Scansione delle celle effettivamente in uso
-                for cell_ref in sorted(list(target_cells)):
+                for cell_ref in sorted(target_cells):
                     try:
                         val = ws.Range(cell_ref).Value
                         if val:

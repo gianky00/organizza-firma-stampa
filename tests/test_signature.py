@@ -64,10 +64,6 @@ def test_signature_apply_logic_simple(fs, mock_gui, app_config):
     with patch("src.logic.signature.subprocess.run"):
         processor.run_full_signature_process(cancel_event)
 
-    # Print logs to debug
-    for call_args in mock_gui.log_firma.call_args_list:
-        print(call_args)
-
     assert mock_wb.ActiveSheet.ExportAsFixedFormat.called
     assert mock_ws.Shapes.AddPicture.called
 
@@ -118,9 +114,6 @@ def test_signature_preventivi_logic_simple(fs, mock_gui, app_config):
     cancel_event.is_set.return_value = False
     with patch("src.logic.signature.subprocess.run"):
         processor.run_full_signature_process(cancel_event)
-
-    for call_args in mock_gui.log_firma.call_args_list:
-        print(call_args)
 
     assert mock_ws.Activate.called
     assert mock_ws.ExportAsFixedFormat.called
