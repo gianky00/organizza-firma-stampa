@@ -109,6 +109,7 @@ class MainApplication(tk.Tk):
 
         # Le variabili dinamiche dei TCL verranno popolate in _load_config_into_vars
         self.canoni_tcl_vars = []
+        self.rename_models_vars = []
 
         self.canoni_word_path = tk.StringVar()
         self.selected_printer = tk.StringVar()
@@ -147,6 +148,52 @@ class MainApplication(tk.Tk):
                     "num": tk.StringVar(value=ref.get("num", "")),
                     "print": tk.BooleanVar(value=ref.get("print", False)),
                     "path": tk.StringVar(value=""),
+                }
+            )
+
+        models_data = self.config_manager.get("rename_models_config")
+        self.rename_models_vars = []
+        
+        # Carica modelli di default per fallback/healing
+        from src.domain.models import RENAME_MODELS
+        defaults_map = {m.match_value: m for m in RENAME_MODELS}
+
+        for mod in models_data:
+            # 1. Recupero Match Value
+            match_val = mod.get("match_value", "")
+            
+            # 2. Recupero ID Cells (Legacy support + Healing)
+            raw_id_cells = mod.get("id_cells", [])
+            if not raw_id_cells and mod.get("id_cell"):
+                raw_id_cells = [mod.get("id_cell")]
+            
+            # Se ancora vuoto e abbiamo un default per questo match_value, cura il dato
+            if not raw_id_cells and match_val in defaults_map:
+                raw_id_cells = defaults_map[match_val].id_cells
+
+            # 3. Recupero TCL Cells (Legacy support + Healing)
+            raw_tcl_cells = mod.get("tcl_cells", [])
+            if not raw_tcl_cells and mod.get("tcl_cell"):
+                raw_tcl_cells = [mod.get("tcl_cell")]
+            
+            if not raw_tcl_cells and match_val in defaults_map:
+                raw_tcl_cells = defaults_map[match_val].tcl_cells
+
+            # 4. Altri campi con healing per print_area
+            print_area = mod.get("print_area")
+            if not print_area and match_val in defaults_map:
+                print_area = defaults_map[match_val].print_area
+            if not print_area:
+                print_area = "A1:N50"
+
+            self.rename_models_vars.append(
+                {
+                    "name": tk.StringVar(value=mod.get("name", "")),
+                    "match_value": tk.StringVar(value=match_val),
+                    "id_cells": tk.StringVar(value=", ".join(raw_id_cells)),
+                    "tcl_cell": tk.StringVar(value=raw_tcl_cells[0] if raw_tcl_cells else ""),
+                    "date_cells": tk.StringVar(value=", ".join(mod.get("date_cells", []))),
+                    "print_area": tk.StringVar(value=print_area),
                 }
             )
 
@@ -272,11 +319,27 @@ class MainApplication(tk.Tk):
             for ref in self.canoni_tcl_vars
         ]
 
+        models_to_save = []
+        for mod in self.rename_models_vars:
+            id_list = [d.strip() for d in mod["id_cells"].get().split(",") if d.strip()]
+            tcl_val = mod["tcl_cell"].get().strip()
+            models_to_save.append({
+                "name": mod["name"].get(),
+                "match_value": mod["match_value"].get(),
+                "id_cells": id_list,
+                "id_cell": id_list[0] if id_list else "", # Legacy support
+                "tcl_cells": [tcl_val] if tcl_val else [],
+                "tcl_cell": tcl_val, # Legacy support
+                "date_cells": [d.strip() for d in mod["date_cells"].get().split(",") if d.strip()],
+                "print_area": mod["print_area"].get(),
+            })
+
         current_config = {
             "firma_ghostscript_path": self.firma_ghostscript_path.get(),
             "rinomina_path": self.rinomina_path.get(),
             "rinomina_password": self.rinomina_password.get(),
             "canoni_tcl_list": tcl_to_save,
+            "rename_models_config": models_to_save,
             "canoni_word_path": self.canoni_word_path.get(),
             "selected_printer": self.selected_printer.get(),
             "email_to": self.email_to.get(),
@@ -294,19 +357,25 @@ class MainApplication(tk.Tk):
 
     # --- Metodi Progress Bar Globale ---
     def setup_global_progress(self, max_value, label_text="Progresso:"):
-        self.global_progress.pack(side=tk.RIGHT, padx=10)
-        self.global_progress.setup(max_value, label_text)
-        self.header_frame.update()
+        def _setup():
+            self.global_progress.pack(side=tk.RIGHT, padx=10)
+            self.global_progress.setup(max_value, label_text)
+            self.header_frame.update()
+        self.after(0, _setup)
 
     def show_global_indeterminate(self, label_text="Elaborazione..."):
-        self.global_progress.pack(side=tk.RIGHT, padx=10)
-        self.global_progress.setup_indeterminate(label_text)
-        self.header_frame.update()
+        def _show():
+            self.global_progress.pack(side=tk.RIGHT, padx=10)
+            self.global_progress.setup_indeterminate(label_text)
+            self.header_frame.update()
+        self.after(0, _show)
 
     def update_global_progress(self, value):
-        self.global_progress.update_progress(value)
+        self.after(0, self.global_progress.update_progress, value)
 
     def hide_global_progress(self):
-        self.global_progress.stop_indeterminate()
-        self.global_progress.pack_forget()
-        self.header_frame.update()
+        def _hide():
+            self.global_progress.stop_indeterminate()
+            self.global_progress.pack_forget()
+            self.header_frame.update()
+        self.after(0, _hide)

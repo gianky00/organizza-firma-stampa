@@ -57,20 +57,13 @@ class SettingsTab(ttk.Frame):
         )
 
         # --- Referenti Management Frame ---
-        ref_frame = ttk.LabelFrame(self, text="2. Gestione Lista TCL (Aggiungi/Rimuovi/Rinomina)", padding=15)
-        ref_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        ref_frame = ttk.LabelFrame(self, text="2. Gestione Lista TCL (Canoni)", padding=15)
+        ref_frame.pack(fill=tk.X, pady=10)
         ref_frame.columnconfigure(0, weight=1)
 
-        # Descrizione
-        ttk.Label(
-            ref_frame,
-            text="Modifica qui i nomi e le chiavi di ricerca. Le modifiche appariranno nella scheda Canoni.",
-            style="info.TLabel",
-        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
-
-        # Header
+        # Header TCL
         header_f = ttk.Frame(ref_frame)
-        header_f.grid(row=1, column=0, sticky="ew")
+        header_f.pack(fill="x")
         ttk.Label(header_f, text="Nome Visualizzato", width=30, font=self.app_config.font_bold).pack(
             side=tk.LEFT, padx=5
         )
@@ -79,15 +72,99 @@ class SettingsTab(ttk.Frame):
         )
 
         self.ref_list_container = ttk.Frame(ref_frame)
-        self.ref_list_container.grid(row=2, column=0, sticky="nsew")
+        self.ref_list_container.pack(fill="x")
 
         self._refresh_tcl_list_settings()
 
-        # Add button
         btn_f = ttk.Frame(ref_frame)
-        btn_f.grid(row=3, column=0, sticky="ew", pady=(10, 0))
-        ttk.Button(btn_f, text="➕ Aggiungi Nuovo TCL", command=self._add_tcl_settings).pack(side=tk.LEFT)  # noqa: RUF001
-        ttk.Button(btn_f, text="🔄 Aggiorna Vista Canoni", command=self._apply_to_fees_tab).pack(side=tk.LEFT, padx=10)
+        btn_f.pack(fill="x", pady=(10, 0))
+        ttk.Button(btn_f, text="➕ Aggiungi TCL", command=self._add_tcl_settings).pack(side=tk.LEFT)  # noqa: RUF001
+        ttk.Button(btn_f, text="🔄 Aggiorna Vista", command=self._apply_to_fees_tab).pack(side=tk.LEFT, padx=10)
+
+        # --- Models Management Frame ---
+        models_frame = ttk.LabelFrame(self, text="3. Configurazione Modelli Schede (Ridenominazione, TCL e Stampa)", padding=15)
+        models_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+
+        # Area scorrevole per i modelli
+        m_canvas = tk.Canvas(models_frame, borderwidth=0, highlightthickness=0, height=400)
+        m_scrollbar = ttk.Scrollbar(models_frame, orient="vertical", command=m_canvas.yview)
+        self.models_container = ttk.Frame(m_canvas)
+
+        self.models_window = m_canvas.create_window((0, 0), window=self.models_container, anchor="nw")
+        m_canvas.configure(yscrollcommand=m_scrollbar.set)
+
+        self.models_container.bind("<Configure>", lambda e: m_canvas.configure(scrollregion=m_canvas.bbox("all")))
+        m_canvas.bind("<Configure>", lambda e: m_canvas.itemconfig(self.models_window, width=e.width))
+
+        m_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        m_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self._refresh_models_list_settings()
+
+        m_btn_f = ttk.Frame(models_frame)
+        m_btn_f.pack(fill=tk.X, side=tk.BOTTOM, pady=(5, 0))
+        ttk.Button(m_btn_f, text="➕ Aggiungi Nuovo Modello", command=self._add_model_settings).pack(side=tk.LEFT)  # noqa: RUF001
+
+    def _refresh_models_list_settings(self):
+        for widget in self.models_container.winfo_children():
+            widget.destroy()
+
+        # Configurazione pesi colonne per la griglia
+        # 0: Nome, 1: Match, 2: Celle ID, 3: Area Stampa, 4: Cella TCL, 5: Celle Data, 6: Delete
+        self.models_container.columnconfigure(0, weight=3) # Nome
+        self.models_container.columnconfigure(1, weight=3) # Match
+        self.models_container.columnconfigure(2, weight=1) # Celle ID
+        self.models_container.columnconfigure(3, weight=1) # Area Stampa
+        self.models_container.columnconfigure(4, weight=1) # Cella TCL
+        self.models_container.columnconfigure(5, weight=2) # Celle Data
+        self.models_container.columnconfigure(6, weight=0) # X
+
+        # Headers
+        h_f = ttk.Frame(self.models_container)
+        h_f.grid(row=0, column=0, columnspan=7, sticky="ew", pady=(0, 5))
+        
+        headers = [
+            ("Nome Modello", 0),
+            ("Match ID", 1),
+            ("Celle ID", 2),
+            ("Area Stampa", 3),
+            ("Cella TCL", 4),
+            ("Celle Data", 5),
+        ]
+        
+        for text, col in headers:
+            lbl = ttk.Label(self.models_container, text=text, font=self.app_config.font_bold, anchor="w")
+            lbl.grid(row=0, column=col, sticky="w", padx=5)
+
+        for i, mod in enumerate(self.app_config.rename_models_vars):
+            ttk.Entry(self.models_container, textvariable=mod["name"]).grid(row=i+1, column=0, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["match_value"]).grid(row=i+1, column=1, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["id_cells"]).grid(row=i+1, column=2, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["print_area"]).grid(row=i+1, column=3, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["tcl_cell"]).grid(row=i+1, column=4, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["date_cells"]).grid(row=i+1, column=5, sticky="ew", padx=5, pady=2)
+
+            ttk.Button(self.models_container, text="❌", width=3, command=partial(self._remove_model_settings, i)).grid(
+                row=i+1, column=6, padx=5, pady=2
+            )
+
+    def _add_model_settings(self):
+        new_mod = {
+            "name": tk.StringVar(value="Nuovo Modello"),
+            "match_value": tk.StringVar(value="testo"),
+            "id_cells": tk.StringVar(value="E2, T2"),
+            "print_area": tk.StringVar(value="A1:N50"),
+            "tcl_cell": tk.StringVar(value="L45"),
+            "date_cells": tk.StringVar(value="B50"),
+        }
+        self.app_config.rename_models_vars.append(new_mod)
+        self._refresh_models_list_settings()
+
+    def _remove_model_settings(self, index):
+        if len(self.app_config.rename_models_vars) <= 1:
+            return
+        self.app_config.rename_models_vars.pop(index)
+        self._refresh_models_list_settings()
 
     def _refresh_tcl_list_settings(self):
         for widget in self.ref_list_container.winfo_children():

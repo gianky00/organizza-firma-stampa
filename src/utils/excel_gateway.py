@@ -118,20 +118,60 @@ class ExcelGateway:
                     wb.Close(SaveChanges=False)
 
     def extract_date_from_worksheet(self, ws: Any) -> datetime | None:
-        """Logica core per estrarre la data da un foglio di lavoro usando modelli e candidati."""
-        from src.domain.models import DEFAULT_DATE_CANDIDATES, RENAME_MODELS
+        """Estrae la data identificando prima il modello corretto dalle configurazioni."""
+        cfg = self.identify_model(ws)
+        if cfg:
+            date_cells = cfg.get("date_cells", [])
+            return self._find_date_in_cells(ws, date_cells)
+        
+        # Fallback su candidati globali se nessun modello identificato
+        from src.domain.models import DEFAULT_DATE_CANDIDATES
+        return self._find_date_in_cells(ws, DEFAULT_DATE_CANDIDATES)
 
-        # Prova matching modelli specifici
-        dt = self._find_date_by_model(ws, RENAME_MODELS)
-        if dt:
-            return dt
-
-        # Prova candidati di default
-        dt = self._find_date_in_cells(ws, DEFAULT_DATE_CANDIDATES)
-        if dt:
-            return dt
-
+    def extract_tcl_from_worksheet(self, ws: Any) -> str | None:
+        """Estrae il TCL identificando prima il modello corretto dalle configurazioni."""
+        cfg = self.identify_model(ws)
+        if cfg:
+            tcl_cells = cfg.get("tcl_cells", [])
+            for t_cell in tcl_cells:
+                try:
+                    tcl_val = ws.Range(t_cell).Value
+                    if tcl_val:
+                        return str(tcl_val).strip()
+                except Exception:
+                    continue
         return None
+
+    def identify_model(self, ws: Any) -> dict | None:
+        """Scansiona i modelli configurati e restituisce quello che corrisponde al foglio corrente."""
+        models_config = self._get_dynamic_models_config()
+        for cfg in models_config:
+            mv = self._normalize_model_string(cfg.get("match_value", ""))
+            if not mv:
+                continue
+                
+            id_cells = cfg.get("id_cells", [])
+            # Supporto per id_cell singola (legacy)
+            if not id_cells and cfg.get("id_cell"):
+                id_cells = [cfg.get("id_cell")]
+                
+            for cell_ref in id_cells:
+                try:
+                    raw_val = ws.Range(cell_ref).Value
+                    if raw_val:
+                        clean_val = self._normalize_model_string(raw_val)
+                        if clean_val == mv:
+                            return cfg
+                except Exception:
+                    continue
+        return None
+
+    def _get_dynamic_models_config(self) -> list[dict]:
+        """Recupera i modelli dalla configurazione dell'app (file JSON)."""
+        from src.utils.config_manager import ConfigManager
+        config = ConfigManager()
+        models = config.get("rename_models_config")
+        return list(models) if isinstance(models, list) else []
 
     def _open_workbook(self, excel, file_path, password):
         try:
@@ -143,10 +183,23 @@ class ExcelGateway:
 
     def _find_date_by_model(self, worksheet, models_config) -> datetime | None:
         for cfg in models_config:
-            if cfg.id_cell:
-                val = self._normalize_model_string(worksheet.Range(cfg.id_cell).Value)
-                if val == cfg.match_value:
-                    return self._find_date_in_cells(worksheet, cfg.date_cells)
+            # Supporta sia oggetti che dizionari
+            is_dict = isinstance(cfg, dict)
+            id_cells = cfg.get("id_cells") if is_dict else getattr(cfg, "id_cells", None)
+            if not id_cells:
+                id_cell = cfg.get("id_cell") if is_dict else getattr(cfg, "id_cell", None)
+                id_cells = [id_cell] if id_cell else []
+            
+            match_value = cfg.get("match_value") if is_dict else getattr(cfg, "match_value", None)
+            date_cells = cfg.get("date_cells") if is_dict else getattr(cfg, "date_cells", [])
+
+            for id_cell in id_cells:
+                try:
+                    val = self._normalize_model_string(worksheet.Range(id_cell).Value)
+                    if val == match_value:
+                        return self._find_date_in_cells(worksheet, date_cells)
+                except Exception:
+                    continue
         return None
 
     def _find_date_in_cells(self, worksheet, cell_list) -> datetime | None:

@@ -63,19 +63,15 @@ TCL_CONTACTS = {
 
 
 EMAIL_TCL_SCHEDE = {
-    "to": "ASpicuglia@isab.com",
-    "cc": "dagusta@isab.com; fcaldarella@isab.com; mprezzavento@isab.com; imessina@isab.com; dpassanisi@isab.com; francesco.millo@coemi.it; ciro.scaravelli@coemi.it",
-    "subject": "COEMI - Schede controlli strumentali dal {data_inizio} al {data_fine}.",
-    "body": "Gentilissimi Signori,\nCon la presente sottopongo alla Vostra attenzione le schede dei controlli eseguiti dal {data_inizio} al {data_fine}.\n\n{file_list}\n\nSaluti,",
+    "to": "dagusta@isab.com; fcaldarella@isab.com; mprezzavento@isab.com; imessina@isab.com; dpassanisi@isab.com",
+    "cc": "ASpicuglia@isab.com; francesco.millo@coemi.it; ciro.scaravelli@coemi.it",
+    "subject": "COEMI - Schede controlli strumentali dal {data_inizio} al {data_fine}",
+    "body": "Gentilissimi Signori,\nCon la presente sottopongo alla Vostra attenzione le schede dei controlli eseguiti dal {data_inizio} al {data_fine}.\n\nSaluti,",
 }
 
-# Placeholders: {name} for the first name, {file_list} for the list of files.
-EMAIL_BODY_INFORMAL = "Ciao {name},\n\ndi seguito elenco delle schede in allegato firmate:\n\n{file_list}\n\nSaluti,"
-EMAIL_BODY_FORMAL = (
-    "Buongiorno {name},\n\nin allegato la documentazione richiesta.\n\nElenco file:\n{file_list}\n\nCordiali Saluti,"
-)
+# Placeholders: {name} for the first name
+EMAIL_BODY_INFORMAL = "Ciao {name},\n\ndi seguito elenco delle schede in allegato firmate:\n\nSaluti,"
+EMAIL_BODY_FORMAL = "Buongiorno {name},\n\nin allegato la documentazione richiesta.\n\nCordiali Saluti,"
 
-EMAIL_BODY_GENERIC_INFORMAL = "Ciao,\n\ndi seguito elenco delle schede in allegato firmate:\n\n{file_list}\n\nSaluti,"
-EMAIL_BODY_GENERIC_FORMAL = (
-    "Buongiorno,\n\nin allegato la documentazione richiesta.\n\nElenco file:\n{file_list}\n\nCordiali Saluti,"
-)
+EMAIL_BODY_GENERIC_INFORMAL = "Ciao,\n\ndi seguito elenco delle schede in allegato firmate:\n\nSaluti,"
+EMAIL_BODY_GENERIC_FORMAL = "Buongiorno,\n\nin allegato la documentazione richiesta.\n\nCordiali Saluti,"

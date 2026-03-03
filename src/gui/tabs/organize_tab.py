@@ -165,13 +165,13 @@ class OrganizeTab(ttk.Frame):
         self.master.after(0, self.log_widget, message, level)
 
     def setup_progress(self, max_value, label_text="Progresso:"):
-        self.app_config.setup_global_progress(max_value, label_text)
+        self.after(0, self.app_config.setup_global_progress, max_value, label_text)
 
     def update_progress(self, value):
-        self.app_config.update_global_progress(value)
+        self.after(0, self.app_config.update_global_progress, value)
 
     def hide_progress(self):
-        self.app_config.hide_global_progress()
+        self.after(0, self.app_config.hide_global_progress)
 
     def populate_stampa_list(self):
         for widget in self.stampa_checkbox_frame.winfo_children():

@@ -56,7 +56,16 @@ class ConfigManager:
             "canoni_giornaliera_base_dir": const.CANONI_GIORNALIERA_BASE_DIR,
             "canoni_consuntivi_base_dir": const.CANONI_CONSUNTIVI_BASE_DIR,
             "organizza_base_dir": const.ORGANIZZA_BASE_DIR,
+            "rename_models_config": self._get_default_models_config(),
         }
+
+    def _get_default_models_config(self):
+        """Restituisce la configurazione predefinita dei modelli caricandola dal dominio."""
+        from dataclasses import asdict
+
+        from src.domain.models import RENAME_MODELS
+
+        return [asdict(m) for m in RENAME_MODELS]
 
     def load(self):
         """
