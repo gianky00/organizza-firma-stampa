@@ -118,51 +118,57 @@ class ExcelGateway:
                     wb.Close(SaveChanges=False)
 
     def extract_date_from_worksheet(self, ws: Any) -> datetime | None:
-        """Logica core per estrarre la data da un foglio di lavoro usando modelli e candidati."""
+        """Estrae la data identificando prima il modello corretto dalle configurazioni."""
+        cfg = self.identify_model(ws)
+        if cfg:
+            date_cells = cfg.get("date_cells", [])
+            return self._find_date_in_cells(ws, date_cells)
+        
+        # Fallback su candidati globali se nessun modello identificato
         from src.domain.models import DEFAULT_DATE_CANDIDATES
-
-        # Carica configurazione dinamica dei modelli
-        models_config = self._get_dynamic_models_config()
-
-        # Prova matching modelli specifici
-        dt = self._find_date_by_model(ws, models_config)
-        if dt:
-            return dt
-
-        # Prova candidati di default
-        dt = self._find_date_in_cells(ws, DEFAULT_DATE_CANDIDATES)
-        if dt:
-            return dt
-
-        return None
+        return self._find_date_in_cells(ws, DEFAULT_DATE_CANDIDATES)
 
     def extract_tcl_from_worksheet(self, ws: Any) -> str | None:
-        """Estrae il nome del TCL (referente) basandosi sul modello riconosciuto scansionando tcl_cells."""
-        models_config = self._get_dynamic_models_config()
-
-        for cfg in models_config:
-            # Supporta sia id_cells (lista) che id_cell (stringa)
-            id_cells = cfg.get("id_cells") or ([cfg.get("id_cell")] if cfg.get("id_cell") else [])
-            match_value = cfg.get("match_value")
-
-            for id_cell in id_cells:
+        """Estrae il TCL identificando prima il modello corretto dalle configurazioni."""
+        cfg = self.identify_model(ws)
+        if cfg:
+            tcl_cells = cfg.get("tcl_cells", [])
+            for t_cell in tcl_cells:
                 try:
-                    val = self._normalize_model_string(ws.Range(id_cell).Value)
-                    if val == match_value:
-                        # Se il modello coincide, prova le celle TCL in ordine
-                        tcl_cells = cfg.get("tcl_cells") or ([cfg.get("tcl_cell")] if cfg.get("tcl_cell") else [])
-                        for t_cell in tcl_cells:
-                            tcl_val = ws.Range(t_cell).Value
-                            if tcl_val:
-                                return str(tcl_val).strip()
+                    tcl_val = ws.Range(t_cell).Value
+                    if tcl_val:
+                        return str(tcl_val).strip()
+                except Exception:
+                    continue
+        return None
+
+    def identify_model(self, ws: Any) -> dict | None:
+        """Scansiona i modelli configurati e restituisce quello che corrisponde al foglio corrente."""
+        models_config = self._get_dynamic_models_config()
+        for cfg in models_config:
+            mv = self._normalize_model_string(cfg.get("match_value", ""))
+            if not mv:
+                continue
+                
+            id_cells = cfg.get("id_cells", [])
+            # Supporto per id_cell singola (legacy)
+            if not id_cells and cfg.get("id_cell"):
+                id_cells = [cfg.get("id_cell")]
+                
+            for cell_ref in id_cells:
+                try:
+                    raw_val = ws.Range(cell_ref).Value
+                    if raw_val:
+                        clean_val = self._normalize_model_string(raw_val)
+                        if clean_val == mv:
+                            return cfg
                 except Exception:
                     continue
         return None
 
     def _get_dynamic_models_config(self) -> list[dict]:
-        """Recupera i modelli dalla configurazione dell'app."""
+        """Recupera i modelli dalla configurazione dell'app (file JSON)."""
         from src.utils.config_manager import ConfigManager
-
         config = ConfigManager()
         models = config.get("rename_models_config")
         return list(models) if isinstance(models, list) else []

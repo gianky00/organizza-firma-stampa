@@ -256,47 +256,42 @@ class OrganizationProcessor:
                 return False, "Impossibile aprire il file Excel (Workbook è None)."
             ws = wb.Worksheets(1)
 
-            # 1. Identificazione del modello tramite scansione delle mappature dinamiche
-            found_mapping = None
-
-            for cfg in self.stampa_models_list:
-                mv = cfg["match_value"]
-                id_cells = cfg.get("id_cells", ["F2", "E2", "T2", "T3", "T5"])
-                
-                for cell_ref in id_cells:
-                    try:
-                        raw_val = ws.Range(cell_ref).Value
-                        if raw_val:
-                            # Normalizziamo il valore della cella per il confronto
-                            clean_val = re.sub(r"[\W_]+", "", str(raw_val).strip().lower())
-                            if clean_val == mv:
-                                found_mapping = cfg
-                                break
-                    except Exception:
-                        continue
-                if found_mapping:
-                    break
+            # 1. Identificazione del modello tramite Gateway (Dinamico dai settings)
+            cfg = self.excel_gateway.identify_model(ws)
 
             # 2. Esecuzione stampa
-            if found_mapping:
-                ws.PageSetup.PrintArea = found_mapping["PrintArea"]
+            if cfg:
+                ws.PageSetup.PrintArea = cfg.get("print_area", "A1:N50")
                 wb.PrintOut()
-                self.logger(f"  -> Stampa inviata ({found_mapping['match_value']}): {os.path.basename(file_path)}", "SUCCESS")
+                self.logger(f"  -> Stampa inviata ({cfg.get('match_value')}): {os.path.basename(file_path)}", "SUCCESS")
                 return True, None
             else:
-                # Fallback per individuazione: scansiona celle comuni per suggerire il nome modello al log
-                # Questo aiuta l'utente a capire cosa scrivere nel Match ID
+                # Fallback dinamico: scansiona TUTTE le celle ID che l'utente ha configurato nella tabella
+                # per mostrare cosa contengono e facilitare la correzione del Match ID.
                 hints = []
-                for cell_ref in ["E2", "T2", "T3", "T5"]:
+                config_data = self.app_config.config_manager.get("rename_models_config") or []
+                
+                # Raccogliamo tutte le celle ID uniche presenti nelle configurazioni
+                target_cells = set()
+                for m in config_data:
+                    cells = m.get("id_cells", [])
+                    if not cells and m.get("id_cell"):
+                        cells = [m.get("id_cell")]
+                    for c in cells:
+                        if c: target_cells.add(c.strip().upper())
+                
+                # Scansione delle celle effettivamente in uso
+                for cell_ref in sorted(list(target_cells)):
                     try:
                         val = ws.Range(cell_ref).Value
                         if val:
-                            hints.append(f"{cell_ref}:'{re.sub(r'[\W_]+', '', str(val).strip().lower())}'")
+                            clean_v = re.sub(r"[\W_]+", "", str(val).strip().lower())
+                            hints.append(f"{cell_ref}:'{clean_v}'")
                     except Exception:
                         continue
                 
-                hint_str = " | ".join(hints) if hints else "celle vuote"
-                self.logger(f"  -> Modello NON riconosciuto per {os.path.basename(file_path)}. Contenuto rilevato: {hint_str}", "WARNING")
+                hint_str = " | ".join(hints) if hints else "nessun valore trovato nelle celle ID configurate"
+                self.logger(f"  -> Modello NON riconosciuto per {os.path.basename(file_path)}. Contenuto celle ID: {hint_str}", "WARNING")
                 return True, None
         except Exception as e:
             return False, str(e)
