@@ -12,103 +12,70 @@ class DateCandidate:
 @dataclass
 class ModelConfig:
     name: str
+    match_value: str
+    id_cells: list[str]
     date_cells: list[str]
-    # If provided, the value in the first id_cell must match this
-    match_value: str | None = None
-    id_cells: list[str] | None = None
-    tcl_cells: list[str] | None = None
+    tcl_cells: list[str]
+    print_area: str = "A1:N50"
 
 
-# Configuration for different Excel models used in renaming
+# Configuration for different Excel models used in renaming, organization and printing
 RENAME_MODELS: list[ModelConfig] = [
     ModelConfig(
-        name="Valvole di Regolazione", 
-        id_cells=["T3", "T6"], 
+        name="Valvole Regolazione", 
+        id_cells=["T3", "T6", "E2"], 
         match_value="valvolediregolazione", 
         date_cells=["B105", "B108"], 
-        tcl_cells=["DE108", "DE105"]
+        tcl_cells=["DE108", "DE105"],
+        print_area="A1:N115"
     ),
     ModelConfig(
-        name="Scheda Tecnica Verifica Disco Calibro",
-        id_cells=["N1"],
+        name="Disco Calibro",
+        id_cells=["N1", "F2", "E2"],
         match_value="schedatecnicaverificadiscocalibro",
         date_cells=["AK2"],
-        tcl_cells=["L50"], 
+        tcl_cells=["L50"],
+        print_area="A2:N45"
     ),
-    ModelConfig(name="Scheda Valvole", id_cells=["F3"], match_value="schedavalvole", date_cells=["C54"], tcl_cells=["L45"]),
-    ModelConfig(name="Scheda Valvole (Alt)", id_cells=["G3"], match_value="schedavalvole", date_cells=["C54"], tcl_cells=["L45"]),
     ModelConfig(
-        name="Scheda Taratura Strumenti Digitali",
-        id_cells=["Q3"],
+        name="Scheda Valvole", 
+        id_cells=["F3", "G3"], 
+        match_value="schedavalvole", 
+        date_cells=["C54"], 
+        tcl_cells=["L45"],
+        print_area="A1:N50"
+    ),
+    ModelConfig(
+        name="Digitali",
+        id_cells=["Q3", "F2", "E2"],
         match_value="schedataraturastrumentidigitali",
-        date_cells=["B50"],
-        tcl_cells=["L47"],
+        date_cells=["B50", "B45"],
+        tcl_cells=["L47", "L45"],
+        print_area="A2:N50"
     ),
     ModelConfig(
-        name="Scheda Controllo Valvole", id_cells=["F2"], match_value="schedacontrollovalvole", date_cells=["F56"], tcl_cells=["L45"]
-    ),
-    ModelConfig(
-        name="Scheda Controllo Strumenti Digitali",
-        id_cells=["F2"],
-        match_value="schedacontrollostrumentidigitali",
-        date_cells=["F44"],
-        tcl_cells=["L45"]
-    ),
-    ModelConfig(
-        name="Scheda Controllo Strumenti Analogici",
-        id_cells=["F2"],
+        name="Analogici",
+        id_cells=["F2", "E2", "T2"],
         match_value="schedacontrollostrumentianalogici",
-        date_cells=["F49"],
-        tcl_cells=["L52"]
+        date_cells=["F49", "B45", "L52"],
+        tcl_cells=["L52"],
+        print_area="A2:N55"
     ),
     ModelConfig(
-        name="Scheda Controllo Strumenti",
-        id_cells=["F2"],
-        match_value="schedacontrollostrumenti",
-        date_cells=["F49", "F44"],
-        tcl_cells=["L45"]
-    ),
-    ModelConfig(
-        name="Scheda Taratura Strumento di Processo",
-        id_cells=["S3"],
-        match_value="schedataraturastrumentodiprocesso",
-        date_cells=["B99"],
-        tcl_cells=["L45"]
-    ),
-    ModelConfig(
-        name="Scheda Controllo Valvole (E2)",
-        id_cells=["E2"],
-        match_value="schedacontrollovalvole",
-        date_cells=["L46", "B46", "B108"],
-        tcl_cells=["L45"]
-    ),
-    ModelConfig(
-        name="Scheda Controllo Strumenti Digitali (E2)",
-        id_cells=["E2"],
-        match_value="schedacontrollostrumentidigitali",
-        date_cells=["B45"],
-        tcl_cells=["L45"]
-    ),
-    ModelConfig(
-        name="Scheda Controllo Strumenti Analogici (E2)",
-        id_cells=["E2"],
-        match_value="schedacontrollostrumentianalogici",
-        date_cells=["L52", "B45", "B50", "B108", "B99", "B105"],
-        tcl_cells=["L52"]
-    ),
-    ModelConfig(
-        name="Report Manutenzione Correttiva",
-        id_cells=["E2"],
+        name="Correttiva",
+        id_cells=["E2", "F2"],
         match_value="schedacontrolloreportmanutenzionecorrettiva",
         date_cells=["B50"],
-        tcl_cells=["L52"]
+        tcl_cells=["L52"],
+        print_area="A2:N55"
     ),
     ModelConfig(
         name="Scheda Manutenzione",
-        id_cells=["T2"],
+        id_cells=["T2", "E2", "T3"],
         match_value="schedamanutenzione",
         date_cells=["B108", "B105"],
-        tcl_cells=["FO104"]
+        tcl_cells=["FO104"],
+        print_area="A1:N115"
     ),
 ]
 

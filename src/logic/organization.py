@@ -33,22 +33,22 @@ class OrganizationProcessor:
         self.update_progress = update_progress_cb
         self.hide_progress = hide_progress_cb
         self.excel_gateway = (excel_gateway_class or ExcelGateway)(self.logger)
-        self.stampa_processing_data = {
-            "schedacontrolloSTRUMENTIANALOGICI": {"PrintArea": "A2:N55"},
-            "schedacontrolloSTRUMENTIDIGITALI": {"PrintArea": "A2:N50"},
-            "SchedacontrolloREPORTMANUTENZIONECORRETTIVA": {"PrintArea": "A2:N55"},
-            "schedacontrolloBILANCE": {"PrintArea": "A2:N50"},
-            "schedacontrolloCALIBRI": {"PrintArea": "A2:N45"},
-            "schedacontrolloMICROMETRI": {"PrintArea": "A2:N45"},
-            "schedacontrolloCOMPARATORI": {"PrintArea": "A2:N45"},
-            "schedacontrolloALESAMETRI": {"PrintArea": "A2:N45"},
-            "schedacontrolloDISCOCALIBRO": {"PrintArea": "A2:N45"},
-            "schedacontrolloSQUADRE": {"PrintArea": "A2:N45"},
-            "schedacontrolloGONIOMETRI": {"PrintArea": "A2:N45"},
-            "schedacontrolloPRISMI": {"PrintArea": "A2:N45"},
-            "schedacontrolloRIGHE": {"PrintArea": "A2:N45"},
-            "schedacontrolloLIVELLADIGITALE": {"PrintArea": "A2:N45"},
-        }
+        self._load_stampa_mappings()
+
+    def _load_stampa_mappings(self):
+        """Carica le mappature di stampa dalla configurazione unificata come lista."""
+        self.stampa_models_list = []
+        config_data = self.app_config.config_manager.get("rename_models_config")
+        if config_data:
+            for item in config_data:
+                # Normalizziamo il match_value per il confronto
+                mv = re.sub(r"[\W_]+", "", str(item.get("match_value", "")).lower())
+                if mv:
+                    self.stampa_models_list.append({
+                        "match_value": mv,
+                        "PrintArea": item.get("print_area", "A1:N50"),
+                        "id_cells": item.get("id_cells", ["F2", "E2", "T2"]),
+                    })
 
     def run_organization_process(self, cancel_event):
         try:
@@ -103,28 +103,35 @@ class OrganizationProcessor:
             self.gui.after(0, self.hide_progress)
             self.gui.after(0, self.gui.on_process_finished)
 
-    def run_printing_process(self, cancel_event):
-        dest_dir = self.app_config.organizza_dest_dir.get()
-        if not Path(dest_dir).is_dir():
-            self.logger("ERRORE: Cartella organizzata non trovata.", "ERROR")
-            return
+    def run_printing_process(self, cancel_event, folder_list=None):
+        self.logger("Avvio del processo di stampa schede...", "HEADER")
+        self._load_stampa_mappings()  # Ricarica le mappature dai settings
+        try:
+            dest_dir = self.app_config.organizza_dest_dir.get()
+            if not Path(dest_dir).is_dir():
+                self.logger("ERRORE: Cartella organizzata non trovata.", "ERROR")
+                return
 
-        folder_list = [
-            os.path.join(dest_dir, d) for d in os.listdir(dest_dir) if Path(os.path.join(dest_dir, d)).is_dir()
-        ]
+            # Se folder_list non è fornito, usa tutte le cartelle nella destinazione (fallback)
+            if folder_list is None:
+                folder_list = [
+                    os.path.join(dest_dir, d) for d in os.listdir(dest_dir) if Path(os.path.join(dest_dir, d)).is_dir()
+                ]
 
-        if not folder_list:
-            self.logger("Nessuna cartella trovata nella destinazione.", "WARNING")
-            return
+            if not folder_list:
+                self.logger("Nessuna cartella selezionata o trovata per la stampa.", "WARNING")
+                return
 
-        self._print_files_in_folders(cancel_event, folder_list)
-        if cancel_event.is_set():
-            self.logger("Stampa annullata.", "WARNING")
-        else:
-            self.logger("Processo di stampa completato!", "SUCCESS")
-
-        self.gui.after(0, self.hide_progress)
-        self.gui.after(0, self.gui.on_process_finished)
+            self._print_files_in_folders(cancel_event, folder_list)
+            if cancel_event.is_set():
+                self.logger("Stampa annullata.", "WARNING")
+            else:
+                self.logger("Processo di stampa completato!", "SUCCESS")
+        except Exception as e:
+            self.logger(f"ERRORE FATALE durante il processo di stampa: {e}", "ERROR")
+        finally:
+            self.gui.after(0, self.hide_progress)
+            self.gui.after(0, self.gui.on_process_finished)
 
     def _organize_files_at_path(self, source_dir, cancel_event):
         dest_dir = self.app_config.organizza_dest_dir.get()
@@ -248,22 +255,48 @@ class OrganizationProcessor:
             if wb is None:
                 return False, "Impossibile aprire il file Excel (Workbook è None)."
             ws = wb.Worksheets(1)
-            m_val = next(
-                (
-                    str(ws.Cells(r, c).Value).strip()
-                    for r, c in ((2, 5), (2, 20), (5, 20))
-                    if ws.Cells(r, c).Value and str(ws.Cells(r, c).Value).strip()
-                ),
-                "",
-            )
-            cleaned_model = re.sub(r"\W", "", m_val)
-            if cleaned_model in self.stampa_processing_data:
-                ws.PageSetup.PrintArea = self.stampa_processing_data[cleaned_model]["PrintArea"]
+
+            # 1. Identificazione del modello tramite scansione delle mappature dinamiche
+            found_mapping = None
+
+            for cfg in self.stampa_models_list:
+                mv = cfg["match_value"]
+                id_cells = cfg.get("id_cells", ["F2", "E2", "T2", "T3", "T5"])
+                
+                for cell_ref in id_cells:
+                    try:
+                        raw_val = ws.Range(cell_ref).Value
+                        if raw_val:
+                            # Normalizziamo il valore della cella per il confronto
+                            clean_val = re.sub(r"[\W_]+", "", str(raw_val).strip().lower())
+                            if clean_val == mv:
+                                found_mapping = cfg
+                                break
+                    except Exception:
+                        continue
+                if found_mapping:
+                    break
+
+            # 2. Esecuzione stampa
+            if found_mapping:
+                ws.PageSetup.PrintArea = found_mapping["PrintArea"]
                 wb.PrintOut()
-                self.logger(f"  -> Stampa inviata per: {os.path.basename(file_path)}", "SUCCESS")
+                self.logger(f"  -> Stampa inviata ({found_mapping['match_value']}): {os.path.basename(file_path)}", "SUCCESS")
                 return True, None
             else:
-                self.logger(f"  -> Ignorato (modello non trovato): {os.path.basename(file_path)}", "WARNING")
+                # Fallback per individuazione: scansiona celle comuni per suggerire il nome modello al log
+                # Questo aiuta l'utente a capire cosa scrivere nel Match ID
+                hints = []
+                for cell_ref in ["E2", "T2", "T3", "T5"]:
+                    try:
+                        val = ws.Range(cell_ref).Value
+                        if val:
+                            hints.append(f"{cell_ref}:'{re.sub(r'[\W_]+', '', str(val).strip().lower())}'")
+                    except Exception:
+                        continue
+                
+                hint_str = " | ".join(hints) if hints else "celle vuote"
+                self.logger(f"  -> Modello NON riconosciuto per {os.path.basename(file_path)}. Contenuto rilevato: {hint_str}", "WARNING")
                 return True, None
         except Exception as e:
             return False, str(e)

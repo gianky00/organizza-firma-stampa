@@ -82,11 +82,11 @@ class SettingsTab(ttk.Frame):
         ttk.Button(btn_f, text="🔄 Aggiorna Vista", command=self._apply_to_fees_tab).pack(side=tk.LEFT, padx=10)
 
         # --- Models Management Frame ---
-        models_frame = ttk.LabelFrame(self, text="3. Configurazione Modelli Schede (Ridenominazione e TCL)", padding=15)
+        models_frame = ttk.LabelFrame(self, text="3. Configurazione Modelli Schede (Ridenominazione, TCL e Stampa)", padding=15)
         models_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
         # Area scorrevole per i modelli
-        m_canvas = tk.Canvas(models_frame, borderwidth=0, highlightthickness=0, height=300)
+        m_canvas = tk.Canvas(models_frame, borderwidth=0, highlightthickness=0, height=400)
         m_scrollbar = ttk.Scrollbar(models_frame, orient="vertical", command=m_canvas.yview)
         self.models_container = ttk.Frame(m_canvas)
 
@@ -109,38 +109,51 @@ class SettingsTab(ttk.Frame):
         for widget in self.models_container.winfo_children():
             widget.destroy()
 
+        # Configurazione pesi colonne per la griglia
+        # 0: Nome, 1: Match, 2: Celle ID, 3: Area Stampa, 4: Cella TCL, 5: Celle Data, 6: Delete
+        self.models_container.columnconfigure(0, weight=3) # Nome
+        self.models_container.columnconfigure(1, weight=3) # Match
+        self.models_container.columnconfigure(2, weight=1) # Celle ID
+        self.models_container.columnconfigure(3, weight=1) # Area Stampa
+        self.models_container.columnconfigure(4, weight=1) # Cella TCL
+        self.models_container.columnconfigure(5, weight=2) # Celle Data
+        self.models_container.columnconfigure(6, weight=0) # X
+
         # Headers
         h_f = ttk.Frame(self.models_container)
-        h_f.pack(fill="x", pady=(0, 5))
+        h_f.grid(row=0, column=0, columnspan=7, sticky="ew", pady=(0, 5))
+        
         headers = [
-            ("Nome Modello", 25),
-            ("Cella ID", 8),
-            ("Match ID", 20),
-            ("Cella TCL", 10),
-            ("Celle Data (sep. virgola)", 25),
+            ("Nome Modello", 0),
+            ("Match ID", 1),
+            ("Celle ID", 2),
+            ("Area Stampa", 3),
+            ("Cella TCL", 4),
+            ("Celle Data", 5),
         ]
-        for text, w in headers:
-            ttk.Label(h_f, text=text, width=w, font=self.app_config.font_bold).pack(side=tk.LEFT, padx=5)
+        
+        for text, col in headers:
+            lbl = ttk.Label(self.models_container, text=text, font=self.app_config.font_bold, anchor="w")
+            lbl.grid(row=0, column=col, sticky="w", padx=5)
 
         for i, mod in enumerate(self.app_config.rename_models_vars):
-            row_f = ttk.Frame(self.models_container)
-            row_f.pack(fill="x", pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["name"]).grid(row=i+1, column=0, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["match_value"]).grid(row=i+1, column=1, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["id_cells"]).grid(row=i+1, column=2, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["print_area"]).grid(row=i+1, column=3, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["tcl_cell"]).grid(row=i+1, column=4, sticky="ew", padx=5, pady=2)
+            ttk.Entry(self.models_container, textvariable=mod["date_cells"]).grid(row=i+1, column=5, sticky="ew", padx=5, pady=2)
 
-            ttk.Entry(row_f, textvariable=mod["name"], width=25).pack(side=tk.LEFT, padx=5)
-            ttk.Entry(row_f, textvariable=mod["id_cell"], width=8).pack(side=tk.LEFT, padx=5)
-            ttk.Entry(row_f, textvariable=mod["match_value"], width=20).pack(side=tk.LEFT, padx=5)
-            ttk.Entry(row_f, textvariable=mod["tcl_cell"], width=10).pack(side=tk.LEFT, padx=5)
-            ttk.Entry(row_f, textvariable=mod["date_cells"], width=25).pack(side=tk.LEFT, padx=5)
-
-            ttk.Button(row_f, text="❌", width=3, command=partial(self._remove_model_settings, i)).pack(
-                side=tk.LEFT, padx=5
+            ttk.Button(self.models_container, text="❌", width=3, command=partial(self._remove_model_settings, i)).grid(
+                row=i+1, column=6, padx=5, pady=2
             )
 
     def _add_model_settings(self):
         new_mod = {
             "name": tk.StringVar(value="Nuovo Modello"),
-            "id_cell": tk.StringVar(value="E2"),
             "match_value": tk.StringVar(value="testo"),
+            "id_cells": tk.StringVar(value="E2, T2"),
+            "print_area": tk.StringVar(value="A1:N50"),
             "tcl_cell": tk.StringVar(value="L45"),
             "date_cells": tk.StringVar(value="B50"),
         }
