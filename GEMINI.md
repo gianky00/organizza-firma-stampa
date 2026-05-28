@@ -47,6 +47,9 @@ Il processo di build è automatizzato e include l'offuscamento:
 3. **Automazione Office:** Quando si interagisce con Excel/Word tramite COM, assicurarsi di gestire correttamente la chiusura dei processi anche in caso di errore (usare i contesti definiti negli handler).
 4. **Qualità del Codice:** Ogni modifica deve passare i controlli di Ruff e Mypy. Consultare i file in `prompt/` per le procedure di installazione e configurazione dello stack di qualità.
 
+## 🧠 PROJECT MEMORIES
+- **Startup:** Ottimizzato tramite Lazy loading `win32com`. Splash screen Tkinter aggiunto per feedback immediato.
+
 ---
 
 ## 📁 Directory di Lavoro (Runtime)
